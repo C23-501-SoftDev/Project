@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Liquibase Master Changelog
+    Подключает все changelog-файлы в порядке применения.
+    Новые миграции добавляются ТОЛЬКО через новые файлы в /changes/
+    и регистрируются здесь.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- US4.1.1 — Базовые таблицы MVP: users, spaces, space_permissions, templates -->
+    <include file="db/changelog/changes/001-create-users-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/002-create-spaces-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/003-create-space-permissions-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/004-create-templates-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/005-insert-system-templates.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/006-insert-default-admin.xml" relativeToChangelogFile="false"/>
+
+    <!--
+        РАСШИРЕНИЕ: Когда будут реализованы Document, Version, Attachment — 
+        добавить соответствующие changelog файлы здесь:
+        <include file="db/changelog/changes/007-create-documents-table.xml" .../>
+        <include file="db/changelog/changes/008-create-versions-table.xml" .../>
+        <include file="db/changelog/changes/009-create-attachments-table.xml" .../>
+    -->
+
+</databaseChangeLog>

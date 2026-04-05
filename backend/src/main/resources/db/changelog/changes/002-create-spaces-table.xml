@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="002-create-spaces-table" author="knowledgebase-dev">
+        <comment>Создание таблицы пространств документов</comment>
+
+        <createTable tableName="spaces" remarks="Логические группировки документов с едиными правами доступа">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_spaces" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(200)" remarks="Название пространства">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_spaces_name"/>
+            </column>
+            <column name="description" type="TEXT" remarks="Описание пространства"/>
+            <column name="owner_id" type="BIGINT" remarks="Ответственный редактор (владелец пространства)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="spaces"
+                baseColumnNames="owner_id"
+                constraintName="fk_spaces_owner"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                onDelete="RESTRICT"/>
+
+        <createIndex tableName="spaces" indexName="idx_spaces_owner">
+            <column name="owner_id"/>
+        </createIndex>
+
+        <sql>
+            CREATE TRIGGER trigger_spaces_updated_at
+                BEFORE UPDATE ON spaces
+                FOR EACH ROW
+                EXECUTE FUNCTION update_updated_at_column();
+        </sql>
+
+        <rollback>
+            <sql>DROP TRIGGER IF EXISTS trigger_spaces_updated_at ON spaces;</sql>
+            <dropTable tableName="spaces"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

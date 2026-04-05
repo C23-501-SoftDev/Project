@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 006: Создание учётной записи администратора по умолчанию
+    
+    Создаёт пользователя admin/admin@knowledgebase.local с ролью Admin.
+    Пароль: "admin123" (BCrypt hash).
+    
+    ВАЖНО: В production обязательно сменить пароль администратора!
+    Пароль можно изменить через PUT /api/admin/users/{id}/password
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="006-insert-default-admin" author="knowledgebase-dev">
+        <comment>Создание учётной записи администратора по умолчанию (пароль: admin123)</comment>
+
+        <insert tableName="users">
+            <column name="login" value="admin"/>
+            <column name="password_hash"
+                    value="$2a$10$YyKvvTw0rBPljNheL0o3n.ZZOwldtMIu92aMOKMs6aU5Bic1KLO36"/>
+            <!-- BCrypt hash для "admin123" -->
+            <column name="email" value="admin@knowledgebase.local"/>
+            <column name="role" value="Admin"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="users">
+                <where>login = 'admin'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 005: Наполнение системными шаблонами
+    
+    Системные шаблоны (is_system = TRUE) для ролей Developer, Analyst, Admin.
+    В MVP администратор не может изменять эти шаблоны.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="005-insert-system-templates" author="knowledgebase-dev">
+        <comment>Наполнение системными шаблонами документов</comment>
+
+        <!-- Шаблоны для роли Developer -->
+        <insert tableName="templates">
+            <column name="name" value="Описание архитектуры"/>
+            <column name="description" value="Документирование структурных решений системы"/>
+            <column name="content" value="# Описание архитектуры
+
+## Обзор системы
+&amp;lt;!-- Краткое описание системы --&amp;gt;
+
+## Архитектурные решения
+&amp;lt;!-- Ключевые архитектурные решения и их обоснование --&amp;gt;
+
+## Компоненты системы
+&amp;lt;!-- Список компонентов и их взаимодействие --&amp;gt;
+
+## Технологический стек
+| Компонент | Технология | Версия |
+|-----------|-----------|--------|
+|           |           |        |
+
+## Диаграммы
+&amp;lt;!-- Архитектурные диаграммы --&amp;gt;"/>
+
+            <column name="role" value="Developer"/>
+            <column name="is_system" valueBoolean="true"/>
+        </insert>
+
+        <insert tableName="templates">
+            <column name="name" value="Используемые библиотеки"/>
+            <column name="description" value="Список библиотек и зависимостей проекта"/>
+            <column name="content" value="# Используемые библиотеки
+
+## Зависимости проекта
+
+| Название | Тип | Лицензия | Версия | Описание |
+|----------|-----|----------|--------|----------|
+|          |     |          |        |          |
+
+## Примечания
+&amp;lt;!-- Особенности использования или ограничения лицензий --&amp;gt;"/>
+
+            <column name="role" value="Developer"/>
+            <column name="is_system" valueBoolean="true"/>
+        </insert>
+
+        <insert tableName="templates">
+            <column name="name" value="Настройки среды разработки"/>
+            <column name="description" value="Описание параметров окружения разработчика"/>
+            <column name="content" value="# Настройки среды разработки
+
+## Требования к окружению
+- OS: 
+- JDK: 
+- Maven/Gradle: 
+- IDE: 
+
+## Переменные окружения
+```
+DATABASE_URL=
+JWT_SECRET=
+```
+
+## Инструкция по запуску
+1. Установить зависимости: `mvn install`
+2. Настроить переменные окружения
+3. Запустить: `mvn spring-boot:run`
+
+## Настройка локальной БД
+&amp;lt;!-- SQL-скрипты для инициализации --&amp;gt;"/>
+
+            <column name="role" value="Developer"/>
+            <column name="is_system" valueBoolean="true"/>
+        </insert>
+
+        <!-- Шаблоны для роли Analyst -->
+        <insert tableName="templates">
+            <column name="name" value="Описание бизнес-процессов"/>
+            <column name="description" value="Документирование логики работы бизнеса"/>
+            <column name="content" value="# Описание бизнес-процесса
+
+## Идентификация процесса
+- **Название процесса:** 
+- **Владелец процесса:** 
+- **Версия:** 
+
+## Цель процесса
+&amp;lt;!-- Описание цели и ценности процесса --&amp;gt;
+
+## Участники
+| Роль | Ответственность |
+|------|----------------|
+|      |                |
+
+## Шаги процесса
+1. 
+2. 
+3. 
+
+## Исключительные случаи
+&amp;lt;!-- Обработка нестандартных ситуаций --&amp;gt;
+
+## Метрики
+&amp;lt;!-- KPI процесса --&amp;gt;"/>
+
+            <column name="role" value="Analyst"/>
+            <column name="is_system" valueBoolean="true"/>
+        </insert>
+
+        <insert tableName="templates">
+            <column name="name" value="Требования к системе"/>
+            <column name="description" value="Функциональные и нефункциональные требования"/>
+            <column name="content" value="# Требования к системе
+
+## Информация о документе
+- **Номер:** (выставляется автоматически)
+- **Название:** 
+- **Версия:** 
+- **Дата:** 
+
+## Функциональные требования
+| № | Название | Описание | Приоритет |
+|---|----------|----------|-----------|
+|   |          |          |           |
+
+## Нефункциональные требования
+| № | Категория | Описание |
+|---|-----------|----------|
+|   |           |          |
+
+## Связанные файлы
+&amp;lt;!-- Ссылки на связанные документы --&amp;gt;"/>
+
+            <column name="role" value="Analyst"/>
+            <column name="is_system" valueBoolean="true"/>
+        </insert>
+
+        <insert tableName="templates">
+            <column name="name" value="Пользовательская инструкция"/>
+            <column name="description" value="Руководство для конечных пользователей"/>
+            <column name="content" value="# Пользовательская инструкция
+
+## Введение
+&amp;lt;!-- Краткое описание системы для пользователя --&amp;gt;
+
+## Начало работы
+### Вход в систему
+1. Откройте браузер и перейдите по адресу...
+2. Введите логин и пароль...
+
+## Основные функции
+### Функция 1
+&amp;lt;!-- Описание с иллюстрациями --&amp;gt;
+
+### Функция 2
+&amp;lt;!-- Описание с иллюстрациями --&amp;gt;
+
+## Часто задаваемые вопросы (FAQ)
+**Вопрос:** 
+**Ответ:** 
+
+## Обращение в поддержку
+&amp;lt;!-- Контакты службы поддержки --&amp;gt;"/>
+
+            <column name="role" value="Analyst"/>
+            <column name="is_system" valueBoolean="true"/>
+        </insert>
+
+        <!-- Шаблоны для роли Admin -->
+        <insert tableName="templates">
+            <column name="name" value="Конфигурация системы"/>
+            <column name="description" value="Конфигурация сред и параметров системы"/>
+            <column name="content" value="# Конфигурация системы
+
+## Список сред
+| Среда | URL | Описание | Статус |
+|-------|-----|----------|--------|
+| dev   |     | Разработка | Active |
+| test  |     | Тестирование | Active |
+| prod  |     | Продакшн | Active |
+
+## Параметры сред
+### DEV
+```yaml
+database:
+  url: 
+  username: 
+```
+
+### PROD
+```yaml
+database:
+  url: 
+  username: 
+```
+"/>
+            <column name="role" value="Admin"/>
+            <column name="is_system" valueBoolean="true"/>
+        </insert>
+
+        <insert tableName="templates">
+            <column name="name" value="Известные проблемы"/>
+            <column name="description" value="База знаний по инцидентам и ошибкам"/>
+            <column name="content" value="# Известные проблемы
+
+## Активные инциденты
+| № | Проблема | Серьёзность | Статус | Ответственный |
+|---|----------|-------------|--------|---------------|
+|   |          |             |        |               |
+
+## Решённые проблемы
+| № | Проблема | Решение | Дата решения |
+|---|----------|---------|--------------|
+|   |          |         |              |
+
+## Процедуры восстановления
+&amp;lt;!-- Инструкции по восстановлению после инцидентов --&amp;gt;"/>
+
+            <column name="role" value="Admin"/>
+            <column name="is_system" valueBoolean="true"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="templates">
+                <where>is_system = TRUE</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

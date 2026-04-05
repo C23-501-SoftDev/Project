@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="003-create-space-permissions-table" author="knowledgebase-dev">
+        <comment>Создание таблицы прав доступа к пространствам</comment>
+
+        <createTable tableName="space_permissions"
+                     remarks="Права доступа пользователей к конкретным пространствам">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_space_permissions" nullable="false"/>
+            </column>
+            <column name="space_id" type="BIGINT" remarks="Пространство">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT" remarks="Пользователь">
+                <constraints nullable="false"/>
+            </column>
+            <column name="permission_type" type="VARCHAR(20)"
+                    remarks="Тип права: READ, WRITE, OWNER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"
+                    remarks="Дата выдачи права">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>
+            ALTER TABLE space_permissions
+                ADD CONSTRAINT chk_space_permissions_type
+                    CHECK (permission_type IN ('READ', 'WRITE', 'OWNER'));
+        </sql>
+
+        <addUniqueConstraint
+                tableName="space_permissions"
+                columnNames="space_id, user_id, permission_type"
+                constraintName="uq_space_permissions"/>
+
+        <addForeignKeyConstraint
+                baseTableName="space_permissions"
+                baseColumnNames="space_id"
+                constraintName="fk_space_permissions_space"
+                referencedTableName="spaces"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+                baseTableName="space_permissions"
+                baseColumnNames="user_id"
+                constraintName="fk_space_permissions_user"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <createIndex tableName="space_permissions" indexName="idx_space_permissions_space">
+            <column name="space_id"/>
+        </createIndex>
+
+        <createIndex tableName="space_permissions" indexName="idx_space_permissions_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="space_permissions"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,204 @@
+# =====================================================
+# Общие настройки для всех профилей
+# =====================================================
+spring:
+  application:
+    name: knowledge-base-backend
+
+  # Активный профиль (переопределяется переменной окружения SPRING_PROFILES_ACTIVE)
+  profiles:
+    active: dev
+
+  # =====================================================
+  # Jackson — сериализация JSON
+  # =====================================================
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    time-zone: UTC
+
+  # =====================================================
+  # JPA / Hibernate
+  # =====================================================
+  jpa:
+    open-in-view: false  # Отключаем anti-pattern (LazyInitializationException видно сразу)
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+
+  # =====================================================
+  # Liquibase — управление миграциями
+  # =====================================================
+  liquibase:
+    change-log: classpath:db/changelog/master.xml
+    enabled: true
+
+# =====================================================
+# Сервер
+# =====================================================
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# =====================================================
+# Actuator — мониторинг и здоровье приложения
+# =====================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# =====================================================
+# SpringDoc / Swagger UI
+# =====================================================
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    try-it-out-enabled: true
+  default-produces-media-type: application/json
+
+# =====================================================
+# Кастомные настройки JWT
+# Секретный ключ должен быть не менее 256 бит (32 символа)
+# =====================================================
+app:
+  jwt:
+    # ВАЖНО: В prod заменить на ENV-переменную JWT_SECRET_KEY
+    secret-key: "knowledge-base-secret-key-for-jwt-signing-minimum-256-bits-long!"
+    # Время жизни токена в миллисекундах (24 часа = 86400000 ms)
+    expiration-ms: 86400000
+  cors:
+    allowed-origins:
+      - "http://localhost:3000"
+      - "http://localhost:5173"
+
+---
+# =====================================================
+# Профиль DEV — локальная разработка
+# =====================================================
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # DataSource — PostgreSQL для разработки
+  datasource:
+    url: jdbc:postgresql://localhost:5432/knowledge_base
+    username: kb_user
+    password: "strong_password"
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Только валидация схемы, Liquibase управляет миграциями
+    show-sql: true
+
+  liquibase:
+    enabled: true
+
+# Расширенное логирование для разработки
+logging:
+  level:
+    com.knowledgebase: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+---
+# =====================================================
+# Профиль TEST — автоматические тесты
+# =====================================================
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  # H2 in-memory для тестов (не требует запущенного PostgreSQL)
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  liquibase:
+    enabled: false  # В тестах используем ddl-auto
+
+logging:
+  level:
+    com.knowledgebase: INFO
+    org.springframework.security: WARN
+
+---
+# =====================================================
+# Профиль PROD — продакшн
+# =====================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/knowledge_base}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  liquibase:
+    enabled: true
+
+# В prod секрет JWT берём из переменной окружения
+app:
+  jwt:
+    secret-key: ${JWT_SECRET_KEY}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  cors:
+    allowed-origins:
+      - ${FRONTEND_URL:http://localhost:3000}
+
+logging:
+  level:
+    com.knowledgebase: INFO
+    org.springframework.security: WARN
+    root: WARN
+  file:
+    name: /var/log/knowledge-base/application.log
