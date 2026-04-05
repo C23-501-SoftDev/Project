@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="008-create-versions-table" author="knowledgebase-dev">
+        <comment>Создание таблицы версий документов (история изменений)</comment>
+
+        <createTable tableName="versions" remarks="История изменений документов (метаданные Git-коммитов)">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_versions" nullable="false"/>
+            </column>
+            <column name="document_id" type="BIGINT" remarks="Документ">
+                <constraints nullable="false"/>
+            </column>
+            <column name="git_hash" type="VARCHAR(40)" remarks="SHA-1 хэш коммита в Git-репозитории">
+                <constraints nullable="false"/>
+            </column>
+            <column name="author_id" type="BIGINT" remarks="Автор изменения">
+                <constraints nullable="false"/>
+            </column>
+            <column name="comment" type="VARCHAR(500)" remarks="Сообщение коммита"/>
+            <column name="restored_from_version_id" type="BIGINT"
+                    remarks="Если версия создана через откат, указываем ID версии, из которой восстановили"/>
+            <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false"
+                    remarks="Флаг мягкого удаления">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"
+                    remarks="Дата создания версии">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Foreign Key constraints -->
+        <addForeignKeyConstraint
+                baseTableName="versions"
+                baseColumnNames="document_id"
+                constraintName="fk_versions_document"
+                referencedTableName="documents"
+                referencedColumnNames="id"
+                onDelete="RESTRICT"/>
+
+        <addForeignKeyConstraint
+                baseTableName="versions"
+                baseColumnNames="author_id"
+                constraintName="fk_versions_author"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                onDelete="RESTRICT"/>
+
+        <addForeignKeyConstraint
+                baseTableName="versions"
+                baseColumnNames="restored_from_version_id"
+                constraintName="fk_versions_restored_from"
+                referencedTableName="versions"
+                referencedColumnNames="id"
+                onDelete="SET NULL"/>
+
+        <!-- Индексы -->
+        <createIndex tableName="versions" indexName="idx_versions_document">
+            <column name="document_id"/>
+        </createIndex>
+
+        <createIndex tableName="versions" indexName="idx_versions_git_hash">
+            <column name="git_hash"/>
+        </createIndex>
+
+        <createIndex tableName="versions" indexName="idx_versions_author">
+            <column name="author_id"/>
+        </createIndex>
+
+        <createIndex tableName="versions" indexName="idx_versions_created_at">
+            <column name="created_at"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="versions"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

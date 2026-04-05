@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="009-create-attachments-table" author="knowledgebase-dev">
+        <comment>Создание таблицы вложений (метаданные файлов)</comment>
+
+        <createTable tableName="attachments" remarks="Метаданные файлов, прикреплённых к документам">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_attachments" nullable="false"/>
+            </column>
+            <column name="document_id" type="BIGINT" remarks="Документ-владелец">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version_id" type="BIGINT" remarks="К какой версии документа относится вложение (NULL = актуальное)"/>
+            <column name="filename" type="VARCHAR(255)" remarks="Оригинальное имя файла">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_type" type="VARCHAR(100)" remarks="MIME-тип файла"/>
+            <column name="size_bytes" type="BIGINT" remarks="Размер файла в байтах">
+                <constraints nullable="false"/>
+            </column>
+            <column name="storage_path" type="VARCHAR(500)" remarks="Путь к файлу в blob-хранилище">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false"
+                    remarks="Флаг мягкого удаления">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uploaded_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"
+                    remarks="Дата загрузки">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uploaded_by" type="BIGINT" remarks="Кто загрузил"/>
+        </createTable>
+
+        <!-- Foreign Key constraints -->
+        <addForeignKeyConstraint
+                baseTableName="attachments"
+                baseColumnNames="document_id"
+                constraintName="fk_attachments_document"
+                referencedTableName="documents"
+                referencedColumnNames="id"
+                onDelete="RESTRICT"/>
+
+        <addForeignKeyConstraint
+                baseTableName="attachments"
+                baseColumnNames="version_id"
+                constraintName="fk_attachments_version"
+                referencedTableName="versions"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+                baseTableName="attachments"
+                baseColumnNames="uploaded_by"
+                constraintName="fk_attachments_uploaded_by"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                onDelete="SET NULL"/>
+
+        <!-- Индексы -->
+        <createIndex tableName="attachments" indexName="idx_attachments_document">
+            <column name="document_id"/>
+        </createIndex>
+
+        <createIndex tableName="attachments" indexName="idx_attachments_version">
+            <column name="version_id"/>
+        </createIndex>
+
+        <createIndex tableName="attachments" indexName="idx_attachments_uploaded_by">
+            <column name="uploaded_by"/>
+        </createIndex>
+
+        <createIndex tableName="attachments" indexName="idx_attachments_uploaded_at">
+            <column name="uploaded_at"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="attachments"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

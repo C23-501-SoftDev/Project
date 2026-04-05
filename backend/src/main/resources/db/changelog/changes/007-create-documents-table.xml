@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="007-create-documents-table" author="knowledgebase-dev">
+        <comment>Создание таблицы документов</comment>
+
+        <createTable tableName="documents" remarks="Основные единицы хранения информации (документы)">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_documents" nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(500)" remarks="Заголовок документа">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content" type="TEXT" remarks="Содержимое документа в Markdown"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="Draft"
+                    remarks="Статус: Draft, Published, Deleted">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false"
+                    remarks="Флаг мягкого удаления">
+                <constraints nullable="false"/>
+            </column>
+            <column name="author_id" type="BIGINT" remarks="Автор документа">
+                <constraints nullable="false"/>
+            </column>
+            <column name="space_id" type="BIGINT" remarks="Принадлежность к пространству">
+                <constraints nullable="false"/>
+            </column>
+            <column name="template_id" type="BIGINT" remarks="Какой шаблон использовался при создании"/>
+            <column name="parent_document_id" type="BIGINT"
+                    remarks="Для иерархической структуры документов"/>
+            <column name="deleted_at" type="TIMESTAMP" remarks="Дата мягкого удаления"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- CHECK constraint на допустимые значения статуса -->
+        <sql>
+            ALTER TABLE documents
+                ADD CONSTRAINT chk_documents_status
+                    CHECK (status IN ('Draft', 'Published', 'Deleted'));
+        </sql>
+
+        <!-- Foreign Key constraints -->
+        <addForeignKeyConstraint
+                baseTableName="documents"
+                baseColumnNames="author_id"
+                constraintName="fk_documents_author"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                onDelete="RESTRICT"/>
+
+        <addForeignKeyConstraint
+                baseTableName="documents"
+                baseColumnNames="space_id"
+                constraintName="fk_documents_space"
+                referencedTableName="spaces"
+                referencedColumnNames="id"
+                onDelete="RESTRICT"/>
+
+        <addForeignKeyConstraint
+                baseTableName="documents"
+                baseColumnNames="template_id"
+                constraintName="fk_documents_template"
+                referencedTableName="templates"
+                referencedColumnNames="id"
+                onDelete="SET NULL"/>
+
+        <addForeignKeyConstraint
+                baseTableName="documents"
+                baseColumnNames="parent_document_id"
+                constraintName="fk_documents_parent"
+                referencedTableName="documents"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <!-- Индексы -->
+        <createIndex tableName="documents" indexName="idx_documents_author">
+            <column name="author_id"/>
+        </createIndex>
+
+        <createIndex tableName="documents" indexName="idx_documents_space_status">
+            <column name="space_id"/>
+            <column name="status"/>
+        </createIndex>
+
+        <createIndex tableName="documents" indexName="idx_documents_created_at">
+            <column name="created_at"/>
+        </createIndex>
+
+        <createIndex tableName="documents" indexName="idx_documents_updated_at">
+            <column name="updated_at"/>
+        </createIndex>
+
+        <!-- Триггер для updated_at -->
+        <sql>
+            CREATE TRIGGER trigger_documents_updated_at
+                BEFORE UPDATE ON documents
+                FOR EACH ROW
+                EXECUTE FUNCTION update_updated_at_column();
+        </sql>
+
+        <!-- Функция и триггер для автоматического заполнения deleted_at и статуса -->
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION set_deleted_at()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                IF NEW.is_deleted = TRUE AND OLD.is_deleted = FALSE THEN
+                    NEW.deleted_at = CURRENT_TIMESTAMP;
+                    NEW.status = 'Deleted';
+                ELSIF NEW.is_deleted = FALSE AND OLD.is_deleted = TRUE THEN
+                    NEW.deleted_at = NULL;
+                    NEW.status = 'Published';
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        </sql>
+
+        <sql>
+            CREATE TRIGGER trigger_documents_set_deleted_at
+                BEFORE UPDATE ON documents
+                FOR EACH ROW
+                EXECUTE FUNCTION set_deleted_at();
+        </sql>
+
+        <rollback>
+            <sql>DROP TRIGGER IF EXISTS trigger_documents_set_deleted_at ON documents;</sql>
+            <sql>DROP TRIGGER IF EXISTS trigger_documents_updated_at ON documents;</sql>
+            <sql>DROP FUNCTION IF EXISTS set_deleted_at();</sql>
+            <dropTable tableName="documents"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

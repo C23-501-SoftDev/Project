@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="012-create-hard-delete-function" author="knowledgebase-dev">
+        <comment>Функция для физического удаления документа (hard delete)</comment>
+
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION hard_delete_document(p_document_id BIGINT)
+            RETURNS VOID AS $$
+            BEGIN
+                DELETE FROM versions WHERE document_id = p_document_id;
+                DELETE FROM attachments WHERE document_id = p_document_id;
+                DELETE FROM document_permissions WHERE document_id = p_document_id;
+                DELETE FROM documents WHERE id = p_document_id;
+            END;
+            $$ LANGUAGE plpgsql SECURITY DEFINER;
+        </sql>
+
+        <sql>
+            COMMENT ON FUNCTION hard_delete_document IS 'Полное физическое удаление документа (только для администратора)';
+        </sql>
+
+        <rollback>
+            <sql>DROP FUNCTION IF EXISTS hard_delete_document(BIGINT);</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

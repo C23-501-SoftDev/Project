@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="010-create-document-permissions-table" author="knowledgebase-dev">
+        <comment>Создание таблицы прав доступа на уровне документа</comment>
+
+        <createTable tableName="document_permissions"
+                     remarks="Дополнительные права на конкретный документ (поверх прав пространства)">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_document_permissions" nullable="false"/>
+            </column>
+            <column name="document_id" type="BIGINT" remarks="Документ">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT" remarks="Пользователь">
+                <constraints nullable="false"/>
+            </column>
+            <column name="permission_type" type="VARCHAR(20)"
+                    remarks="Тип права: READ, WRITE, OWNER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted_by" type="BIGINT" remarks="Кто выдал право">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"
+                    remarks="Дата выдачи права">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- CHECK constraint на допустимые значения permission_type -->
+        <sql>
+            ALTER TABLE document_permissions
+                ADD CONSTRAINT chk_document_permissions_type
+                    CHECK (permission_type IN ('READ', 'WRITE', 'OWNER'));
+        </sql>
+
+        <!-- Уникальность: у одного пользователя на документ может быть только одно право каждого типа -->
+        <addUniqueConstraint
+                tableName="document_permissions"
+                columnNames="document_id, user_id, permission_type"
+                constraintName="uq_document_permissions"/>
+
+        <!-- Foreign Key constraints -->
+        <addForeignKeyConstraint
+                baseTableName="document_permissions"
+                baseColumnNames="document_id"
+                constraintName="fk_document_permissions_document"
+                referencedTableName="documents"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+                baseTableName="document_permissions"
+                baseColumnNames="user_id"
+                constraintName="fk_document_permissions_user"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+                baseTableName="document_permissions"
+                baseColumnNames="granted_by"
+                constraintName="fk_document_permissions_granted_by"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                onDelete="SET NULL"/>
+
+        <!-- Индексы -->
+        <createIndex tableName="document_permissions" indexName="idx_doc_permissions_document">
+            <column name="document_id"/>
+        </createIndex>
+
+        <createIndex tableName="document_permissions" indexName="idx_doc_permissions_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <createIndex tableName="document_permissions" indexName="idx_doc_permissions_granted_by">
+            <column name="granted_by"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="document_permissions"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

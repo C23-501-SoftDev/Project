@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="011-add-soft-delete-dependencies-trigger" author="knowledgebase-dev">
+        <comment>Триггер для каскадного мягкого удаления версий и вложений при удалении документа</comment>
+
+        <!-- Функция для каскадного мягкого удаления зависимостей -->
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION soft_delete_dependencies()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                IF NEW.is_deleted = TRUE AND OLD.is_deleted = FALSE THEN
+                    UPDATE versions SET is_deleted = TRUE 
+                    WHERE document_id = NEW.id AND is_deleted = FALSE;
+                    
+                    UPDATE attachments SET is_deleted = TRUE 
+                    WHERE document_id = NEW.id AND is_deleted = FALSE;
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        </sql>
+
+        <sql>
+            CREATE TRIGGER trigger_documents_soft_delete_deps
+                AFTER UPDATE ON documents
+                FOR EACH ROW
+                EXECUTE FUNCTION soft_delete_dependencies();
+        </sql>
+
+        <rollback>
+            <sql>DROP TRIGGER IF EXISTS trigger_documents_soft_delete_deps ON documents;</sql>
+            <sql>DROP FUNCTION IF EXISTS soft_delete_dependencies();</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
