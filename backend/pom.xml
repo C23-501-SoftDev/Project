@@ -164,11 +164,10 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- H2 In-Memory DB — для тестов, не требующих PostgreSQL -->
+        <!-- H2 In-Memory DB — для профиля test и unit/integration тестов -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
         </dependency>
 
     </dependencies>
