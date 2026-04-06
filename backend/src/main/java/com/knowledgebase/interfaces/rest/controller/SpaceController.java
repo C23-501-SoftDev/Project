@@ -63,7 +63,7 @@ public class SpaceController {
         @ApiResponse(responseCode = "200", description = "Список пространств"),
         @ApiResponse(responseCode = "403", description = "Доступ запрещён")
     })
-    public ResponseEntity<List<SpaceResponse>> getAllSpaces(
+    public ResponseEntity<PageResponse<SpaceResponse>> getAllSpaces(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
