@@ -1,5 +1,6 @@
 package com.knowledgebase.application.service;
 
+import com.knowledgebase.application.dto.PagedResult;
 import com.knowledgebase.domain.exception.ConflictException;
 import com.knowledgebase.domain.exception.SpaceNotFoundException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -97,8 +99,10 @@ public class SpaceService {
      * @param page номер страницы
      * @param size размер страницы
      */
-    public List<Space> getAllSpaces(int page, int size) {
-        return spaceRepository.findAll(page, size);
+    public PagedResult<Space> getAllSpaces(int page, int size) {
+        List<Space> items = spaceRepository.findAll(page, size);
+        long total = spaceRepository.count();
+        return new PagedResult<>(items, total);
     }
 
     /**
@@ -113,10 +117,10 @@ public class SpaceService {
      * @param size      размер страницы
      * @return список доступных пространств
      */
-    public List<Space> getSpacesForUser(Long userId, boolean isAdmin, int page, int size) {
+    public PagedResult<Space> getSpacesForUser(Long userId, boolean isAdmin, int page, int size) {
         if (isAdmin) {
             // ADMIN видит все пространства
-            return spaceRepository.findAll(page, size);
+            return getAllSpaces(page, size);
         }
 
         // Получаем все права пользователя
@@ -128,11 +132,25 @@ public class SpaceService {
                 .distinct()
                 .toList();
 
-        // Возвращаем пространства по ID
-        return spaceIds.stream()
+        // Загружаем пространства по ID
+        List<Space> allAccessible = spaceIds.stream()
                 .map(spaceId -> spaceRepository.findById(spaceId).orElse(null))
                 .filter(space -> space != null)
                 .toList();
+
+        // Стабилизируем порядок (как в репозитории: createdAt DESC)
+        List<Space> sorted = allAccessible.stream()
+                .sorted(Comparator.comparing(Space::getCreatedAt).reversed())
+                .toList();
+
+        long total = sorted.size();
+        int safeSize = Math.max(size, 1);
+        int safePage = Math.max(page, 0);
+        int from = Math.min(safePage * safeSize, sorted.size());
+        int to = Math.min(from + safeSize, sorted.size());
+
+        List<Space> pageItems = sorted.subList(from, to);
+        return new PagedResult<>(pageItems, total);
     }
 
     /**
