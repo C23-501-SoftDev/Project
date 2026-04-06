@@ -1,5 +1,6 @@
 package com.knowledgebase.interfaces.rest.controller;
 
+import com.knowledgebase.application.dto.PagedResult;
 import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
@@ -7,6 +8,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.advice.ErrorResponse;
 import com.knowledgebase.interfaces.rest.dto.request.CreateSpaceRequest;
 import com.knowledgebase.interfaces.rest.dto.request.GrantPermissionRequest;
+import com.knowledgebase.interfaces.rest.dto.response.PageResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
 import com.knowledgebase.interfaces.rest.mapper.RestDtoMapper;
@@ -65,11 +67,11 @@ public class SpaceController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
-        List<Space> spaces = spaceService.getAllSpaces(page, size);
-        List<SpaceResponse> response = spaces.stream()
+        PagedResult<Space> result = spaceService.getAllSpaces(page, size);
+        List<SpaceResponse> content = result.items().stream()
                 .map(mapper::toSpaceResponse)
                 .toList();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(PageResponse.of(content, page, size, result.totalElements()));
     }
 
     /**
@@ -143,18 +145,18 @@ public class SpaceController {
         @ApiResponse(responseCode = "200", description = "Список доступных пространств"),
         @ApiResponse(responseCode = "401", description = "Не аутентифицирован")
     })
-    public ResponseEntity<List<SpaceResponse>> getMySpaces(
+    public ResponseEntity<PageResponse<SpaceResponse>> getMySpaces(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
         boolean isAdmin = currentUser.isAdmin();
-        List<Space> spaces = spaceService.getSpacesForUser(
+        PagedResult<Space> result = spaceService.getSpacesForUser(
                 currentUser.getId(), isAdmin, page, size);
 
-        List<SpaceResponse> response = spaces.stream()
+        List<SpaceResponse> content = result.items().stream()
                 .map(mapper::toSpaceResponse)
                 .toList();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(PageResponse.of(content, page, size, result.totalElements()));
     }
 }
