@@ -15,22 +15,33 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Контроллер аутентификации.
+ * Контроллер аутентификации для SSR + REST API.
  *
- * Эндпоинты:
- * - POST /api/auth/login — аутентификация, получение JWT
- * - GET  /api/auth/me    — информация о текущем пользователе
+ * MVC эндпоинты (SSR):
+ * - GET  /login            — страница логина
+ * - POST /login            — обработка формы логина, установка JWT Cookie
+ * - GET  /logout           — страница выхода
+ * - POST /logout           — очистка JWT Cookie и выход
+ *
+ * REST API эндпоинты (для AJAX от Tiptap Editor):
+ * - POST /api/auth/login   — аутентификация, получение JWT (JSON)
+ * - GET  /api/auth/me      — информация о текущем пользователе (JSON)
  */
-@RestController
-@RequestMapping("/api/auth")
+@Controller
+@RequestMapping
 @Tag(name = "Authentication", description = "Аутентификация и получение информации о текущем пользователе")
 public class AuthController {
+
+    private static final String JWT_COOKIE_NAME = "JWT";
 
     private final AuthService authService;
     private final JwtTokenProvider tokenProvider;
@@ -44,19 +55,68 @@ public class AuthController {
         this.mapper = mapper;
     }
 
+    // =====================================================
+    // MVC ENDPOINTS (SSR — Thymeleaf)
+    // =====================================================
+
     /**
-     * POST /api/auth/login
-     * Аутентификация по логину и паролю.
-     *
-     * @param request DTO с логином и паролем
-     * @return JWT токен и данные пользователя
+     * GET /login
+     * Страница аутентификации.
+     */
+    @GetMapping("/login")
+    @SecurityRequirements
+    @Operation(summary = "Страница входа", description = "Возвращает HTML-страницу с формой входа")
+    public String loginPage(@RequestParam(required = false) String error, Model model) {
+        if (error != null) {
+            model.addAttribute("errorMessage", "Неверный логин или пароль");
+        }
+        return "login";
+    }
+
+    /**
+     * POST /login
+     * Обработка формы входа — установка JWT Cookie и редирект.
      */
     @PostMapping("/login")
-    @SecurityRequirements  // Этот эндпоинт не требует авторизации
+    @SecurityRequirements
+    @Operation(summary = "Вход через форму", description = "Аутентификация и установка JWT Cookie")
+    public String loginForm(@RequestParam String username,
+                           @RequestParam String password,
+                           HttpServletResponse response) {
+        User user = authService.authenticate(username, password);
+        String token = tokenProvider.generateToken(user);
+
+        setJwtCookie(response, token);
+
+        return "redirect:/";
+    }
+
+    /**
+     * POST /logout
+     * Выход из системы — очистка JWT Cookie и редирект на страницу входа.
+     */
+    @PostMapping("/logout")
+    @Operation(summary = "Выход из системы", description = "Очистка JWT Cookie и редирект на страницу входа")
+    public String logout(HttpServletResponse response) {
+        clearJwtCookie(response);
+        return "redirect:/login";
+    }
+
+    // =====================================================
+    // REST API ENDPOINTS (для AJAX от Tiptap Editor)
+    // =====================================================
+
+    /**
+     * POST /api/auth/login
+     * Аутентификация по логину и паролю (REST API).
+     */
+    @PostMapping("/api/auth/login")
+    @ResponseBody
+    @SecurityRequirements
     @Operation(
-        summary = "Аутентификация",
+        summary = "Аутентификация (REST API)",
         description = "Получение JWT-токена по логину и паролю. " +
-                      "Токен передавать в заголовке: Authorization: Bearer <token>"
+                      "Токен передаётся в HttpOnly Cookie автоматически."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Успешная аутентификация",
@@ -66,29 +126,26 @@ public class AuthController {
         @ApiResponse(responseCode = "401", description = "Неверные учётные данные",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        // Аутентифицируем пользователя (проверяем логин/пароль)
+    public ResponseEntity<LoginResponse> loginApi(@Valid @RequestBody LoginRequest request,
+                                                  HttpServletResponse response) {
         User user = authService.authenticate(request.login(), request.password());
-
-        // Генерируем JWT токен
         String token = tokenProvider.generateToken(user);
 
-        // Формируем ответ
-        LoginResponse response = new LoginResponse(token, mapper.toUserResponse(user));
-        return ResponseEntity.ok(response);
+        setJwtCookie(response, token);
+
+        LoginResponse loginResponse = new LoginResponse(token, mapper.toUserResponse(user));
+        return ResponseEntity.ok(loginResponse);
     }
 
     /**
      * GET /api/auth/me
      * Получение информации о текущем аутентифицированном пользователе.
-     *
-     * @param currentUser текущий пользователь из SecurityContext (инъектируется Spring Security)
-     * @return данные пользователя
      */
-    @GetMapping("/me")
+    @GetMapping("/api/auth/me")
+    @ResponseBody
     @Operation(
-        summary = "Текущий пользователь",
-        description = "Возвращает информацию о пользователе, чей JWT токен передан в запросе"
+        summary = "Текущий пользователь (REST API)",
+        description = "Возвращает информацию о пользователе, чей JWT Cookie установлен"
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Данные пользователя",
@@ -97,8 +154,37 @@ public class AuthController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<UserResponse> getCurrentUser(@AuthenticationPrincipal User currentUser) {
-        // @AuthenticationPrincipal автоматически извлекает User из SecurityContext
-        // (установленного в JwtAuthenticationFilter)
         return ResponseEntity.ok(mapper.toUserResponse(currentUser));
+    }
+
+    // =====================================================
+    // HELPER METHODS
+    // =====================================================
+
+    private void setJwtCookie(HttpServletResponse response, String token) {
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie(JWT_COOKIE_NAME, token);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // В prod установить true (требует HTTPS)
+        cookie.setPath("/");
+        cookie.setMaxAge(86400); // 24 часа
+        response.addCookie(cookie);
+
+        // CSRF token cookie генерирует сам Spring Security
+    }
+
+    private void clearJwtCookie(HttpServletResponse response) {
+        jakarta.servlet.http.Cookie jwtCookie = new jakarta.servlet.http.Cookie(JWT_COOKIE_NAME, "");
+        jwtCookie.setHttpOnly(true);
+        jwtCookie.setSecure(false);
+        jwtCookie.setPath("/");
+        jwtCookie.setMaxAge(0);
+        response.addCookie(jwtCookie);
+
+        jakarta.servlet.http.Cookie csrfCookie = new jakarta.servlet.http.Cookie("XSRF-TOKEN", "");
+        csrfCookie.setHttpOnly(false);
+        csrfCookie.setSecure(false);
+        csrfCookie.setPath("/");
+        csrfCookie.setMaxAge(0);
+        response.addCookie(csrfCookie);
     }
 }

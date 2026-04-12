@@ -5,6 +5,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -17,34 +18,33 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * JWT-фильтр аутентификации (Infrastructure Layer).
+ * JWT Cookie фильтр аутентификации (Infrastructure Layer).
  *
+ * Извлекает JWT-токен из HttpOnly Cookie вместо заголовка Authorization.
  * Выполняется один раз на каждый HTTP-запрос (OncePerRequestFilter).
- * Порядок в цепочке фильтров: JwtAuthenticationFilter → UsernamePasswordAuthenticationFilter
  *
  * Алгоритм:
- * 1. Извлечь Bearer токен из заголовка Authorization
+ * 1. Извлечь JWT токен из Cookie (имя cookie: "JWT")
  * 2. Валидировать токен (подпись, срок действия)
  * 3. Извлечь userId и role из claims
- * 4. Опционально загрузить пользователя из БД (для проверки существования)
+ * 4. Загрузить пользователя из БД для проверки существования
  * 5. Установить Authentication в SecurityContext
  *
  * Если токен отсутствует или невалиден — запрос продолжается без аутентификации.
- * Контроль доступа к защищённым эндпоинтам — в SecurityConfig.
  */
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
-    private static final String AUTHORIZATION_HEADER = "Authorization";
-    private static final String BEARER_PREFIX = "Bearer ";
+    private static final Logger log = LoggerFactory.getLogger(JwtCookieAuthenticationFilter.class);
+    private static final String JWT_COOKIE_NAME = "JWT";
 
     private final JwtTokenProvider tokenProvider;
     private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserRepository userRepository) {
+    public JwtCookieAuthenticationFilter(JwtTokenProvider tokenProvider, UserRepository userRepository) {
         this.tokenProvider = tokenProvider;
         this.userRepository = userRepository;
     }
@@ -55,61 +55,53 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         try {
-            // Шаг 1: Извлечь токен из заголовка
-            String jwt = extractTokenFromRequest(request);
+            String jwt = extractTokenFromCookie(request);
 
-            // Шаг 2: Если токен есть и валиден — устанавливаем аутентификацию
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-
-                // Шаг 3: Извлечь userId и role из claims
                 Long userId = tokenProvider.getUserIdFromToken(jwt);
                 GlobalRole role = tokenProvider.getRoleFromToken(jwt);
 
-                // Шаг 4: Проверить существование пользователя в БД
-                // (необязательно для производительности, но важно для безопасности)
                 User user = userRepository.findById(userId).orElse(null);
 
                 if (user != null) {
-                    // Шаг 5: Создать Authentication объект с GrantedAuthority
-                    // Spring Security ожидает роли с префиксом ROLE_ для @PreAuthorize("hasRole(...)")
                     List<SimpleGrantedAuthority> authorities = List.of(
                             new SimpleGrantedAuthority(role.getSpringSecurityRole())
                     );
 
-                    // Создаём Principal — передаём User объект для доступа в контроллерах
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(user, null, authorities);
 
                     authentication.setDetails(
                             new WebAuthenticationDetailsSource().buildDetails(request));
 
-                    // Устанавливаем аутентификацию в SecurityContext
                     SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                    log.debug("Пользователь аутентифицирован: userId={}, role={}", userId, role);
+                    log.debug("Пользователь аутентифицирован через Cookie: userId={}, role={}", userId, role);
                 }
             }
         } catch (Exception e) {
-            log.error("Ошибка при обработке JWT: {}", e.getMessage());
-            // НЕ прерываем цепочку — Spring Security сам вернёт 401
+            log.error("Ошибка при обработке JWT Cookie: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);
     }
 
     /**
-     * Извлекает JWT токен из заголовка Authorization.
-     * Ожидаемый формат: "Bearer <token>"
+     * Извлекает JWT токен из Cookie.
      *
      * @param request HTTP запрос
-     * @return токен без префикса "Bearer ", или null
+     * @return токен или null если отсутствует
      */
-    private String extractTokenFromRequest(HttpServletRequest request) {
-        String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
-
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
-            return bearerToken.substring(BEARER_PREFIX.length());
+    private String extractTokenFromCookie(HttpServletRequest request) {
+        if (request.getCookies() == null) {
+            return null;
         }
-        return null;
+
+        return Arrays.stream(request.getCookies())
+                .filter(cookie -> JWT_COOKIE_NAME.equals(cookie.getName()))
+                .map(Cookie::getValue)
+                .filter(StringUtils::hasText)
+                .findFirst()
+                .orElse(null);
     }
 }

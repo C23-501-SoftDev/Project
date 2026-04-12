@@ -44,6 +44,15 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Thymeleaf — серверный рендеринг HTML-шаблонов (SSR) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.thymeleaf.extras</groupId>
+            <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+        </dependency>
         <!-- Spring Security — аутентификация, авторизация, фильтры -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

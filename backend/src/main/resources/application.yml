@@ -10,6 +10,27 @@ spring:
     active: dev
 
   # =====================================================
+  # Thymeleaf — серверный рендеринг (SSR)
+  # =====================================================
+  thymeleaf:
+    enabled: true
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false  # В dev режиме, в prod включить true
+    check-template-location: true
+
+  # =====================================================
+  # Статические ресурсы (CSS, JS, изображения)
+  # =====================================================
+  web:
+    resources:
+      static-locations: classpath:/static/
+      cache:
+        period: 0  # В dev режиме, в prod установить 3600
+
+  # =====================================================
   # Jackson — сериализация JSON
   # =====================================================
   jackson:
@@ -83,10 +104,6 @@ app:
     secret-key: "knowledge-base-secret-key-for-jwt-signing-minimum-256-bits-long!"
     # Время жизни токена в миллисекундах (24 часа = 86400000 ms)
     expiration-ms: 86400000
-  cors:
-    allowed-origins:
-      - "http://localhost:3000"
-      - "http://localhost:5173"
 
   storage:
     git:
@@ -198,9 +215,6 @@ app:
   jwt:
     secret-key: ${JWT_SECRET_KEY}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
-  cors:
-    allowed-origins:
-      - ${FRONTEND_URL:http://localhost:3000}
   storage:
       git:
         # Путь к Git-репозиторию с .md файлами документов
