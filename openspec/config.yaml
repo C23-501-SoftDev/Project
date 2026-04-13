@@ -1,0 +1,42 @@
+schema: spec-driven
+
+# Project context
+# This is shown to AI when creating artifacts.
+context: |
+  Tech stack:
+  - Backend: Java 17, Spring Boot 3.x, Maven, Spring Security, JPA, Liquibase
+  - DB: PostgreSQL (dev/prod), H2 (tests)
+
+  Source of truth for feature selection and status:
+  - openspec/feature-registry.json (machine-readable, fast to query)
+  - openspec/feature-registry.md (human-readable)
+
+  Documentation to consult while implementing:
+  - D:\Soft-dev\Docs\documents\ (backlog + feature descriptions + framework.md)
+  - Focus on the matching backlog description for the selected feature.
+
+  Quality gates (must run before marking a change done):
+  - See openspec/quality-gates.md
+
+  Agents supported in this repo:
+  - Cursor (.cursor/)
+  - Continue (.continue/)
+  - Kilo Code (.kilocode/)
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Pick a featureId from openspec/feature-registry.json (or create a new entry) and include it in the proposal.
+    - Link to the relevant Docs backlog description file(s) used as inputs.
+  design:
+    - Must mention where in code changes are expected (controller/service/repository/db).
+  tasks:
+    - Include a "Quality gates" task that references openspec/quality-gates.md.

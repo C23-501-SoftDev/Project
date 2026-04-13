@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-13",
+  "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
+  "features": [
+    {
+      "featureId": "auth-jwt-login",
+      "title": "JWT authentication (login + me)",
+      "status": "done",
+      "area": "backend",
+      "repo": "Project",
+      "docs": [
+        "D:/Soft-dev/Project/backend/readme.md"
+      ],
+      "endpoints": [
+        "POST /api/auth/login",
+        "GET /api/auth/me"
+      ]
+    },
+    {
+      "featureId": "admin-users-crud",
+      "title": "Admin: users CRUD + change password",
+      "status": "done",
+      "area": "backend",
+      "repo": "Project",
+      "docs": [
+        "D:/Soft-dev/Project/backend/readme.md"
+      ],
+      "endpoints": [
+        "GET /api/admin/users",
+        "GET /api/admin/users/{id}",
+        "POST /api/admin/users",
+        "PUT /api/admin/users/{id}",
+        "DELETE /api/admin/users/{id}",
+        "PUT /api/admin/users/{id}/password"
+      ]
+    },
+    {
+      "featureId": "spaces-and-permissions",
+      "title": "Spaces: create/list + grant permissions; user permissions lookup",
+      "status": "done",
+      "area": "backend",
+      "repo": "Project",
+      "docs": [
+        "D:/Soft-dev/Project/backend/readme.md"
+      ],
+      "endpoints": [
+        "GET /api/spaces",
+        "GET /api/admin/spaces",
+        "POST /api/admin/spaces",
+        "POST /api/admin/spaces/{spaceId}/permissions",
+        "GET /api/user/permissions",
+        "GET /api/user/spaces"
+      ]
+    }
+  ]
+}
+
