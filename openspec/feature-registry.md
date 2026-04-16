@@ -9,8 +9,8 @@
 
 ## Фичи
 
-### auth-jwt-login — JWT authentication (login + me)
-- **status**: implemented
+### auth-jwt-cookie — JWT authentication (login + me)
+- **status**: done
 - **endpoints**: `POST /api/auth/login`, `GET /api/auth/me`
 
 ### admin-users-crud — Admin: users CRUD + change password
