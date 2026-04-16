@@ -6,7 +6,7 @@
     {
       "featureId": "auth-jwt-login",
       "title": "JWT authentication (login + me)",
-      "status": "done",
+      "status": "implemented",
       "area": "backend",
       "repo": "Project",
       "docs": [
@@ -20,7 +20,7 @@
     {
       "featureId": "admin-users-crud",
       "title": "Admin: users CRUD + change password",
-      "status": "done",
+      "status": "implemented",
       "area": "backend",
       "repo": "Project",
       "docs": [
@@ -38,7 +38,7 @@
     {
       "featureId": "spaces-and-permissions",
       "title": "Spaces: create/list + grant permissions; user permissions lookup",
-      "status": "done",
+      "status": "implemented",
       "area": "backend",
       "repo": "Project",
       "docs": [

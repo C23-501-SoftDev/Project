@@ -10,14 +10,14 @@
 ## Фичи
 
 ### auth-jwt-login — JWT authentication (login + me)
-- **status**: done
+- **status**: implemented
 - **endpoints**: `POST /api/auth/login`, `GET /api/auth/me`
 
 ### admin-users-crud — Admin: users CRUD + change password
-- **status**: done
+- **status**: implemented
 - **endpoints**: `GET/POST/PUT/DELETE /api/admin/users`, `PUT /api/admin/users/{id}/password`
 
 ### spaces-and-permissions — Spaces + permissions
-- **status**: done
+- **status**: implemented
 - **endpoints**: `GET /api/spaces`, `GET/POST /api/admin/spaces`, `POST /api/admin/spaces/{spaceId}/permissions`, `GET /api/user/*`
 
