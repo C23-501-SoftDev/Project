@@ -20,7 +20,7 @@
     {
       "featureId": "admin-users-crud",
       "title": "Admin: users CRUD + change password",
-      "status": "implemented",
+      "status": "done",
       "area": "backend",
       "repo": "Project",
       "docs": [
