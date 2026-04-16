@@ -169,7 +169,7 @@ public class AuthController {
         cookie.setMaxAge(86400); // 24 часа
         response.addCookie(cookie);
 
-        // CSRF token cookie генерирует сам Spring Security
+        // CSRF token cookie генерируется Spring Security
     }
 
     private void clearJwtCookie(HttpServletResponse response) {

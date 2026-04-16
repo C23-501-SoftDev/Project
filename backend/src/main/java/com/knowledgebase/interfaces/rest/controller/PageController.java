@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 @RequestMapping
 public class PageController {
     // Пока что нет загрузки реальных данных, но вообще она должна быть
+    // PageController написан для проверки работоспособности MVC и требует доработок
+    // После переработки эти комментарии удалить
 
     private final SpaceRepository spaceRepository;
 

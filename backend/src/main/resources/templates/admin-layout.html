@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Администрирование — База знаний'">Администрирование</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+</head>
+<body>
+    <nav class="navbar" th:if="${currentUser != null}">
+        <div class="navbar-brand">
+            <a th:href="@{/}">База знаний</a>
+            <span>/</span>
+            <a th:href="@{/admin/users}">Администрирование</a>
+        </div>
+        <div class="navbar-menu">
+            <span class="user-info" th:text="${currentUser.login}">Пользователь</span>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="btn-logout">Выйти</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="sidebar">
+            <h3>Администрирование</h3>
+            <ul>
+                <li><a th:href="@{/admin/users}" th:classappend="${#strings.startsWith(pageTitle, 'Управление пользователями')} ? 'active'">Пользователи</a></li>
+                <li><a th:href="@{/admin/spaces}" th:classappend="${#strings.startsWith(pageTitle, 'Управление пространствами')} ? 'active'">Пространства</a></li>
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <div th:replace="~{${content}}">
+            </div>
+        </main>
+    </div>
+
+    <script th:src="@{/js/main.js}"></script>
+</body>
+</html>

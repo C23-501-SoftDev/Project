@@ -1,0 +1,15 @@
+<div class="document-edit-page">
+    <h1>Редактирование документа</h1>
+    <p>Документ #<span th:text="${documentId}">ID</span></p>
+    <form method="post">
+        <div>
+            <label for="title">Заголовок:</label>
+            <input type="text" id="title" name="title" required>
+        </div>
+        <div>
+            <label for="content">Содержание:</label>
+            <textarea id="content" name="content" rows="10"></textarea>
+        </div>
+        <button type="submit">Сохранить</button>
+    </form>
+</div>

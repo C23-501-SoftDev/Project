@@ -68,8 +68,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(requestHandler)
-                // Исключаем API эндпоинты, которые используют JWT Cookie аутентификацию
-                .ignoringRequestMatchers("/api/**")
+                // Исключаем API эндпоинты и SSR форму логина (CSRF на /login не критичен для безопасности)
+                .ignoringRequestMatchers("/api/**", "/login", "/logout")
             )
 
             // ── Сессии: Stateless (JWT хранится в HttpOnly Cookie) ────────────────────
