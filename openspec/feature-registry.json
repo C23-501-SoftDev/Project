@@ -38,7 +38,7 @@
     {
       "featureId": "spaces-and-permissions",
       "title": "Spaces: create/list + grant permissions; user permissions lookup",
-      "status": "implemented",
+      "status": "done",
       "area": "backend",
       "repo": "Project",
       "docs": [

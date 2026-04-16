@@ -18,6 +18,6 @@
 - **endpoints**: `GET/POST/PUT/DELETE /api/admin/users`, `PUT /api/admin/users/{id}/password`
 
 ### spaces-and-permissions — Spaces + permissions
-- **status**: implemented
+- **status**: done
 - **endpoints**: `GET /api/spaces`, `GET/POST /api/admin/spaces`, `POST /api/admin/spaces/{spaceId}/permissions`, `GET /api/user/*`
 
