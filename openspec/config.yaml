@@ -1,42 +1,62 @@
 schema: spec-driven
 
 # Project context
-# This is shown to AI when creating artifacts.
+# Это показывается ИИ при создании артефактов.
 context: |
-  Tech stack:
-  - Backend: Java 17, Spring Boot 3.x, Maven, Spring Security, JPA, Liquibase
-  - DB: PostgreSQL (dev/prod), H2 (tests)
+  Стек технологий:
+  - Бэкенд: Java 17 или 21, Spring Boot 3.4, Spring MVC, Spring Security, Spring Data JPA, Maven
+  - Аутентификация: JWT в HttpOnly Cookie, CSRF-защита через X-XSRF-TOKEN
+  - Фронтенд: Thymeleaf (SSR), JavaScript, Tiptap Editor (WYSIWYG Markdown)
+  - БД: PostgreSQL 18 (основная), H2 (тесты)
+  - Миграции БД: Liquibase
+  - Контроль версий документов: JGit
+  - API документация: SpringDoc OpenAPI (Swagger UI)
+  - Утилиты: Lombok (boilerplate reduction)
 
-  Source of truth for feature selection and status:
-  - openspec/feature-registry.json (machine-readable, fast to query)
-  - openspec/feature-registry.md (human-readable)
+  Архитектура:
+  - Чистая архитектура (Clean Architecture) с разделением на 4 слоя:
+    - domain — сущности, интерфейсы репозиториев, use-cases (не зависит от Spring)
+    - application — бизнес-логика, сервисы, DTO маппинг
+    - interfaces — REST контроллеры, MVC контроллеры, DTO
+    - infrastructure — реализации репозиториев (Spring Data JPA, JGit), email, конфигурации
 
-  Documentation to consult while implementing:
-  - D:\Soft-dev\Docs\documents\ (backlog + feature descriptions + framework.md)
-  - Focus on the matching backlog description for the selected feature.
+  Структура проекта:
+  Project/
+  ├── backend/              # Spring Boot бэкенд (Java/Maven)
+  │   ├── src/main/java/com/knowledgebase/
+  │   │   ├── domain/         # Ядро: сущности, репозитории-интерфейсы
+  │   │   ├── application/    # Бизнес-логика и сервисы
+  │   │   ├── interfaces/     # REST/MVC контроллеры, DTO
+  │   │   └── infrastructure/ # JPA репозитории, JGit, email
+  │   ├── src/main/resources/ # application.yml, Liquibase changelog, шаблоны Thymeleaf
+  │   └── src/test/           # Юнит и интеграционные тесты
+  ├── frontend/             # Фронтенд (статические ресурсы, CSS/JS)
+  ├── openspec/             # OpenSpec: спецификации, feature registry, quality gates
+  └── README.md             # Инструкция по настройке OpenSpec
 
-  Quality gates (must run before marking a change done):
-  - See openspec/quality-gates.md
+  Документация (соседняя директория ../Docs/):
+  - ../Docs/project_navigation.md — навигация по всей документации
+  - ../Docs/base-requirements.md — требования к системе (источник истины)
+  - ../Docs/logic_scheme.md — логическая схема и потоки данных
+  - ../Docs/documents/backlog.json — бэклог проекта (Epics → Features → User Stories)
+  - ../Docs/documents/backlog-descriptions/ — детальные описания задач
+  - ../Docs/documents/design-guid.md — дизайн-система и UI стили
+  - При реализации задачи используйте соответствующее описание из backlog-descriptions/
 
-  Agents supported in this repo:
-  - Cursor (.cursor/)
-  - Continue (.continue/)
-  - Kilo Code (.kilocode/)
-
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
+# Правила для артефактов (опционально)
+# Добавьте пользовательские правила для конкретных артефактов.
+# Пример:
 #   rules:
 #     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
+#       - Держать предложения в пределах 500 слов
+#       - Всегда включать раздел "Вне скоупа"
 #     tasks:
-#       - Break tasks into chunks of max 2 hours
+#       - Разбивать задачи на части не более 2 часов
 rules:
   proposal:
-    - Pick a featureId from openspec/feature-registry.json (or create a new entry) and include it in the proposal.
-    - Link to the relevant Docs backlog description file(s) used as inputs.
+    - Выберите featureId из openspec/feature-registry.json (или создайте новую запись) и укажите его в предложении.
+    - Приложите ссылку на соответствующий файл(ы) описания бэклога из папки Docs, использованные в качестве входных данных.
   design:
-    - Must mention where in code changes are expected (controller/service/repository/db).
+    - Должен быть указан предполагаемый участок кода для изменений (controller/service/repository/db).
   tasks:
-    - Include a "Quality gates" task that references openspec/quality-gates.md.
+    - Включите задачу "Проверка критериев качества", которая ссылается на openspec/quality-gates.md.

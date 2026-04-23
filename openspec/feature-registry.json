@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-13",
+  "updatedAt": "2026-04-16",
   "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
   "features": [
     {
-      "featureId": "auth-jwt-login",
+      "featureId": "auth-jwt-cookie",
       "title": "JWT authentication (login + me)",
       "status": "done",
       "area": "backend",
