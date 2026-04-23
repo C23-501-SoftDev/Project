@@ -76,6 +76,9 @@ public class SecurityConfig {
             .sessionManagement(session ->
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+            // ── Logout: отключаем встроенный LogoutFilter, обрабатываем в AuthController ──
+            .logout(logout -> logout.disable())
+
             // ── Обработчики ошибок ──────────────────────────────────────────────
             .exceptionHandling(ex -> ex
                     .authenticationEntryPoint(authenticationEntryPoint)  // 401

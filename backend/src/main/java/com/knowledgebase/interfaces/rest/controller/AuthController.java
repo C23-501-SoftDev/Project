@@ -161,30 +161,28 @@ public class AuthController {
     // HELPER METHODS
     // =====================================================
 
+    /**
+     * Устанавливает JWT Cookie с явным SameSite=Lax.
+     * jakarta.servlet.http.Cookie не поддерживает setSameSite(),
+     * поэтому заголовок Set-Cookie формируется вручную.
+     */
     private void setJwtCookie(HttpServletResponse response, String token) {
-        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie(JWT_COOKIE_NAME, token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // В prod установить true (требует HTTPS)
-        cookie.setPath("/");
-        cookie.setMaxAge(86400); // 24 часа
-        response.addCookie(cookie);
-
-        // CSRF token cookie генерируется Spring Security
+        response.addHeader("Set-Cookie",
+                String.format("%s=%s; Path=/; HttpOnly; Max-Age=%d; SameSite=Lax",
+                        JWT_COOKIE_NAME, token, 86400));
     }
 
+    /**
+     * Очищает JWT Cookie с явным SameSite=Lax.
+     * jakarta.servlet.http.Cookie не поддерживает setSameSite(),
+     * поэтому заголовок Set-Cookie формируется вручную.
+     */
     private void clearJwtCookie(HttpServletResponse response) {
-        jakarta.servlet.http.Cookie jwtCookie = new jakarta.servlet.http.Cookie(JWT_COOKIE_NAME, "");
-        jwtCookie.setHttpOnly(true);
-        jwtCookie.setSecure(false);
-        jwtCookie.setPath("/");
-        jwtCookie.setMaxAge(0);
-        response.addCookie(jwtCookie);
+        response.addHeader("Set-Cookie",
+                String.format("%s=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax",
+                        JWT_COOKIE_NAME));
 
-        jakarta.servlet.http.Cookie csrfCookie = new jakarta.servlet.http.Cookie("XSRF-TOKEN", "");
-        csrfCookie.setHttpOnly(false);
-        csrfCookie.setSecure(false);
-        csrfCookie.setPath("/");
-        csrfCookie.setMaxAge(0);
-        response.addCookie(csrfCookie);
+        response.addHeader("Set-Cookie",
+                String.format("XSRF-TOKEN=; Path=/; Max-Age=0; SameSite=Lax"));
     }
 }
