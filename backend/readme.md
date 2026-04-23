@@ -129,40 +129,71 @@ mvn spring-boot:run
 ```
 После этого приложение соберётся и запустится.
 
-### 🔐 Аутентификация
+## 📑 Страницы приложения (SSR)
 
-#### Через Swagger UI (браузер)
+Приложение использует серверный рендеринг (Thymeleaf). Пользователь взаимодействует со страницами через браузер — авторизация, навигация по пространствам и документам.
 
-1. Откройте: http://localhost:8080/swagger-ui.html
-2. Найдите раздел **"Authentication"** → `POST /api/auth/login`
-3. Нажмите **"Try it out"**
-4. Введите учетные данные:
-```json
-{
-  "login": "admin",
-  "password": "admin123"
-}
-```
-5. Нажмите "Execute"
-6. Скопируйте полученный `token` из ответа
-7. Нажмите **"Authorize"** (кнопка в правом верхнем углу)
-8. Введите: `Bearer <скопированный_токен>`
-9. Теперь все защищенные эндпоинты доступны и через окно Swagger можно выполнить все запросы, представленные ниже
+### Публичные страницы
 
-#### Через Insomnia / Postman / curl
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/login` | Страница входа с формой аутентификации |
+| POST | `/login` | Обработка формы — установка JWT Cookie и редирект на главную |
+| POST | `/logout` | Выход — очистка Cookie и редирект на `/login` |
 
-**Запрос:**
-```cmd
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d "{\"login\":\"admin\",\"password\":\"admin123\"}"
-```
+### Страницы авторизованных пользователей
 
-**Успешный ответ (200 OK):**
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/` | Главная страница — список документов |
+| GET | `/documents/{id}` | Просмотр документа |
+| GET | `/documents/new` | Создание нового документа |
+| GET | `/documents/{id}/edit` | Редактирование документа |
+| GET | `/documents/{id}/history` | История версий документа |
+| GET | `/search?q=...` | Результаты поиска |
+| GET | `/spaces/{id}` | Страница пространства |
+
+### Административные панели
+
+| Метод | Путь | Описание | Доступ |
+|-------|------|----------|--------|
+| GET | `/admin/users` | Управление пользователями | ADMIN |
+| GET | `/admin/spaces` | Управление пространствами | ADMIN |
+
+Функции админ-панели (см. прототип `Docs/prototypes/admin-panel/index.html`):
+- **Users** — таблица пользователей с сортировкой, фильтрацией по ролям (Admin/Editor/Reader), поиском по логину/email, пагинацией. Модальные окна для создания, редактирования и удаления пользователей.
+- **Spaces** — таблица пространств с сортировкой, пагинацией. Создание, редактирование, удаление пространств.
+- **Settings** — системные настройки (тема, язык).
+
+## 🔌 REST API
+
+Все API-эндпоинты описаны через OpenAPI (Swagger UI). Это основной способ изучения доступных методов, параметров и форматов ответов. **Для тестирования эндпоинтов рекомендуется использовать Swagger UI**, а не curl/Postman.
+
+Swagger UI: **http://localhost:8080/swagger-ui.html**
+
+### Аутентификация через Swagger
+
+1. Откройте Swagger UI
+2. Найдите раздел **Authentication** → `POST /api/auth/login`
+3. Нажмите **Try it out**, введите учётные данные:
+   ```json
+   { "login": "admin", "password": "admin123" }
+   ```
+4. Скопируйте токен из ответа
+5. Нажмите кнопку **Authorize** (вверху страницы), введите `Bearer <токен>`
+6. Теперь все защищённые эндпоинты доступны для выполнения
+
+### Аутентификация
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| POST | `/api/auth/login` | Вход по логину/паролю (JSON). Возвращает JWT-токен и устанавливает HttpOnly Cookie |
+| GET | `/api/auth/me` | Информация о текущем пользователе |
+
+**Пример ответа `/api/auth/login`** (200 OK):
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "tokenType": "Bearer",
   "user": {
     "id": 1,
     "login": "admin",
@@ -172,132 +203,67 @@ curl -X POST http://localhost:8080/api/auth/login \
 }
 ```
 
-**Ошибка (401 Unauthorized):**
-```json
-{
-  "timestamp": "2026-04-05T...",
-  "status": 401,
-  "error": "Unauthorized",
-  "message": "Неверный логин или пароль"
-}
-```
+### Управление пользователями (только ADMIN)
 
-### 👥 Управление пользователями (только ADMIN)
+**Базовый путь:** `/api/admin/users`
 
-#### Получить список всех пользователей
+| Метод | Путь | Описание | Параметры |
+|-------|------|----------|-----------|
+| GET | `/api/admin/users` | Список пользователей с пагинацией | `page` (0-based), `size`, `sortBy`, `sortDir` |
+| GET | `/api/admin/users/{id}` | Данные конкретного пользователя | |
+| POST | `/api/admin/users` | Создание пользователя | Тело: `{ login, email, password, role }` |
+| PUT | `/api/admin/users/{id}` | Обновление логина/email/роли | Тело: `{ login, email, role }` |
+| DELETE | `/api/admin/users/{id}` | Удаление пользователя | Возвращает 409, если есть связанные данные |
+| PUT | `/api/admin/users/{id}/password` | Сброс пароля | Тело: `{ newPassword }` |
 
-```cmd
-curl -X GET http://localhost:8080/api/admin/users \
-  -H "Authorization: Bearer <токен>"
-```
+> Роль в JWT обновляется при следующем входе пользователя.
 
-#### Создать нового пользователя
+### Управление пространствами
 
-```cmd
-curl -X POST http://localhost:8080/api/admin/users \
-  -H "Authorization: Bearer <токен>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "login": "newuser",
-    "email": "user@example.com",
-    "password": "password123",
-    "role": "EDITOR"
-  }'
-```
+**Административные эндпоинты** (ADMIN only):
 
-#### Обновить пользователя
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/admin/spaces` | Все пространства системы |
+| POST | `/api/admin/spaces` | Создание пространства |
+| POST | `/api/admin/spaces/{spaceId}/permissions` | Назначение прав пользователю |
 
-```cmd
-curl -X PUT http://localhost:8080/api/admin/users/2 \
-  -H "Authorization: Bearer <токен>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "login": "updateduser",
-    "email": "updated@example.com",
-    "role": "READER"
-  }'
-```
+**Пользовательские эндпоинты** (все авторизованные):
 
-#### Удалить пользователя
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/spaces` | Пространства, доступные текущему пользователю. ADMIN видит все |
 
-```cmd
-curl -X DELETE http://localhost:8080/api/admin/users/2 \
-  -H "Authorization: Bearer <токен>"
-```
+### Права доступа
 
-#### Сменить пароль пользователя
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/user/permissions?spaceId={id}` | Права текущего пользователя в пространстве. Возвращает список прав и флаги `canRead`, `canEdit`, `canCreate` для UI |
+| GET | `/api/user/spaces` | Все пространства с правами пользователя |
 
-```cmd
-curl -X PUT http://localhost:8080/api/admin/users/2/password \
-  -H "Authorization: Bearer <токен>" \
-  -H "Content-Type: application/json" \
-  -d '{"newPassword": "newSecurePass123"}'
-```
+Типы прав: `READ`, `WRITE`, `OWNER`
 
-### 📁 Управление пространствами (Spaces)
+### Системные эндпоинты
 
-#### Получить список доступных пространств (для текущего пользователя)
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/actuator/health` | Health check |
+| GET | `/swagger-ui.html` | Swagger UI |
+| GET | `/api-docs` | OpenAPI спецификация (JSON) |
 
-```cmd
-curl -X GET http://localhost:8080/api/spaces \
-  -H "Authorization: Bearer <токен>"
-```
+## 🔐 Роли и права
 
-#### Создать пространство (только ADMIN)
+| Роль | Описание |
+|------|----------|
+| **ADMIN** | Полный доступ. Управление пользователями, пространствами и правами. Видит все пространства. |
+| **EDITOR** | Создание и редактирование документов в пространствах с правом `WRITE`. |
+| **READER** | Только чтение в пространствах с правом `READ`. |
 
-```cmd
-curl -X POST http://localhost:8080/api/admin/spaces \
-  -H "Authorization: Bearer <токен>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Мой проект",
-    "description": "Документация проекта",
-    "ownerId": 1
-  }'
-```
+ADMIN автоматически получает `[READ, WRITE, OWNER]` во всех пространствах.
 
-#### Назначить права на пространство (только ADMIN)
+## 🛡️ Безопасность
 
-```cmd
-curl -X POST http://localhost:8080/api/admin/spaces/1/permissions \
-  -H "Authorization: Bearer <токен>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "userId": 2,
-    "permissionType": "WRITE"
-  }'
-```
-
-Типы прав: READ, WRITE, OWNER
-
-#### Получить права текущего пользователя в пространстве
-
-```cmd
-curl -X GET "http://localhost:8080/api/user/permissions?spaceId=1" \
-  -H "Authorization: Bearer <токен>"
-```
-
-### 🔍 Проверка текущего пользователя
-
-#### Получить информацию о себе
-
-```cmd
-curl -X GET http://localhost:8080/api/auth/me \
-  -H "Authorization: Bearer <токен>"
-```
-
-### 🩺 Health Check
-
-#### Проверить состояние приложения
-
-```cmd
-curl -X GET http://localhost:8080/actuator/health
-```
-
-**Успешный ответ:**
-
-```json
-{
-  "status": "UP"
-}
-```
+- **JWT в HttpOnly Cookie** — токен недоступен из JavaScript
+- **CSRF защита** — Cookie-based токен для AJAX-запросов
+- **BCrypt** — хеширование паролей (strength 10)
+- Двойная проверка ролей: на уровне SecurityConfig + `@PreAuthorize` на методах контроллеров
