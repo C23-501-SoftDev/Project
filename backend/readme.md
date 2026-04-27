@@ -129,6 +129,97 @@ mvn spring-boot:run
 ```
 После этого приложение соберётся и запустится.
 
+## Локальная разработка в Docker (для команды)
+
+Docker-конфигурация находится в корне репозитория:
+- `docker-compose.yml`
+- `.env.example`
+- `Makefile`
+- `backend/Dockerfile`
+
+### 1. Первый запуск
+
+Из корня проекта:
+
+```bash
+cp .env.example .env
+```
+
+Заполните `UID` и `GID` в `.env` (важно для Linux/macOS, чтобы не было проблем с владельцем файлов):
+
+```bash
+echo "UID=$(id -u)" >> .env
+echo "GID=$(id -g)" >> .env
+```
+
+Поднимите окружение:
+
+```bash
+make docker-up
+```
+
+Проверка:
+- приложение: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- health: `http://localhost:8080/actuator/health`
+
+### 2. Установка зависимостей внутри контейнера
+
+Зависимости Maven автоматически подтягиваются при старте `app`.
+Если нужно вручную:
+
+```bash
+docker compose --env-file .env exec app mvn -B dependency:resolve
+```
+
+### 3. Миграции и тесты
+
+- Liquibase-миграции применяются автоматически при старте приложения.
+- Запуск тестов:
+
+```bash
+docker compose --env-file .env exec app mvn test
+```
+
+### 4. Вход в контейнер
+
+```bash
+make docker-shell
+```
+
+### 5. Логи и остановка
+
+```bash
+make docker-logs
+make docker-down
+```
+
+### 6. Опциональные сервисы (кэш/очередь)
+
+Для запуска Redis и RabbitMQ вместе с базовым окружением:
+
+```bash
+make docker-up-extras
+```
+
+### 7. Важные замечания для Docker-сети
+
+- Внутри контейнеров нельзя использовать `localhost` для обращения к другим сервисам.
+- Для БД используйте хост `postgres` (имя сервиса в `docker-compose.yml`).
+- Секреты храните только в локальном `.env` (не коммитьте его в репозиторий).
+
+### 8. Что делать при `permission denied`
+
+1. Проверьте, что в `.env` корректные `UID/GID`.
+2. Перезапустите сервисы:
+   ```bash
+   make docker-down && make docker-up
+   ```
+3. Если права уже испорчены (чаще на Linux), исправьте владельца в проекте:
+   ```bash
+   sudo chown -R "$(id -u):$(id -g)" ./backend/data
+   ```
+
 ## 📑 Страницы приложения (SSR)
 
 Приложение использует серверный рендеринг (Thymeleaf). Пользователь взаимодействует со страницами через браузер — авторизация, навигация по пространствам и документам.
