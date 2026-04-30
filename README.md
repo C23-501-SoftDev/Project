@@ -1,27 +1,94 @@
-# OpenSpec quick setup (new machine)
+# Быстрая настройка OpenSpec (новая машина)
 
-1. Install prerequisites:
+1. Установите необходимые компоненты:
    - Git
    - Node.js 18+
-2. Install OpenSpec CLI:
+2. Установите OpenSpec CLI:
    - `npm install -g @fission-ai/openspec@latest`
-3. Clone repos so they are side-by-side:
+3. Клонируйте репозитории так, чтобы они находились рядом:
    - `D:\Soft-dev\Project`
    - `D:\Soft-dev\Docs`
-4. Verify layout:
+4. Проверьте структуру:
    - `D:\Soft-dev\Project\openspec\...`
    - `D:\Soft-dev\Docs\documents\...`
 
-## Daily usage
+## Ежедневное использование
 
-1. In `Project`, choose `featureId` from `openspec/feature-registry.json`.
-2. Start change with OpenSpec (`/opsx:propose` in agent).
-3. Implement (`/opsx:apply`).
-4. Run quality gates from `openspec/quality-gates.md`.
-5. Archive (`/opsx:archive`) — this updates `openspec/feature-registry.json`.
+1. В `Project` выберите `featureId` из `openspec/feature-registry.json`.
+2. Начните изменение с OpenSpec (`/opsx:propose` в агенте).
+3. Реализуйте (`/opsx:apply`).
+4. Запустите проверки качества из `openspec/quality-gates.md`.
+5. Архивируйте (`/opsx:archive`) — это обновит `openspec/feature-registry.json`.
 
-## Supported agents
+## Поддерживаемые агенты
 
 - Cursor (`.cursor/`)
 - Continue (`.continue/`)
 - Kilo Code (`.kilocode/`)
+
+# Git Flow
+
+Мы используем упрощённую модель **GitHub Flow** с одной стабильной веткой `main`.
+
+## Основные правила
+
+- Ветка `main` всегда содержит работающий код, готовый к демонстрации.
+- Любое изменение (новая функция, исправление, документация) — отдельная ветка от `main`.
+- Попадание в `main` — только через Pull Request.
+- После вливания PR ветка удаляется.
+
+## Именование веток
+
+Используем префиксы для единообразия:
+
+- `feature: краткое-описание` — новый функционал
+- `fix: краткое-описание` — исправление ошибки
+- `docs: краткое-описание` — изменения в документации (readme или бэктрекер)
+- `refactor: краткое-описание` — рефакторинг без новой функциональности
+
+## Порядок работы над задачей
+
+1. Переключиться на актуальный `main`:
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+2. Создать ветку для задачи:
+   ```bash
+   git checkout -b feature/название-фичи
+   ```
+3. Работать в ветке, коммитить изменения. Коммиты оформляем осмысленно, используя формат:
+   ```text
+   feat: добавить форму регистрации
+   fix: исправить валидацию email
+   docs: обновить README
+   ```
+4. Отправить ветку в удалённый репозиторий:
+   ```bash
+   git push -u origin feature/название-фичи
+   ```
+5. Создать Pull Request в `main` через интерфейс GitHub.
+6. Дождаться одобрения от тестировщика (см. «Проверка Pull Request»).
+7. После одобрения выполнить слияние PR и удалить ветку.
+
+## Проверка Pull Request
+
+Каждый PR перед вливанием в `main` должен быть одобрен тестировщиком.
+
+**Перед созданием PR автор** проверяет:
+
+- Код не содержит отладочных артефактов (`console.log`, `debugger`, закомментированных блоков)
+- Все новые файлы добавлены в коммит
+- Изменения не ломают сборку и приложение запускается
+
+**Тестировщик** при получении PR проводит приёмочную проверку:
+
+- Приложение запускается без ошибок
+- Базовый сценарий, описанный в PR, работает корректно
+- Отсутствуют конфликты слияния с `main`
+
+После проверки тестировщик нажимает **Approve** — и автор выполняет слияние.
+
+## Роль Open Spec
+
+Мы используем Open Spec с ИИ-агентами. Перед завершением задачи агент выполняет `/opsx:apply`, в ходе которого автоматически проверяет сборку и запуск приложения. Это гарантирует, что в Pull Request попадает код, уже прошедший первый уровень валидации.
