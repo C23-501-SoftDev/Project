@@ -5,37 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle} ?: 'Администрирование — База знаний'">Администрирование</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/admin-panel.css}">
 </head>
 <body>
-    <nav class="navbar" th:if="${currentUser != null}">
-        <div class="navbar-brand">
-            <a th:href="@{/}">База знаний</a>
-            <span>/</span>
-            <a th:href="@{/admin/users}">Администрирование</a>
-        </div>
-        <div class="navbar-menu">
-            <span class="user-info" th:text="${currentUser.login}">Пользователь</span>
-            <form th:action="@{/logout}" method="post">
-                <button type="submit" class="btn-logout">Выйти</button>
-            </form>
-        </div>
-    </nav>
+<div class="admin-layout">
+    <aside class="sidebar">
+        <h2>Admin Panel</h2>
+        <ul>
+            <li>
+                <a th:href="@{/admin/users}"
+                   th:class="${activePage == 'users'} ? 'sidebar-tab active' : 'sidebar-tab'">
+                    Пользователи</a>
+            </li>
+            <li>
+                <a th:href="@{/admin/spaces}"
+                   th:class="${activePage == 'spaces'} ? 'sidebar-tab active' : 'sidebar-tab'">
+                    Пространства</a>
+            </li>
+            <li>
+                <a th:href="@{/admin/settings}"
+                   th:class="${activePage == 'settings'} ? 'sidebar-tab active' : 'sidebar-tab'">
+                    Настройки</a>
+            </li>
+        </ul>
+    </aside>
 
-    <div class="container">
-        <aside class="sidebar">
-            <h3>Администрирование</h3>
-            <ul>
-                <li><a th:href="@{/admin/users}" th:classappend="${#strings.startsWith(pageTitle, 'Управление пользователями')} ? 'active'">Пользователи</a></li>
-                <li><a th:href="@{/admin/spaces}" th:classappend="${#strings.startsWith(pageTitle, 'Управление пространствами')} ? 'active'">Пространства</a></li>
-            </ul>
-        </aside>
-
-        <main class="main-content">
-            <div th:replace="~{${content}}">
+    <div class="content">
+        <div class="header" id="pageHeader">
+            <div class="breadcrumbs">
+                <a th:href="@{/}">Главная</a> &gt;
+                <span>Администрирование</span>
+                <span th:if="${pageTitle != null}"> &gt; <span th:text="${pageTitle}"></span></span>
             </div>
-        </main>
-    </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <span th:text="${currentUser != null ? currentUser.login : 'Пользователь'}" style="font-weight: 500;"></span>
+                <form th:action="@{/logout}" method="post" style="margin: 0;">
+                    <button type="submit" class="button-secondary" style="min-width: auto; padding: 6px 12px;">Выйти</button>
+                </form>
+            </div>
+        </div>
 
-    <script th:src="@{/js/main.js}"></script>
+        <div class="page-content">
+            <div th:replace="~{${content}}"></div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script th:src="@{/js/admin-common.js}"></script>
 </body>
 </html>

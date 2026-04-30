@@ -3,10 +3,13 @@ package com.knowledgebase.interfaces.rest.mapper;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.repository.UserRepository;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
 import com.knowledgebase.interfaces.rest.dto.response.UserResponse;
 import org.springframework.stereotype.Component;
+
+import java.util.Optional;
 
 /**
  * Маппер DTO ↔ Domain для слоя interfaces.
@@ -16,6 +19,12 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class RestDtoMapper {
+
+    private final UserRepository userRepository;
+
+    public RestDtoMapper(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     // ── User ──────────────────────────────────────────────────────────────────
 
@@ -39,24 +48,41 @@ public class RestDtoMapper {
 
     public SpaceResponse toSpaceResponse(Space space) {
         if (space == null) return null;
+        String ownerLogin = getOwnerLogin(space.getOwnerId());
         return new SpaceResponse(
                 space.getId(),
                 space.getName(),
                 space.getDescription(),
                 space.getOwnerId(),
+                ownerLogin,
                 space.getCreatedAt(),
                 space.getUpdatedAt()
         );
+    }
+
+    private String getOwnerLogin(Long ownerId) {
+        if (ownerId == null) return null;
+        Optional<User> owner = userRepository.findById(ownerId);
+        return owner.map(User::getLogin).orElse(null);
     }
 
     // ── SpacePermission ───────────────────────────────────────────────────────
 
     public SpacePermissionResponse toSpacePermissionResponse(SpacePermission permission) {
         if (permission == null) return null;
+        String login = null;
+        String email = null;
+        Optional<User> user = userRepository.findById(permission.getUserId());
+        if (user.isPresent()) {
+            login = user.get().getLogin();
+            email = user.get().getEmail();
+        }
         return new SpacePermissionResponse(
                 permission.getId(),
                 permission.getSpaceId(),
                 permission.getUserId(),
+                login,
+                email,
                 permission.getPermissionType(),
                 permission.getGrantedAt()
         );

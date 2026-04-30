@@ -128,6 +128,7 @@ public class PageController {
     public String adminUsers(@AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Управление пользователями");
         model.addAttribute("currentUser", user);
+        model.addAttribute("activePage", "users");
         model.addAttribute("content", "pages/admin-users");
         return "admin-layout";
     }
@@ -140,7 +141,21 @@ public class PageController {
     public String adminSpaces(@AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Управление пространствами");
         model.addAttribute("currentUser", user);
+        model.addAttribute("activePage", "spaces");
         model.addAttribute("content", "pages/admin-spaces");
+        return "admin-layout";
+    }
+
+    /**
+     * GET /admin/settings
+     * Панель администратора — настройки.
+     */
+    @GetMapping("/admin/settings")
+    public String adminSettings(@AuthenticationPrincipal User user, Model model) {
+        model.addAttribute("pageTitle", "Настройки");
+        model.addAttribute("currentUser", user);
+        model.addAttribute("activePage", "settings");
+        model.addAttribute("content", "pages/admin-settings");
         return "admin-layout";
     }
 }

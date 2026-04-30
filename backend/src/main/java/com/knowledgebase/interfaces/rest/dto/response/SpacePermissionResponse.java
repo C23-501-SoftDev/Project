@@ -20,6 +20,12 @@ public record SpacePermissionResponse(
     @Schema(description = "ID пользователя", example = "2")
     Long userId,
 
+    @Schema(description = "Логин пользователя", example = "ivanov")
+    String userLogin,
+
+    @Schema(description = "Email пользователя", example = "ivanov@example.com")
+    String userEmail,
+
     @Schema(description = "Тип права доступа", example = "WRITE")
     PermissionType permissionType,
 

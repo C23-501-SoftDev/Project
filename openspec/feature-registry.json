@@ -52,6 +52,27 @@
         "GET /api/user/permissions",
         "GET /api/user/spaces"
       ]
+    },
+    {
+      "featureId": "admin-panel-ui",
+      "title": "Admin Panel: Users & Spaces management UI",
+      "status": "planned",
+      "area": "frontend+backend",
+      "repo": "Project",
+      "docs": [
+        "../Docs/documents/prototypes/admin-panel/index.html"
+      ],
+      "endpoints": [
+        "GET /admin/users",
+        "GET /admin/spaces",
+        "GET /admin/settings",
+        "GET/POST/PUT/DELETE /api/admin/users",
+        "GET/POST/PUT/DELETE /api/admin/spaces"
+      ],
+      "dependsOn": [
+        "admin-users-crud",
+        "spaces-and-permissions"
+      ]
     }
   ]
 }

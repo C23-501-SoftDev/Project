@@ -22,6 +22,9 @@ public record SpaceResponse(
     @Schema(description = "ID пользователя-владельца", example = "1")
     Long ownerId,
 
+    @Schema(description = "Логин владельца пространства", example = "admin")
+    String ownerLogin,
+
     @Schema(description = "Дата создания")
     LocalDateTime createdAt,
 

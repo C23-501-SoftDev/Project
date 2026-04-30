@@ -1,0 +1,77 @@
+/* Admin Panel CSS - Extracted from prototype */
+
+* { box-sizing: border-box; }
+
+/* Layout */
+.admin-layout { display: flex; height: 100vh; }
+.sidebar { width: 240px; background: #FFF; border-right: 1px solid #E5E7EB; padding: 16px; }
+.sidebar h2 { margin-bottom: 16px; }
+.sidebar ul { list-style: none; padding: 0; margin: 0; }
+.sidebar-tab { padding: 8px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; display: block; text-decoration: none; color: inherit; }
+.sidebar-tab:hover { background: #F3F4F6; }
+.sidebar-tab.active { background: #E0E7FF; color: #1D4ED8; font-weight: 500; }
+
+.content { flex: 1; padding: 24px; overflow-y: auto; }
+
+/* Header & Navbar */
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.navbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: #FFF; border-bottom: 1px solid #E5E7EB; }
+.breadcrumbs { font-size: 14px; color: #6B7280; }
+.breadcrumbs a { color: #3B82F6; text-decoration: none; }
+.breadcrumbs a:hover { text-decoration: underline; }
+
+/* Buttons */
+.button-primary { background: #2563EB; color: #FFF; border-radius: 8px; padding: 8px 16px; border: none; cursor: pointer; font-weight: 500; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+.button-primary:hover { background: #1D4ED8; }
+.button-secondary { background: #E5E7EB; border-radius: 8px; padding: 8px 16px; border: none; cursor: pointer; font-weight: 500; min-width: 100px; text-align: center; display: inline-flex; align-items: center; gap: 6px; }
+.button-secondary:hover { background: #D1D5DB; }
+.button-danger { background: #DC2626; color: #FFF; border-radius: 8px; padding: 6px 12px; border: none; cursor: pointer; }
+.button-danger:hover { background: #B91C1C; }
+
+/* Tables */
+.data-table { width: 100%; border-collapse: collapse; background: #FFF; border: 1px solid #E5E7EB; border-radius: 12px; overflow: hidden; }
+.data-table th, .data-table td { padding: 12px; border-bottom: 1px solid #E5E7EB; text-align: left; }
+.data-table th[data-sort] { cursor: pointer; user-select: none; }
+.data-table th[data-sort].sort-asc::after { content: " \u2191"; color: #2563EB; font-size: 0.8em; }
+.data-table th[data-sort].sort-desc::after { content: " \u2193"; color: #DC2626; font-size: 0.8em; }
+.actions button { margin-right: 8px; }
+
+/* Badges */
+.badge { padding: 4px 8px; border-radius: 6px; font-size: 12px; display: inline-block; margin-right: 4px; margin-bottom: 2px; }
+.badge.active { background: #DCFCE7; color: #166534; }
+.badge.inactive { background: #FEE2E2; color: #991B1B; }
+.badge.Admin { background: #DBEAFE; color: #1E40AF; }
+.badge.Editor { background: #D1FAE5; color: #166534; }
+.badge.Reader { background: #FEF3C7; color: #92400E; }
+
+/* Modal */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; justify-content: center; align-items: center; z-index: 1000; }
+.modal.show { display: flex; }
+.modal-content { background: #FFF; padding: 24px; border-radius: 16px; width: 450px; max-width: 90vw; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+
+/* Forms */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: 500; }
+.form-input, input[type="text"], input[type="email"], input[type="password"], select, textarea { width: 100%; padding: 8px 12px; border: 1px solid #E5E7EB; border-radius: 8px; font-size: 14px; }
+.checkbox-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
+.checkbox-row label { display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer; }
+.checkbox-row input { width: auto; margin: 0; }
+
+/* Filter Bar */
+.filter-bar { margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.filter-group { flex: 1; min-width: 150px; }
+.role-filters { display: flex; gap: 12px; align-items: center; }
+.role-filters label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+/* Pagination */
+.pagination { display: flex; gap: 12px; align-items: center; margin-top: 20px; flex-wrap: wrap; }
+.pagination select { width: auto; padding: 6px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 20px; right: 20px; background: #16A34A; color: #FFF; padding: 12px 20px; border-radius: 10px; display: none; z-index: 1100; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.toast.show { display: block; }
+.toast.error { background: #DC2626; }
+
+/* Utility */
+.states { margin-top: 12px; }
+.wip-message { text-align: center; padding: 40px; font-size: 18px; color: #6B7280; }

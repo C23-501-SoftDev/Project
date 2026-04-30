@@ -24,6 +24,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 /**
  * Контроллер управления пространствами.
@@ -61,14 +63,21 @@ public class SpaceController {
         @ApiResponse(responseCode = "200", description = "Список пространств"),
         @ApiResponse(responseCode = "403", description = "Доступ запрещён")
     })
-    public ResponseEntity<List<SpaceResponse>> getAllSpaces(
+    public ResponseEntity<java.util.Map<String, Object>> getAllSpaces(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
         List<Space> spaces = spaceService.getAllSpaces(page, size);
-        List<SpaceResponse> response = spaces.stream()
+        long totalCount = spaceService.countAllSpaces();
+        int totalPages = (int) Math.ceil((double) totalCount / size);
+        List<SpaceResponse> content = spaces.stream()
                 .map(mapper::toSpaceResponse)
                 .toList();
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("content", content);
+        response.put("totalPages", totalPages);
+        response.put("totalElements", totalCount);
+        response.put("number", page);
         return ResponseEntity.ok(response);
     }
 
@@ -124,6 +133,29 @@ public class SpaceController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(mapper.toSpacePermissionResponse(permission));
+    }
+
+    /**
+     * GET /api/admin/spaces/{spaceId}/permissions
+     * Получение всех прав доступа для пространства (только ADMIN).
+     */
+    @GetMapping("/api/admin/spaces/{spaceId}/permissions")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Права доступа пространства",
+               description = "Возвращает все права доступа для указанного пространства")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Список прав доступа"),
+        @ApiResponse(responseCode = "404", description = "Пространство не найдено"),
+        @ApiResponse(responseCode = "403", description = "Доступ запрещён")
+    })
+    public ResponseEntity<List<SpacePermissionResponse>> getSpacePermissions(
+            @PathVariable Long spaceId) {
+
+        List<SpacePermission> permissions = spaceService.getPermissionsForSpace(spaceId);
+        List<SpacePermissionResponse> response = permissions.stream()
+                .map(mapper::toSpacePermissionResponse)
+                .toList();
+        return ResponseEntity.ok(response);
     }
 
     // ── Пользовательские эндпоинты ─────────────────────────────────────────

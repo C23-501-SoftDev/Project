@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-04-23
+**Дата обновления:** 2026-04-29
 
 ---
 
@@ -210,9 +210,9 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/admin/users?page=0&size=20&sortBy=login&sortDir=asc` | Список пользователей с пагинацией | ✅ |
+| GET | `/api/admin/users?page=0&size=20&sortBy=login&sortDir=asc` | Список пользователей с пагинацией и сортировкой | ✅ |
 | GET | `/api/admin/users?role=EDITOR` | Фильтрация по роли | ✅ |
-| GET | `/api/admin/users?search=admin` | Поиск по логину/email | ❌ (search не реализован в бэкенде) |
+| GET | `/api/admin/users?search=admin` | Поиск по логину/email | ✅ |
 | GET | `/api/admin/users/{id}` | Детали пользователя | ✅ |
 | POST | `/api/admin/users` | Создание пользователя (`{ login, email, password, role }`) | ✅ |
 | PUT | `/api/admin/users/{id}` | Обновление (`{ login, email, role }`) | ✅ |
@@ -226,11 +226,11 @@
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
 | GET | `/api/admin/spaces` | Все пространства системы | ✅ |
-| POST | `/api/admin/spaces` | Создание пространства (`{ name, description, ownerId }`) | ❌ (не реализовано в бэкенде, есть в спецификации) |
+| POST | `/api/admin/spaces` | Создание пространства (`{ name, description, ownerId }`) | ✅ |
 | PUT | `/api/admin/spaces/{id}` | Обновление пространства | ❌ |
 | DELETE | `/api/admin/spaces/{id}` | Удаление пространства (RESTRICT если есть документы) | ❌ |
 | POST | `/api/admin/spaces/{spaceId}/permissions` | Назначение прав (`{ userId, permissionType: READ|WRITE|OWNER }`) | ✅ |
-| GET | `/api/admin/spaces/{id}/permissions` | Список прав пространства | ❌ |
+| GET | `/api/admin/spaces/{id}/permissions` | Список прав пространства (с полями userLogin, userEmail) | ✅ |
 
 ---
 

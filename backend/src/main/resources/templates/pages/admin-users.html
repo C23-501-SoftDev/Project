@@ -1,4 +1,344 @@
 <div class="admin-users-page">
-    <h1>Управление пользователями</h1>
-    <p>Список пользователей будет отображаться здесь.</p>
+    <div class="header">
+        <h1>Пользователи</h1>
+        <button class="button-primary" id="createBtn" onclick="openCreateModal()">+ Создать пользователя</button>
+    </div>
+
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>Роли:</label>
+            <div class="role-filters">
+                <label><input type="checkbox" value="Admin" class="roleFilter"> Admin</label>
+                <label><input type="checkbox" value="Editor" class="roleFilter"> Editor</label>
+                <label><input type="checkbox" value="Reader" class="roleFilter"> Reader</label>
+            </div>
+        </div>
+        <input type="text" id="searchInput" placeholder="Поиск по логину/email" style="flex:1; max-width:260px;">
+        <button class="button-primary" id="applyFiltersBtn">Применить</button>
+        <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table id="usersTable" class="data-table">
+            <thead>
+                <tr>
+                    <th data-sort="id">ID</th>
+                    <th data-sort="login">Логин</th>
+                    <th data-sort="email">Email</th>
+                    <th data-sort="roles">Роли</th>
+                    <th data-sort="status">Статус</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="usersTbody">
+                <tr><td colspan="6" style="text-align:center;">Загрузка...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination" id="usersPagination">
+        <button class="button-secondary" id="usersPrevBtn" disabled>Назад</button>
+        <span id="usersPageInfo">Страница 1 из 1</span>
+        <select id="usersPerPageSelect">
+            <option value="5">5 на странице</option>
+            <option value="20" selected>20 на странице</option>
+            <option value="50">50 на странице</option>
+        </select>
+        <button class="button-secondary" id="usersNextBtn" disabled>Вперед</button>
+    </div>
+    <div class="states">
+        <p id="usersEmptyMsg" style="display:none; text-align:center;">Пользователи не найдены</p>
+    </div>
 </div>
+
+<!-- User Modal -->
+<div class="modal" id="userModal">
+    <div class="modal-content">
+        <h3 id="userModalTitle">Создать пользователя</h3>
+        <form id="userForm" onsubmit="return false;">
+            <div class="form-group">
+                <label>Логин *</label>
+                <input type="text" id="userLogin" placeholder="Введите логин" required>
+            </div>
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" id="userEmail" placeholder="user@example.com" required>
+            </div>
+            <div class="form-group">
+                <label>Роль</label>
+                <select id="userRole">
+                    <option value="READER">Reader</option>
+                    <option value="EDITOR">Editor</option>
+                    <option value="ADMIN">Admin</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Статус</label>
+                <select id="userStatus">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Пароль (оставьте пустым, чтобы не менять)</label>
+                <input type="password" id="userPassword" placeholder="••••••••">
+            </div>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="button-primary" id="saveUserBtn">Сохранить</button>
+                <button class="button-secondary" id="closeUserModalBtn">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal" id="deleteModal">
+    <div class="modal-content">
+        <p>Вы уверены, что хотите удалить этого пользователя?</p>
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+            <button class="button-secondary" id="cancelDeleteBtn">Отмена</button>
+            <button class="button-danger" id="confirmDeleteBtn">Удалить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    let state = {
+        sortBy: 'id',
+        sortDir: 'asc',
+        page: 0,
+        size: 20,
+        roleFilters: [],
+        searchTerm: '',
+        totalElements: 0,
+        totalPages: 0
+    };
+    let editingUserId = null;
+    let pendingDeleteUserId = null;
+
+    function renderBadge(role) {
+        if (!role) return '-';
+        return `<span class="badge ${escapeHtml(role)}">${escapeHtml(role)}</span>`;
+    }
+
+    function renderStatus(status) {
+        const s = status || 'Inactive';
+        const cls = s === 'Active' ? 'active' : 'inactive';
+        return `<span class="badge ${cls}">${escapeHtml(s)}</span>`;
+    }
+
+    async function fetchUsers() {
+        const tbody = document.getElementById('usersTbody');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Загрузка...</td></tr>';
+
+        let url = `/api/admin/users?page=${state.page}&size=${state.size}&sortBy=${state.sortBy}&sortDir=${state.sortDir}`;
+        if (state.searchTerm) url += `&search=${encodeURIComponent(state.searchTerm)}`;
+        if (state.roleFilters.length > 0) {
+            state.roleFilters.forEach(r => { url += `&roles=${encodeURIComponent(r)}`; });
+        }
+
+        try {
+            const data = await adminFetch(url);
+            const users = data.content || data.users || [];
+            state.totalElements = data.totalElements || users.length;
+            state.totalPages = data.totalPages || 1;
+
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Пользователи не найдены</td></tr>';
+                document.getElementById('usersEmptyMsg').style.display = 'block';
+            } else {
+                document.getElementById('usersEmptyMsg').style.display = 'none';
+                tbody.innerHTML = users.map(u => `
+                    <tr>
+                        <td>${escapeHtml(u.id)}</td>
+                        <td>${escapeHtml(u.login || u.username || '')}</td>
+                        <td>${escapeHtml(u.email || '')}</td>
+                        <td>${renderBadge(u.role)}</td>
+                        <td>${renderStatus(u.status || u.enabled !== false ? 'Active' : 'Inactive')}</td>
+                        <td class="actions">
+                            <button class="button-secondary" onclick="window.editUser(${u.id})">Редактировать</button>
+                            <button class="button-danger" onclick="window.deleteUserPrompt(${u.id})">Удалить</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            updatePagination();
+            updateSortIndicators();
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
+            console.error('Failed to fetch users:', e);
+        }
+    }
+
+    function updatePagination() {
+        const currentPage = state.page + 1;
+        document.getElementById('usersPageInfo').textContent = `Страница ${currentPage} из ${state.totalPages || 1}`;
+        document.getElementById('usersPrevBtn').disabled = state.page <= 0;
+        document.getElementById('usersNextBtn').disabled = state.page >= state.totalPages - 1;
+    }
+
+    function updateSortIndicators() {
+        document.querySelectorAll('#usersTable th[data-sort]').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+            if (th.dataset.sort === state.sortBy) {
+                th.classList.add(`sort-${state.sortDir}`);
+            }
+        });
+    }
+
+    function openCreateModal() {
+        editingUserId = null;
+        document.getElementById('userModalTitle').textContent = 'Создать пользователя';
+        document.getElementById('userLogin').value = '';
+        document.getElementById('userEmail').value = '';
+        document.getElementById('userRole').value = 'READER';
+        document.getElementById('userPassword').value = '';
+        openModal('userModal');
+    }
+
+    async function editUser(id) {
+        editingUserId = id;
+        document.getElementById('userModalTitle').textContent = 'Редактировать пользователя';
+        document.getElementById('userLogin').value = '';
+        document.getElementById('userEmail').value = '';
+        document.getElementById('userRole').value = 'READER';
+        document.getElementById('userPassword').value = '';
+
+        try {
+            const user = await adminFetch(`/api/admin/users/${id}`);
+            document.getElementById('userLogin').value = user.login || user.username || '';
+            document.getElementById('userEmail').value = user.email || '';
+            document.getElementById('userRole').value = user.role || 'READER';
+        } catch (e) {
+            console.error('Failed to load user:', e);
+        }
+        openModal('userModal');
+    }
+
+    async function saveUser() {
+        const login = document.getElementById('userLogin').value.trim();
+        const email = document.getElementById('userEmail').value.trim();
+        const role = document.getElementById('userRole').value;
+        const password = document.getElementById('userPassword').value;
+
+        if (!login || !email || !role) {
+            showToast('Логин и Email обязательны', 'error');
+            return;
+        }
+
+        try {
+            if (editingUserId === null) {
+                const userData = { login, email, role, password: password || 'TempPass123!' };
+                await adminFetch('/api/admin/users', {
+                    method: 'POST',
+                    body: JSON.stringify(userData)
+                });
+                showToast(`Пользователь "${login}" создан`);
+            } else {
+                await adminFetch(`/api/admin/users/${editingUserId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ login, email, role })
+                });
+                if (password) {
+                    await adminFetch(`/api/admin/users/${editingUserId}/password`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ password })
+                    });
+                }
+                showToast(`Пользователь "${login}" обновлен`);
+            }
+            closeModal('userModal');
+            fetchUsers();
+        } catch (e) {
+            console.error('Failed to save user:', e);
+        }
+    }
+
+    function deleteUserPrompt(id) {
+        pendingDeleteUserId = id;
+        openModal('deleteModal');
+    }
+
+    async function confirmDelete() {
+        if (pendingDeleteUserId === null) return;
+        try {
+            await adminFetch(`/api/admin/users/${pendingDeleteUserId}`, { method: 'DELETE' });
+            showToast('Пользователь удален');
+            closeModal('deleteModal');
+            pendingDeleteUserId = null;
+            fetchUsers();
+        } catch (e) {
+            console.error('Failed to delete user:', e);
+            if (e.message && e.message.includes('Conflict')) {
+                showToast('Невозможно удалить: пользователь связан с другими данными', 'error');
+            }
+        }
+    }
+
+    function applyUserFilters() {
+        const checked = Array.from(document.querySelectorAll('.roleFilter:checked')).map(cb => cb.value);
+        state.roleFilters = checked;
+        state.searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+        state.page = 0;
+        fetchUsers();
+        showToast('Фильтры применены');
+    }
+
+    function clearUserFilters() {
+        document.querySelectorAll('.roleFilter').forEach(cb => cb.checked = false);
+        document.getElementById('searchInput').value = '';
+        state.roleFilters = [];
+        state.searchTerm = '';
+        state.page = 0;
+        fetchUsers();
+        showToast('Фильтры сброшены');
+    }
+
+    window.openCreateModal = openCreateModal;
+    window.editUser = editUser;
+    window.deleteUserPrompt = deleteUserPrompt;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchUsers();
+
+        document.querySelectorAll('#usersTable th[data-sort]').forEach(th => {
+            th.addEventListener('click', () => {
+                const key = th.dataset.sort;
+                if (state.sortBy === key) {
+                    state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    state.sortBy = key;
+                    state.sortDir = 'asc';
+                }
+                state.page = 0;
+                fetchUsers();
+            });
+        });
+
+        document.getElementById('usersPrevBtn').addEventListener('click', () => {
+            if (state.page > 0) { state.page--; fetchUsers(); }
+        });
+        document.getElementById('usersNextBtn').addEventListener('click', () => {
+            if (state.page < state.totalPages - 1) { state.page++; fetchUsers(); }
+        });
+        document.getElementById('usersPerPageSelect').addEventListener('change', (e) => {
+            state.size = parseInt(e.target.value);
+            state.page = 0;
+            fetchUsers();
+        });
+
+        document.getElementById('applyFiltersBtn').addEventListener('click', applyUserFilters);
+        document.getElementById('clearFiltersBtn').addEventListener('click', clearUserFilters);
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') applyUserFilters();
+        });
+
+        document.getElementById('closeUserModalBtn').addEventListener('click', () => closeModal('userModal'));
+        document.getElementById('saveUserBtn').addEventListener('click', saveUser);
+        document.getElementById('cancelDeleteBtn').addEventListener('click', () => closeModal('deleteModal'));
+        document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+    });
+})();
+</script>

@@ -102,6 +102,13 @@ public class SpaceService {
     }
 
     /**
+     * Возвращает общее количество пространств.
+     */
+    public long countAllSpaces() {
+        return spaceRepository.count();
+    }
+
+    /**
      * Возвращает пространства, доступные пользователю.
      *
      * Для ADMIN — все пространства.
@@ -185,5 +192,19 @@ public class SpaceService {
             throw new SpaceNotFoundException(spaceId);
         }
         return permissionRepository.findBySpaceIdAndUserId(spaceId, userId);
+    }
+
+    /**
+     * Возвращает все права доступа для указанного пространства (для ADMIN).
+     *
+     * @param spaceId ID пространства
+     * @return список всех прав доступа
+     * @throws SpaceNotFoundException если пространство не найдено
+     */
+    public List<SpacePermission> getPermissionsForSpace(Long spaceId) {
+        if (!spaceRepository.findById(spaceId).isPresent()) {
+            throw new SpaceNotFoundException(spaceId);
+        }
+        return permissionRepository.findBySpaceId(spaceId);
     }
 }
