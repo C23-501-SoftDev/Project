@@ -21,6 +21,7 @@
         <div class="navbar-menu">
             <span class="user-info" th:text="${currentUser.login}">Пользователь</span>
             <span class="user-role" th:text="${currentUser.role.name()}">Роль</span>
+            <a th:if="${currentUser.admin}" th:href="@{/admin/users}" class="btn-admin-link">Админ-панель</a>
             <form th:action="@{/logout}" method="post">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <button type="submit" class="btn-logout">Выйти</button>
