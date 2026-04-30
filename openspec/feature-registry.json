@@ -56,7 +56,7 @@
     {
       "featureId": "admin-panel-ui",
       "title": "Admin Panel: Users & Spaces management UI",
-      "status": "planned",
+      "status": "done",
       "area": "frontend+backend",
       "repo": "Project",
       "docs": [

@@ -22,7 +22,7 @@
 - **endpoints**: `GET /api/spaces`, `GET/POST /api/admin/spaces`, `POST /api/admin/spaces/{spaceId}/permissions`, `GET /api/user/*`
 
 ### admin-panel-ui — Admin Panel: Users & Spaces management UI
-- **status**: planned
+- **status**: done
 - **dependsOn**: `admin-users-crud`, `spaces-and-permissions`
 - **endpoints**: `GET /admin/users`, `GET /admin/spaces`, `GET /admin/settings`, `GET/POST/PUT/DELETE /api/admin/users`, `GET/POST/PUT/DELETE /api/admin/spaces`
 - **docs**: `../Docs/documents/prototypes/admin-panel/index.html`
