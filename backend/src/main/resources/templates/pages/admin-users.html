@@ -244,7 +244,7 @@
                 if (password) {
                     await adminFetch(`/api/admin/users/${editingUserId}/password`, {
                         method: 'PUT',
-                        body: JSON.stringify({ password })
+                        body: JSON.stringify({ newPassword: password })
                     });
                 }
                 showToast(`Пользователь "${login}" обновлен`);
