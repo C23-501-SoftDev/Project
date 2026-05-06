@@ -17,11 +17,11 @@
 
 ### 2. Node.js, npm
 
-#### Установка Node.js (версия 18+):
+#### Установка Node.js (версия 18+)
 
 - Скачайте установщик с [nodejs.org](https://nodejs.org) (рекомендуется LTS-версия)
 
-#### Проверка:
+#### Проверка
 
 ```bash
 node -v
@@ -82,17 +82,20 @@ Maven используется для управления зависимост�
    - Нажмите `OK` во всех окнах
 
 #### macOS
+
 ```bash
 brew install maven
 ```
 
 #### Linux (Ubuntu/Debian)
+
 ```bash
 sudo apt update
 sudo apt install maven
 ```
 
-#### Проверка после установки (для всех ОС):
+#### Проверка после установки (для всех ОС)
+
 ```cmd
 mvn -version
 ```
@@ -100,17 +103,20 @@ mvn -version
 ### 5. PostgreSQL
 
 У большинства уже установлен через pgAdmin в рамках других дисциплин.  
-Если нет — установите PostgreSQL 18 с официального сайта: https://www.postgresql.org/download/
+Если нет — установите PostgreSQL 18 с официального сайта: <https://www.postgresql.org/download/>
 
 #### Создание базы данных (через pgAdmin)
 
 1. Откройте pgAdmin
 2. Подключитесь к серверу
 3. В окне Query Tools (Инструмент запросов) для базы postgres введите следующий SQL-запрос(создание пользователя для работы с БД):
+
 ```sql
 CREATE USER kb_user WITH PASSWORD 'strong_password';
 ```
+
 А затем этот (создание самой БД):
+
 ```sql
 CREATE DATABASE knowledge_base
    WITH 
@@ -127,17 +133,20 @@ CREATE DATABASE knowledge_base
 mvn clean compile
 mvn spring-boot:run
 ```
+
 После этого приложение соберётся и запустится.
 
 ## Локальная разработка в Docker (для команды)
 
 Docker-конфигурация находится в корне репозитория:
+
 - `docker-compose.yml`
 - `.env.example`
 - `Makefile`
 - `backend/Dockerfile`
 
 **Что поднимается:**
+
 - `kb_app` — Spring Boot через `mvn spring-boot:run` (профиль `prod`)
 - `kb_postgres` — PostgreSQL 18, данные на именованном томе `postgres_data`
 - `kb_redis`, `kb_rabbitmq` — опционально, через профиль `extras`
@@ -176,9 +185,10 @@ echo "GID=$(id -g)" >> .env
 make docker-up
 ```
 
-> **Первый запуск занимает 5–15 минут** — Maven скачивает все зависимости проекта в кеш (`maven_cache` volume). Повторные запуски быстрее.
+> **Первый запуск занимает 5–15 минут** — Maven скачивает все зависимости проекта в локальный кеш внутри контейнера. Повторные запуски быстрее, пока контейнер не пересоздан.
 
 Проверка:
+
 - приложение: `http://localhost:8080`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - health: `http://localhost:8080/actuator/health`
@@ -244,10 +254,13 @@ make docker-up
 
 1. Проверьте, что в `.env` корректные `UID/GID`.
 2. Перезапустите сервисы:
+
    ```bash
    make docker-down && make docker-up
    ```
+
 3. Если права уже испорчены (чаще на Linux), исправьте владельца в проекте:
+
    ```bash
    sudo chown -R "$(id -u):$(id -g)" ./backend/data
    ```
@@ -284,6 +297,7 @@ make docker-up
 | GET | `/admin/spaces` | Управление пространствами | ADMIN |
 
 Функции админ-панели (см. прототип `Docs/prototypes/admin-panel/index.html`):
+
 - **Users** — таблица пользователей с сортировкой, фильтрацией по ролям (Admin/Editor/Reader), поиском по логину/email, пагинацией. Модальные окна для создания, редактирования и удаления пользователей.
 - **Spaces** — таблица пространств с сортировкой, пагинацией. Создание, редактирование, удаление пространств.
 - **Settings** — системные настройки (тема, язык).
@@ -292,16 +306,18 @@ make docker-up
 
 Все API-эндпоинты описаны через OpenAPI (Swagger UI). Это основной способ изучения доступных методов, параметров и форматов ответов. **Для тестирования эндпоинтов рекомендуется использовать Swagger UI**, а не curl/Postman.
 
-Swagger UI: **http://localhost:8080/swagger-ui.html**
+Swagger UI: **<http://localhost:8080/swagger-ui.html>**
 
 ### Аутентификация через Swagger
 
 1. Откройте Swagger UI
 2. Найдите раздел **Authentication** → `POST /api/auth/login`
 3. Нажмите **Try it out**, введите учётные данные:
+
    ```json
    { "login": "admin", "password": "admin123" }
    ```
+
 4. Скопируйте токен из ответа
 5. Нажмите кнопку **Authorize** (вверху страницы), введите `Bearer <токен>`
 6. Теперь все защищённые эндпоинты доступны для выполнения
@@ -314,6 +330,7 @@ Swagger UI: **http://localhost:8080/swagger-ui.html**
 | GET | `/api/auth/me` | Информация о текущем пользователе |
 
 **Пример ответа `/api/auth/login`** (200 OK):
+
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiJ9...",

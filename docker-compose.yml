@@ -28,7 +28,6 @@ services:
       - ./backend/src:/workspace/src
       - ./backend/pom.xml:/workspace/pom.xml
       - ./backend/data:/workspace/data
-      - maven_cache:/home/app/.m2
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,4 +87,3 @@ services:
 
 volumes:
   postgres_data:
-  maven_cache:

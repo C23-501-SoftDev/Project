@@ -20,14 +20,16 @@ RUN set -e; \
 
 WORKDIR /workspace
 
+ENV MAVEN_CONFIG=/workspace/.m2
+
 # Copy Maven project file first to maximize dependency cache reuse.
-COPY pom.xml ./
+COPY --chown=${APP_UID}:${APP_GID} pom.xml ./
 RUN mvn -B -q -DskipTests dependency:go-offline
 
 # Copy source after dependencies layer.
-COPY src ./src
+COPY --chown=${APP_UID}:${APP_GID} src ./src
 
-ENV MAVEN_CONFIG=/home/${APP_USER}/.m2
+RUN mkdir -p /workspace/.m2 && chown -R ${APP_UID}:${APP_GID} /workspace /home/${APP_USER}
 EXPOSE 8080
 
 USER ${APP_USER}
