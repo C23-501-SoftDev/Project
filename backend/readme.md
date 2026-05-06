@@ -19,7 +19,11 @@
 
 #### Установка Node.js (версия 18+)
 
+#### Установка Node.js (версия 18+)
+
 - Скачайте установщик с [nodejs.org](https://nodejs.org) (рекомендуется LTS-версия)
+
+#### Проверка
 
 #### Проверка
 
@@ -96,6 +100,8 @@ sudo apt install maven
 
 #### Проверка после установки (для всех ОС)
 
+#### Проверка после установки (для всех ОС)
+
 ```cmd
 mvn -version
 ```
@@ -103,6 +109,7 @@ mvn -version
 ### 5. PostgreSQL
 
 У большинства уже установлен через pgAdmin в рамках других дисциплин.  
+Если нет — установите PostgreSQL 18 с официального сайта: <https://www.postgresql.org/download/>
 Если нет — установите PostgreSQL 18 с официального сайта: <https://www.postgresql.org/download/>
 
 #### Создание базы данных (через pgAdmin)
@@ -138,132 +145,395 @@ mvn spring-boot:run
 
 ## Локальная разработка в Docker (для команды)
 
-Docker-конфигурация находится в корне репозитория:
+### 🚀 Быстрый старт (One-Click Setup)
 
-- `docker-compose.yml`
-- `.env.example`
-- `Makefile`
-- `backend/Dockerfile`
+Самый простой способ — запустить автоматический bootstrap-скрипт:
 
-**Что поднимается:**
+```bash
+# Способ 1: Из VS Code (рекомендуется)
+# Cmd/Ctrl + Shift + P → Tasks: Run Task → "Dev: One Click Setup"
 
-- `kb_app` — Spring Boot через `mvn spring-boot:run` (профиль `prod`)
-- `kb_postgres` — PostgreSQL 18, данные на именованном томе `postgres_data`
-- `kb_redis`, `kb_rabbitmq` — опционально, через профиль `extras`
+# Способ 2: Из терминала
+make dev-up
+```
 
-### 1. Первый запуск
+Скрипт автоматически:
 
-Из корня проекта:
+- ✅ Проверит Docker и Docker Compose
+- ✅ Подготовит `.env` из `.env.example`
+- ✅ Сгенерирует безопасный `JWT_SECRET_KEY`
+- ✅ Установит `UID/GID` для macOS/Linux
+- ✅ Поднимет контейнеры (`app` и `postgres`)
+- ✅ Проверит здоровье приложения
+- ✅ Выведет ссылки для доступа
+
+**Обычно занимает 2-5 минут.**
+
+### 📋 Структура проекта
+
+```
+Project/
+├── backend/                    # Spring Boot приложение
+│   └── src/main/java/com/knowledgebase/
+│       ├── application/        # Spring компоненты, конфигурация
+│       ├── domain/            # бизнес-логика, ентитеты
+│       ├── infrastructure/     # репозитории, БД работа
+│       └── interfaces/         # контроллеры REST API, Thymeleaf шаблоны
+│   └── src/test/java/         # тесты бэкенда
+│
+├── docker-compose.yml          # Описание контейнеров
+├── Makefile                    # Быстрые команды
+├── .env.example                # Шаблон переменных окружения
+└── scripts/dev/bootstrap.sh    # Автоматический setup
+```
+
+### 🔄 Режимы разработки
+
+#### LOCAL (по умолчанию, рекомендуется)
+
+**Как работает:**
+
+- Код находится **на вашей машине** в папке `backend/`
+- Docker контейнер **монтирует** эту папку (синхронизация live)
+- Вы редактируете файлы в VS Code на хосте
+- Spring Boot автоматически пересобирает код (10-30 сек)
+- Изменения видны мгновенно после перезагрузки браузера
+
+**Включить:**
+
+```bash
+# По умолчанию в .env:
+SOURCE_MODE=local
+```
+
+**Как работать:**
+
+1. Редактируйте Java-файлы в `backend/src/main/java`
+2. Сохраните файл (Cmd+S / Ctrl+S)
+3. Посмотрите логи: `make dev-logs` — видите пересборку
+4. Обновите браузер на `http://localhost:8080`
+
+**Преимущества:**
+
+- ✅ Естественный workflow в IDE
+- ✅ Изменения видны сразу
+- ✅ Легко дебажить и ставить breakpoint'ы
+- ✅ Git работает нормально
+
+**Когда используется:**
+
+- Локальная разработка (90% случаев)
+- Отладка
+- Быстрое прототипирование
+
+#### SSH (расширенный режим)
+
+**Как работает:**
+
+- Код клонируется **внутри контейнера** при первом старте
+- Вы редактируете файлы либо в контейнере (`make docker-shell`), либо через VS Code Remote SSH
+- При остановке контейнера код может быть потерян, если не сделать commit/push
+
+**Включить:**
+
+```bash
+# В .env:
+SOURCE_MODE=ssh
+GIT_REPO_URL=git@github.com:username/project.git
+GIT_BRANCH=main
+AUTO_PULL=false  # Или 'true' для auto-pull при каждом старте
+```
+
+**Требования для SSH:**
+
+- Настроить SSH-агент на хосте:
+
+  ```bash
+  eval $(ssh-agent)
+  ssh-add ~/.ssh/id_rsa  # или путь к вашему SSH-ключу
+  ```
+
+- Docker Desktop должен быть настроен на перенос SSH auth socket
+
+**Как работать:**
+
+1. `make docker-shell` — входите в контейнер
+2. Редактируйте файлы (vi, nano, или подключите VS Code Remote)
+3. При необходимости: `git commit` и `git push` внутри контейнера
+4. Spring Boot пересобирает, изменения видны в браузере
+
+**Преимущества:**
+
+- ✅ Чистое окружение (без локального clone)
+- ✅ Полезно для CI/CD пайпов
+- ✅ Безопаснее для публичных окружений
+
+**Когда используется:**
+
+- Отладка SSH-related issue'ов
+- Подготовка к deployment
+- Чистое окружение для тестирования
+- Когда нет локального clone
+
+### Детальный manual setup (если bootstrap не сработает)
+
+**Файлы Docker-конфигурации:**
+
+- `docker-compose.yml` — описание сервисов (app, postgres, redis, rabbitmq)
+- `.env.example` — шаблон переменных окружения
+- `Makefile` — быстрые команды
+- `backend/Dockerfile` — конфигурация образа приложения
+
+**Шаг 1: Подготовить .env**
 
 ```bash
 cp .env.example .env
 ```
 
-Откройте `.env` и заполните секретные значения (как минимум эти поля):
-
-```env
-POSTGRES_DB=knowledge_base
-POSTGRES_USER=kb_user
-POSTGRES_PASSWORD=<придумайте пароль>
-JWT_SECRET_KEY=<не менее 32 символов, например: my-local-dev-secret-key-32chars!>
-```
-
-> `JWT_SECRET_KEY` обязателен — без него контейнер `app` не стартует (профиль `prod` требует переменную окружения).
-
-Для Linux/macOS добавьте свой `UID`/`GID`, чтобы файлы в volume создавались с правами вашего пользователя:
+**Шаг 2: Заполнить переменные окружения (macOS/Linux)**
 
 ```bash
 echo "UID=$(id -u)" >> .env
 echo "GID=$(id -g)" >> .env
 ```
 
-> **Внимание:** если у вас macOS и `GID` системной группы совпадает с GID уже существующим в базовом образе (например GID=20 — группа `staff`), укажите нестандартный GID вручную в `.env`, например `GID=2000`.
-
-Поднимите окружение:
+**Шаг 3: Запустить контейнеры**
 
 ```bash
-make docker-up
+docker compose --env-file .env up -d --build
 ```
 
-> **Первый запуск занимает 5–15 минут** — Maven скачивает все зависимости проекта в локальный кеш внутри контейнера. Повторные запуски быстрее, пока контейнер не пересоздан.
+**Шаг 4: Проверить статус**
 
-Проверка:
+```bash
+docker ps
+```
 
-- приложение: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- health: `http://localhost:8080/actuator/health`
+Должны быть запущены контейнеры:
 
-### 2. Установка зависимостей внутри контейнера
+- `kb_app` (Spring Boot приложение)
+- `kb_postgres` (база данных)
 
-Зависимости Maven автоматически подтягиваются при старте `app`.
-Если нужно вручную:
+### 🛠️ Установка зависимостей и миграции
+
+**Зависимости Maven:**
+Подтягиваются автоматически при старте. Если нужно вручную:
 
 ```bash
 docker compose --env-file .env exec app mvn -B dependency:resolve
 ```
 
-### 3. Миграции и тесты
+**Liquibase миграции БД:**
+Применяются автоматически при старте приложения. Ничего не нужно делать.
 
-- Liquibase-миграции применяются автоматически при старте приложения.
-- Запуск тестов:
+**Запуск тестов:**
 
 ```bash
 docker compose --env-file .env exec app mvn test
 ```
 
-### 4. Вход в контейнер
+### 📝 Команды для повседневной работы
 
-```bash
-make docker-shell
-```
+| Команда | Что делает |
+|---------|-----------|
+| `make dev-up` | Быстрый старт приложения (автоматический setup) |
+| `make dev-down` | Остановить контейнеры (данные сохраняются) |
+| `make dev-logs` | Видеть live логи app и postgres |
+| `make docker-shell` | Вход в контейнер app |
+| `docker ps` | Статус всех контейнеров |
+| `docker compose down -v` | Полное удаление (включая БД) |
 
-### 5. Логи и остановка
+### 🚨 Troubleshooting
 
-```bash
-make docker-logs
-make docker-down
-```
+#### Ошибка: `Docker is not installed`
 
-### 6. Опциональные сервисы (кэш/очередь)
+**Решение:**
 
-Для запуска Redis и RabbitMQ вместе с базовым окружением:
+- Установите Docker Desktop: <https://www.docker.com/products/docker-desktop>
+- Проверьте: `docker --version` должно работать
 
-```bash
-make docker-up-extras
-```
+#### Ошибка: `Docker Compose is not installed`
 
-### 7. Важные замечания для Docker-сети
+**Решение:**
 
-- Внутри контейнеров нельзя использовать `localhost` для обращения к другим сервисам.
-- Для БД используйте хост `postgres` (имя сервиса в `docker-compose.yml`).
-- Секреты храните только в локальном `.env` (не коммитьте его в репозиторий).
+- Docker Desktop v4.0+ имеет встроенный Docker Compose
+- Обновите Docker Desktop или установите Docker Compose отдельно
 
-### 8. Пересоздание тома базы данных
+#### Ошибка: `permission denied (publickey)` при SSH mode
 
-Если вы обновляете уже существующий проект, в котором ранее использовался **PostgreSQL версии ниже 18**, или видите ошибку вида `there appears to be PostgreSQL data in /var/lib/postgresql/data (unused mount/volume)` — необходимо удалить старый том и поднять окружение заново:
+**Решение:**
 
-```bash
-make docker-down
-docker compose --env-file .env down -v   # удаляет тома, данные БД будут потеряны
-make docker-up
-```
-
-> **Данные удалятся безвозвратно.** Если они важны — сделайте `pg_dump` перед удалением тома.
-
-### 9. Что делать при `permission denied`
-
-1. Проверьте, что в `.env` корректные `UID/GID`.
-2. Перезапустите сервисы:
+1. Проверьте SSH-ключ: `ssh-add -l`
+2. Добавьте ключ:
 
    ```bash
-   make docker-down && make docker-up
+   eval $(ssh-agent)
+   ssh-add ~/.ssh/id_rsa
    ```
 
-3. Если права уже испорчены (чаще на Linux), исправьте владельца в проекте:
+3. Проверьте `GIT_REPO_URL` в `.env` — должен быть вида `git@github.com:username/repo.git`
+4. Проверьте, что ключ добавлен в GitHub
+
+#### Ошибка: `host key verification failed`
+
+**Решение:**
+
+1. Добавьте хост в `known_hosts`:
+
+   ```bash
+   ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+   ```
+
+2. Перезапустите bootstrap: `make dev-up`
+
+#### Порт 8080 уже занят
+
+**Решение:**
+
+- Найдите процесс: `lsof -i :8080` (macOS/Linux) или `netstat -ano | grep 8080` (Windows)
+- Или измените в `.env`: `APP_PORT=8081`
+
+#### Приложение не стартует, логи показывают `permission denied`
+
+**Решение:**
+
+1. Проверьте `UID` и `GID` в `.env`:
+
+   ```bash
+   echo UID=$(id -u)
+   echo GID=$(id -g)
+   ```
+
+2. Перезапустите:
+
+   ```bash
+   make dev-down
+   make dev-up
+   ```
+
+3. Если на Linux права испорчены:
 
    ```bash
    sudo chown -R "$(id -u):$(id -g)" ./backend/data
    ```
+
+#### БД недоступна, приложение не стартует
+
+**Решение:**
+
+1. Проверьте, что оба контейнера запущены: `docker ps`
+2. Посмотрите логи postgres: `docker compose logs postgres`
+3. Проверьте `POSTGRES_*` переменные в `.env`
+4. Перезапустите с очисткой БД:
+
+   ```bash
+   make dev-down
+   docker volume rm kb_postgres_data  # Осторожно! Удалит БД
+   make dev-up
+   ```
+
+#### Изменения в коде не видны после сохранения (LOCAL mode)
+
+**Решение:**
+
+1. Проверьте логи: `make dev-logs`
+2. Убедитесь, что `SOURCE_MODE=local` в `.env`
+3. Проверьте, что папка `backend/src` примонтирована: `docker inspect kb_app | grep -A 10 Mounts`
+4. Перезапустите контейнер: `make dev-down && make dev-up`
+
+#### `mvn clean` очень медленно работает в контейнере
+
+**Решение:**
+Это нормально. Maven кэш находится в томе `maven_cache`, который сохраняется между запусками. Первый запуск медленнее.
+
+### ⏸️ Остановка и очистка
+
+**Остановить контейнеры (данные сохраняются):**
+
+```bash
+make dev-down
+```
+
+**Полная очистка (удалит БД и кэш):**
+
+```bash
+make dev-down
+docker volume rm kb_postgres_data kb_maven_cache  # Осторожно!
+```
+
+**Перезапустить отдельный сервис:**
+
+```bash
+docker compose restart app    # Только app
+docker compose restart postgres  # Только БД
+```
+
+## 📖 Где работать после успешного запуска
+
+После того как контейнеры запущены и приложение доступно по <http://localhost:8080>, вот рекомендуемый workflow:
+
+### 1. Проверить, что всё работает
+
+- Откройте <http://localhost:8080> в браузере
+- Смотрите страницу входа (или главную, если уже авторизованы)
+- Откройте <http://localhost:8080/actuator/health> — должна быть `"status":"UP"`
+
+### 2. Понять структуру кода
+
+```
+backend/src/main/java/com/knowledgebase/
+├── application/        # Spring компоненты, конфигурация, сервисы
+├── domain/            # Бизнес-логика, ентитеты, интерфейсы репозиториев
+├── infrastructure/    # Реализация репозиториев, БД работа, внешние сервисы
+└── interfaces/        # Контроллеры REST API, обработчики Thymeleaf
+```
+
+### 3. Начать разработку
+
+1. **Выбрать слой для изменений:**
+   - API? → `interfaces/` (контроллеры)
+   - Бизнес-логика? → `application/` (сервисы)
+   - Новая сущность? → `domain/` (entity, repository interface)
+   - Запросы в БД? → `infrastructure/` (repository impl)
+
+2. **Редактировать файл:**
+   - Откройте файл в VS Code
+   - Сохраните (Cmd+S / Ctrl+S)
+   - Смотрите логи: `make dev-logs`
+
+3. **Дождитесь пересборки:**
+   - Spring Boot обнаружит изменения (5-30 сек)
+   - Логи покажут что-то вроде: `Restarting Spring Application...`
+
+4. **Тестируйте:**
+   - Обновите браузер (F5 / Cmd+R)
+   - Используйте Swagger UI: <http://localhost:8080/swagger-ui.html>
+   - Или проверьте логи для ошибок
+
+### 4. Полезные ссылки внутри приложения
+
+- **Главная страница:** <http://localhost:8080>
+- **API документация (Swagger):** <http://localhost:8080/swagger-ui.html>
+- **Проверка здоровья:** <http://localhost:8080/actuator/health>
+- **Метрики приложения:** <http://localhost:8080/actuator/metrics> (если включены)
+
+### 5. Commit и push
+
+Когда готовы к commit:
+
+```bash
+git add .
+git commit -m "feat: описание изменения"
+git push origin feature/название
+```
+
+При SSH mode — коммитьте **внутри контейнера** перед остановкой:
+
+```bash
+make docker-shell
+# Внутри контейнера:
+cd /workspace && git add . && git commit -m "..." && git push
+```
 
 ## 📑 Страницы приложения (SSR)
 
@@ -306,6 +576,7 @@ make docker-up
 
 Все API-эндпоинты описаны через OpenAPI (Swagger UI). Это основной способ изучения доступных методов, параметров и форматов ответов. **Для тестирования эндпоинтов рекомендуется использовать Swagger UI**, а не curl/Postman.
 
+Swagger UI: **<http://localhost:8080/swagger-ui.html>**
 Swagger UI: **<http://localhost:8080/swagger-ui.html>**
 
 ### Аутентификация через Swagger

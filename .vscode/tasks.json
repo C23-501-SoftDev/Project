@@ -1,0 +1,71 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Dev: One Click Setup",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "dev-up"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true,
+                "showReuseMessage": false
+            },
+            "problemMatcher": [],
+            "isBackground": false,
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Dev: View Logs",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "dev-logs"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "isBackground": true,
+            "group": "build"
+        },
+        {
+            "label": "Dev: Stop Containers",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "dev-down"
+            ],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "label": "Dev: Open Shell",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "docker-shell"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "isBackground": true,
+            "group": "build"
+        }
+    ]
+}
