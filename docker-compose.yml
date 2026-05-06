@@ -33,8 +33,6 @@ services:
       - ./backend/src:/workspace/src:${SOURCE_MODE_VOLUME_FLAG:-cached}
       - ./backend/pom.xml:/workspace/pom.xml:${SOURCE_MODE_VOLUME_FLAG:-cached}
       - ./backend/data:/workspace/data
-      - maven_cache:/home/app/.m2
-      - /home/app/.ssh:${SSH_AUTH_SOCK_VOLUME_PATH:-/dev/null}:ro
     depends_on:
       postgres:
         condition: service_healthy

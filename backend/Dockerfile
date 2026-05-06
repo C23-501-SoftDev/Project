@@ -5,13 +5,12 @@ ARG APP_UID=1000
 ARG APP_GID=1000
 ARG SOURCE_MODE=local
 
-RUN addgroup -g "${APP_GID}" "${APP_USER}" \
-    && adduser -D -u "${APP_UID}" -G "${APP_USER}" "${APP_USER}"
-
 WORKDIR /workspace
 
 # Install git and ssh for SSH mode support
-RUN apk add --no-cache git openssh-client
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git openssh-client \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy Maven project file first to maximize dependency cache reuse.
 COPY --chown=${APP_UID}:${APP_GID} pom.xml ./
@@ -20,13 +19,16 @@ RUN mvn -B -q -DskipTests dependency:go-offline
 # Copy source - behavior depends on SOURCE_MODE
 # In LOCAL mode: source is mounted at runtime
 # In SSH mode: source will be cloned at startup
-COPY src ./src 2>/dev/null || true
+COPY src ./src 
 
 ENV MAVEN_CONFIG=/home/${APP_USER}/.m2
 ENV SOURCE_MODE=${SOURCE_MODE}
 EXPOSE 8080
 
-USER ${APP_USER}
+ENV HOME=/home/${APP_USER}
+
+RUN mkdir -p /home/${APP_USER}/.m2 \
+    && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER}
 
 # Startup script that handles both LOCAL and SSH modes
 RUN echo '#!/bin/sh' > /workspace/startup.sh && \
@@ -46,8 +48,12 @@ RUN echo '#!/bin/sh' > /workspace/startup.sh && \
     echo 'fi' >> /workspace/startup.sh && \
     echo '' >> /workspace/startup.sh && \
     echo 'echo "Starting Maven Spring Boot..."' >> /workspace/startup.sh && \
-    echo 'exec mvn -B spring-boot:run' >> /workspace/startup.sh && \
-    chmod +x /workspace/startup.sh
+    echo 'mkdir -p /tmp/m2/repository' >> /workspace/startup.sh && \
+    echo 'exec mvn -B -Dmaven.repo.local=/tmp/m2/repository spring-boot:run' >> /workspace/startup.sh && \
+    chmod +x /workspace/startup.sh && \
+    chown "${APP_UID}:${APP_GID}" /workspace/startup.sh
+
+USER ${APP_UID}:${APP_GID}
 
 # Dev runtime with Spring profile configured from compose env.
 CMD ["/workspace/startup.sh"]
