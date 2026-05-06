@@ -76,6 +76,9 @@ public class PermissionController {
 
             @AuthenticationPrincipal User currentUser) {
 
+        // Явно проверяем существование пространства, чтобы возвращать 404 как заявлено в контракте API.
+        spaceService.getSpaceById(spaceId);
+
         // Получаем список прав (для ADMIN — все, для остальных — из space_permissions)
         List<PermissionType> permissions = permissionService.getUserPermissions(
                 currentUser.getId(), currentUser.getRole(), spaceId);

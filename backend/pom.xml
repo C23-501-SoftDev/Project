@@ -30,6 +30,7 @@
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <springdoc.version>2.8.6</springdoc.version>
         <lombok.version>1.18.32</lombok.version>
+        <jacoco.version>0.8.12</jacoco.version>
     </properties>
 
     <dependencies>
@@ -195,6 +196,31 @@
 
     <build>
         <plugins>
+            <!-- =====================================================
+                 COVERAGE: JaCoCo (unit + integration tests via Surefire)
+                 Отчёт: target/site/jacoco/index.html
+                 ===================================================== -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- =====================================================
                  КОМПИЛЯТОР: Lombok + MapStruct
                  Порядок processorPath важен: Lombok должен быть первым

@@ -123,7 +123,7 @@ public class UserRepositoryImpl implements UserRepository {
     public boolean hasDocuments(Long userId) {
         try {
             Integer count = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*)::int FROM documents WHERE author_id = ?",
+                    "SELECT CAST(COUNT(*) AS INT) FROM documents WHERE author_id = ?",
                     Integer.class,
                     userId
             );
@@ -154,7 +154,7 @@ public class UserRepositoryImpl implements UserRepository {
     public boolean hasVersions(Long userId) {
         try {
             Integer count = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*)::int FROM versions WHERE author_id = ?",
+                    "SELECT CAST(COUNT(*) AS INT) FROM versions WHERE author_id = ?",
                     Integer.class,
                     userId
             );
