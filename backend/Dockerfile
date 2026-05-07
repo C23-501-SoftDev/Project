@@ -28,7 +28,8 @@ EXPOSE 8080
 ENV HOME=/home/${APP_USER}
 
 RUN mkdir -p /home/${APP_USER}/.m2 \
-    && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER}
+    && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER} \
+    && chown -R "${APP_UID}:${APP_GID}" /workspace
 
 # Startup script that handles both LOCAL and SSH modes
 RUN echo '#!/bin/sh' > /workspace/startup.sh && \
