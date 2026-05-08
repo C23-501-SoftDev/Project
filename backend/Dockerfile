@@ -32,26 +32,48 @@ RUN mkdir -p /home/${APP_USER}/.m2 \
     && chown -R "${APP_UID}:${APP_GID}" /workspace
 
 # Startup script that handles both LOCAL and SSH modes
-RUN echo '#!/bin/sh' > /workspace/startup.sh && \
-    echo 'set -e' >> /workspace/startup.sh && \
-    echo '' >> /workspace/startup.sh && \
-    echo 'if [ "$SOURCE_MODE" = "ssh" ]; then' >> /workspace/startup.sh && \
-    echo '  if [ ! -d "/workspace/src" ] || [ -z "$(ls -A /workspace/src 2>/dev/null)" ]; then' >> /workspace/startup.sh && \
-    echo '    echo "SSH mode: Cloning repository..."' >> /workspace/startup.sh && \
-    echo '    git clone -b "${GIT_BRANCH:-main}" "$GIT_REPO_URL" /workspace-temp' >> /workspace/startup.sh && \
-    echo '    mkdir -p /workspace/src' >> /workspace/startup.sh && \
-    echo '    mv /workspace-temp/backend/src/* /workspace/src/ 2>/dev/null || true' >> /workspace/startup.sh && \
-    echo '    rm -rf /workspace-temp' >> /workspace/startup.sh && \
-    echo '  elif [ "$AUTO_PULL" = "true" ]; then' >> /workspace/startup.sh && \
-    echo '    echo "SSH mode: Auto-pulling updates..."' >> /workspace/startup.sh && \
-    echo '    cd /workspace/src && git pull origin "${GIT_BRANCH:-main}" 2>/dev/null || true' >> /workspace/startup.sh && \
-    echo '  fi' >> /workspace/startup.sh && \
-    echo 'fi' >> /workspace/startup.sh && \
-    echo '' >> /workspace/startup.sh && \
-    echo 'echo "Starting Maven Spring Boot..."' >> /workspace/startup.sh && \
-    echo 'mkdir -p /tmp/m2/repository' >> /workspace/startup.sh && \
-    echo 'exec mvn -B -Dmaven.repo.local=/tmp/m2/repository spring-boot:run' >> /workspace/startup.sh && \
-    chmod +x /workspace/startup.sh && \
+RUN cat > /workspace/startup.sh <<'EOF'
+#!/bin/sh
+set -e
+
+APP_ROOT="/workspace"
+
+if [ "$SOURCE_MODE" = "ssh" ]; then
+    if [ -z "${GIT_REPO_URL:-}" ]; then
+        echo "SOURCE_MODE=ssh requires GIT_REPO_URL"
+        exit 1
+    fi
+
+    REPO_ROOT="${GIT_REPO_PATH:-/workspace/data/git-repo}"
+    BRANCH="${GIT_BRANCH:-main}"
+
+    mkdir -p "$REPO_ROOT"
+
+    if [ ! -d "$REPO_ROOT/.git" ]; then
+        echo "SSH mode: Выполняю полный clone репозитория в $REPO_ROOT"
+        rm -rf "$REPO_ROOT"
+        git clone -b "$BRANCH" "$GIT_REPO_URL" "$REPO_ROOT"
+    elif [ "${AUTO_PULL:-false}" = "true" ]; then
+        echo "SSH mode: Обновляю репозиторий (AUTO_PULL=true)"
+        git -C "$REPO_ROOT" fetch origin "$BRANCH"
+        git -C "$REPO_ROOT" checkout "$BRANCH"
+        git -C "$REPO_ROOT" pull --ff-only origin "$BRANCH"
+    fi
+
+    APP_ROOT="$REPO_ROOT/backend"
+fi
+
+if [ ! -f "$APP_ROOT/pom.xml" ]; then
+    echo "pom.xml not found at $APP_ROOT"
+    exit 1
+fi
+
+echo "Starting Maven Spring Boot from $APP_ROOT..."
+mkdir -p /tmp/m2/repository
+cd "$APP_ROOT"
+exec mvn -B -Dmaven.repo.local=/tmp/m2/repository spring-boot:run
+EOF
+RUN chmod +x /workspace/startup.sh && \
     chown "${APP_UID}:${APP_GID}" /workspace/startup.sh
 
 USER ${APP_UID}:${APP_GID}

@@ -43,6 +43,60 @@ make dev-up
 
 Если вы хотите избежать сетевых загрузок на новой машине, предварительно подготовьте образы локально или снимите флаг `--build` (см. раздел ниже про `SKIP_BUILD`).
 
+#### Настройка SSH-ключа для Git (первый запуск для нового участника команды)
+
+Выполните один раз, чтобы `git pull/push` работал без паролей.
+
+1. Сгенерируйте ключ (если его еще нет):
+
+```bash
+# macOS / Linux
+ssh-keygen -t ed25519 -C "you@example.com" -f ~/.ssh/id_ed25519
+
+# Windows (PowerShell)
+ssh-keygen -t ed25519 -C "you@example.com" -f $env:USERPROFILE\.ssh\id_ed25519
+```
+
+1. Запустите агент и добавьте ключ:
+
+```bash
+# macOS
+eval "$(ssh-agent -s)"
+ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+
+# Linux
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+
+# Windows (PowerShell)
+Get-Service ssh-agent | Set-Service -StartupType Automatic
+Start-Service ssh-agent
+ssh-add $env:USERPROFILE\.ssh\id_ed25519
+ssh-add -l
+```
+
+1. Скопируйте публичный ключ и добавьте его в GitHub:
+
+```bash
+# macOS / Linux
+cat ~/.ssh/id_ed25519.pub
+
+# Windows (PowerShell)
+Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub
+```
+
+Откройте GitHub → `Settings` → `SSH and GPG keys` → `New SSH key` и вставьте ключ.
+
+1. Проверьте SSH-доступ и работу Git:
+
+```bash
+ssh -T git@github.com
+git config --global user.name "Your Name"
+git config --global user.email "you@example.com"
+git remote -v
+git push -u origin <your-branch>
+```
+
 ### После успешного запуска
 
 **Приложение готово к работе:**
@@ -80,6 +134,7 @@ make attach-vscode
 Эти цели добавлены в `.vscode/tasks.json` как `Dev: Attach` и `Dev: Attach VSCode`.
 
 Если `make attach-vscode` не срабатывает, убедитесь, что:
+
 - VS Code CLI `code` доступен в PATH (`code --version`).
 - Установлено расширение Remote - Containers.
 

@@ -43,7 +43,7 @@ attach:
 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/attach.ps1
 else
 attach:
-	@./scripts/dev/attach.sh
+	@bash ./scripts/dev/attach.sh
 endif
 
 ifeq ($(OS),Windows_NT)
@@ -51,5 +51,5 @@ attach-vscode:
 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/attach-vscode.ps1
 else
 attach-vscode:
-	@./scripts/dev/attach-vscode.sh
+	@bash ./scripts/dev/attach-vscode.sh
 endif

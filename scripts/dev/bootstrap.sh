@@ -20,6 +20,11 @@ HEALTH_CHECK_URL="http://localhost:${APP_PORT}/actuator/health"
 MAX_RETRIES=15
 RETRY_INTERVAL=10
 
+# macOS ships Bash 3.2, so avoid Bash 4-only ${var,,} expansion.
+to_lower() {
+    printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
 echo -e "${BLUE}  Developer Environment Bootstrap${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
@@ -143,7 +148,7 @@ if [ -z "$SKIP_BUILD" ]; then
     SKIP_BUILD="$SKIP_BUILD"
 fi
 
-if [ "${SKIP_BUILD,,}" = "true" ] || [ "${SKIP_BUILD}" = "1" ]; then
+if [ "$(to_lower "$SKIP_BUILD")" = "true" ] || [ "${SKIP_BUILD}" = "1" ]; then
     echo "SKIP_BUILD enabled — verifying required images are present locally and no build steps are required..."
     # Get resolved compose config and extract image entries and build occurrences
     COMPOSE_CFG=$(docker compose --env-file .env config 2>/dev/null || true)
@@ -275,7 +280,7 @@ AUTO_OPEN_SHELL=$(grep -E '^AUTO_OPEN_SHELL=' "$ENV_FILE" 2>/dev/null | cut -d= 
 if [ -z "$AUTO_OPEN_SHELL" ]; then
     AUTO_OPEN_SHELL="$AUTO_OPEN_SHELL"
 fi
-if [ "${AUTO_OPEN_SHELL,,}" = "true" ] || [ "${AUTO_OPEN_SHELL}" = "1" ]; then
+if [ "$(to_lower "$AUTO_OPEN_SHELL")" = "true" ] || [ "${AUTO_OPEN_SHELL}" = "1" ]; then
     echo -e "${BLUE}AUTO_OPEN_SHELL enabled — opening shell in app container (/workspace)...${NC}"
     docker compose --env-file .env exec app sh -c 'cd /workspace && exec sh'
 fi

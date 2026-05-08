@@ -27,12 +27,15 @@ services:
       GIT_REPO_URL: ${GIT_REPO_URL:-}
       GIT_BRANCH: ${GIT_BRANCH:-main}
       AUTO_PULL: ${AUTO_PULL:-false}
+      SSH_AUTH_SOCK: ${SSH_AUTH_SOCK}
     ports:
       - "${APP_PORT:-8080}:8080"
     volumes:
       - ./backend/src:/workspace/src:${SOURCE_MODE_VOLUME_FLAG:-cached}
       - ./backend/pom.xml:/workspace/pom.xml:${SOURCE_MODE_VOLUME_FLAG:-cached}
-      - ./backend/data:/workspace/data
+      - ./backend/data/blob-storage:/workspace/data/blob-storage
+      - ./backend/data/git-repo:/workspace/data/git-repo
+      - ${SSH_AUTH_SOCK}:${SSH_AUTH_SOCK}
     depends_on:
       postgres:
         condition: service_healthy
