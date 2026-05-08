@@ -136,14 +136,65 @@ echo "Stopping any existing containers..."
 docker compose --env-file .env down 2>/dev/null || true
 
 echo "Building and starting containers..."
-if docker compose --env-file .env up -d --build 2>&1; then
-    echo -e "${GREEN}✓ Containers started successfully${NC}"
+
+# Check SKIP_BUILD flag to avoid pulling or building images
+SKIP_BUILD=$(grep -E '^SKIP_BUILD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
+if [ -z "$SKIP_BUILD" ]; then
+    SKIP_BUILD="$SKIP_BUILD"
+fi
+
+if [ "${SKIP_BUILD,,}" = "true" ] || [ "${SKIP_BUILD}" = "1" ]; then
+    echo "SKIP_BUILD enabled — verifying required images are present locally and no build steps are required..."
+    # Get resolved compose config and extract image entries and build occurrences
+    COMPOSE_CFG=$(docker compose --env-file .env config 2>/dev/null || true)
+    if [ -z "$COMPOSE_CFG" ]; then
+        echo -e "${RED}✗ Failed to read docker compose configuration${NC}"
+        exit 1
+    fi
+    images=$(printf "%s" "$COMPOSE_CFG" | awk '/image:/{print $2}')
+    builds_count=$(printf "%s" "$COMPOSE_CFG" | grep -c "^\s*build:")
+
+    if [ "$builds_count" -gt 0 ]; then
+        echo -e "${RED}✗ Compose contains services with 'build:' which require building images.${NC}"
+        echo "Either unset SKIP_BUILD or prebuild the required images on this host."
+        exit 1
+    fi
+
+    missing_images=()
+    for img in $images; do
+        if [ -z "$img" ]; then
+            continue
+        fi
+        if ! docker image inspect "$img" > /dev/null 2>&1; then
+            missing_images+=("$img")
+        fi
+    done
+
+    if [ ${#missing_images[@]} -gt 0 ]; then
+        echo -e "${RED}✗ Missing required images locally:${NC}"
+        for m in "${missing_images[@]}"; do echo "  - $m"; done
+        echo "Either pull these images or unset SKIP_BUILD to allow the script to download/build them." 
+        exit 1
+    fi
+
+    if docker compose --env-file .env up -d --no-build 2>&1; then
+        echo -e "${GREEN}✓ Containers started (no build)${NC}"
+    else
+        echo -e "${RED}✗ Failed to start containers with --no-build${NC}"
+        echo "Recent docker compose output:"
+        docker compose --env-file .env logs --tail=20 app postgres 2>/dev/null || true
+        exit 1
+    fi
 else
-    echo -e "${RED}✗ Failed to start containers${NC}"
-    echo ""
-    echo "Recent docker compose output:"
-    docker compose --env-file .env logs --tail=20 app postgres 2>/dev/null || true
-    exit 1
+    if docker compose --env-file .env up -d --build 2>&1; then
+        echo -e "${GREEN}✓ Containers started successfully${NC}"
+    else
+        echo -e "${RED}✗ Failed to start containers${NC}"
+        echo ""
+        echo "Recent docker compose output:"
+        docker compose --env-file .env logs --tail=20 app postgres 2>/dev/null || true
+        exit 1
+    fi
 fi
 
 # 6. Health check
@@ -217,6 +268,16 @@ else
     echo "  3. Start editing code in backend/src"
     echo "  4. Changes will be reflected after Spring Boot recompiles (10-30 sec)"
     echo ""
+fi
+
+# If AUTO_OPEN_SHELL is enabled in .env or environment, open interactive shell in /workspace
+AUTO_OPEN_SHELL=$(grep -E '^AUTO_OPEN_SHELL=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
+if [ -z "$AUTO_OPEN_SHELL" ]; then
+    AUTO_OPEN_SHELL="$AUTO_OPEN_SHELL"
+fi
+if [ "${AUTO_OPEN_SHELL,,}" = "true" ] || [ "${AUTO_OPEN_SHELL}" = "1" ]; then
+    echo -e "${BLUE}AUTO_OPEN_SHELL enabled — opening shell in app container (/workspace)...${NC}"
+    docker compose --env-file .env exec app sh -c 'cd /workspace && exec sh'
 fi
 
 exit 0

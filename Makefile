@@ -36,4 +36,20 @@ docker-logs:
 	$(COMPOSE) logs -f
 
 docker-shell:
-	$(COMPOSE) exec app sh
+	$(COMPOSE) exec app sh -c "cd /workspace && exec sh"
+
+ifeq ($(OS),Windows_NT)
+attach:
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/attach.ps1
+else
+attach:
+	@./scripts/dev/attach.sh
+endif
+
+ifeq ($(OS),Windows_NT)
+attach-vscode:
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/attach-vscode.ps1
+else
+attach-vscode:
+	@./scripts/dev/attach-vscode.sh
+endif

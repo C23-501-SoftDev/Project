@@ -175,11 +175,49 @@ try {
 
 Write-Host 'Building and starting containers...'
 try {
-    & docker compose --env-file .env up -d --build | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw 'docker compose up failed'
+    # Respect SKIP_BUILD flag to avoid pulling/building images
+    $skipBuild = Get-EnvValue -Key 'SKIP_BUILD'
+    if ([string]::IsNullOrWhiteSpace($skipBuild)) { $skipBuild = $env:SKIP_BUILD }
+    if ($skipBuild -and $skipBuild.ToLower() -eq 'true') {
+        Write-Section 'SKIP_BUILD enabled — verifying images and that no build steps are present...' $Blue
+        $cfg = & docker compose --env-file .env config 2>$null
+        if (-not $cfg) {
+            Write-Section '✗ Failed to read docker compose configuration' $Red
+            exit 1
+        }
+        $lines = $cfg -split "`n"
+        $images = $lines | Where-Object { $_ -match '^\s*image:\s*' } | ForEach-Object { ($_ -replace '^\s*image:\s*','').Trim() }
+        $builds = $lines | Where-Object { $_ -match '^\s*build:\s*' }
+        if ($builds.Count -gt 0) {
+            Write-Section '✗ Compose contains services with "build:" which require building images.' $Red
+            Write-Host 'Either unset SKIP_BUILD or prebuild the required images on this host.'
+            exit 1
+        }
+        $missing = @()
+        foreach ($img in $images) {
+            if ([string]::IsNullOrWhiteSpace($img)) { continue }
+            try {
+                & docker image inspect $img | Out-Null
+                if ($LASTEXITCODE -ne 0) { $missing += $img }
+            } catch {
+                $missing += $img
+            }
+        }
+        if ($missing.Count -gt 0) {
+            Write-Section '✗ Missing required images locally:' $Red
+            foreach ($m in $missing) { Write-Host "  - $m" }
+            Write-Host 'Either pull these images or unset SKIP_BUILD to allow downloading/building.'
+            exit 1
+        }
+
+        & docker compose --env-file .env up -d --no-build | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'docker compose up --no-build failed' }
+        Write-Section 'Containers started (no build)' $Green
+    } else {
+        & docker compose --env-file .env up -d --build | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'docker compose up failed' }
+        Write-Section 'Containers started successfully' $Green
     }
-    Write-Section 'Containers started successfully' $Green
 } catch {
     Write-Section 'Failed to start containers' $Red
     Write-Host ''
@@ -269,3 +307,16 @@ Write-Host "  1. Open http://localhost:$AppPort in your browser"
 Write-Host '  2. Log in with credentials from the app documentation'
 Write-Host '  3. Start editing code in backend/src'
 Write-Host '  4. Changes will be reflected after Spring Boot recompiles (10-30 sec)'
+Write-Host ''
+
+# If AUTO_OPEN_SHELL is enabled in .env or environment, open interactive shell in /workspace
+$autoShell = Get-EnvValue -Key 'AUTO_OPEN_SHELL'
+if ([string]::IsNullOrWhiteSpace($autoShell)) { $autoShell = $env:AUTO_OPEN_SHELL }
+if ($autoShell -and $autoShell.ToLower() -eq 'true') {
+    Write-Section 'AUTO_OPEN_SHELL enabled — opening shell in app container (/workspace)...' $Blue
+    try {
+        & docker compose --env-file .env exec app sh -c "cd /workspace && exec sh"
+    } catch {
+        Write-Section 'Failed to open interactive shell into app container.' $Red
+    }
+}
