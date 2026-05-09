@@ -202,9 +202,8 @@ else
     fi
 fi
 
-# 6. Health check
-echo -e "\n${YELLOW}[6/6]${NC} Waiting for application to be ready..."
-echo "Checking Docker container status..."
+# 6. Container status check (no health check wait)
+echo -e "\n${YELLOW}[6/6]${NC} Verifying containers are running..."
 if ! docker ps --filter "name=kb_app" --filter "status=running" | grep -q kb_app; then
     echo -e "${RED}✗ Application container is not running${NC}"
     echo ""
@@ -223,57 +222,20 @@ if ! docker ps --filter "name=kb_postgres" --filter "status=running" | grep -q k
 fi
 echo -e "${GREEN}✓ PostgreSQL container is running${NC}"
 
-# Wait for health check
-echo "Waiting for application to be healthy (this may take a minute)..."
-attempt=0
-while [ $attempt -lt $MAX_RETRIES ]; do
-    if curl -s "$HEALTH_CHECK_URL" > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ Application is healthy${NC}"
-        break
-    fi
-    attempt=$((attempt + 1))
-    if [ $attempt -eq 1 ]; then
-        echo "  Attempt 1/$MAX_RETRIES..."
-    else
-        echo "  Attempt $attempt/$MAX_RETRIES..."
-    fi
-    sleep $RETRY_INTERVAL
-done
-
-if [ $attempt -ge $MAX_RETRIES ]; then
-    echo -e "${YELLOW}⚠ Health check timed out after $((MAX_RETRIES * RETRY_INTERVAL))s${NC}"
-    echo ""
-    echo "Checking application logs..."
-    docker compose --env-file .env logs --tail=50 app | tail -20
-    echo ""
-    echo -e "${YELLOW}Application may still be starting. Check logs with:${NC}"
-    echo "  make dev-logs"
-    echo ""
-else
-    # Success
-    echo ""
-    echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}✓ SETUP COMPLETE!${NC}"
-    echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "${GREEN}Your development environment is ready:${NC}"
-    echo ""
-    echo "  Application:    ${BLUE}http://localhost:${APP_PORT}${NC}"
-    echo "  Health Check:   ${BLUE}http://localhost:${APP_PORT}/actuator/health${NC}"
-    echo "  Swagger API:    ${BLUE}http://localhost:${APP_PORT}/swagger-ui.html${NC}"
-    echo ""
-    echo -e "${GREEN}Useful commands:${NC}"
-    echo "  View logs:      ${BLUE}make dev-logs${NC}"
-    echo "  Stop containers: ${BLUE}make dev-down${NC}"
-    echo "  Access shell:   ${BLUE}make docker-shell${NC}"
-    echo ""
-    echo -e "${YELLOW}Next steps:${NC}"
-    echo "  1. Open http://localhost:${APP_PORT} in your browser"
-    echo "  2. Log in with credentials from the app documentation"
-    echo "  3. Start editing code in backend/src"
-    echo "  4. Changes will be reflected after Spring Boot recompiles (10-30 sec)"
-    echo ""
-fi
+# Success - containers are running
+echo ""
+echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}✓ CONTAINERS STARTED!${NC}"
+echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
+echo ""
+echo -e "${YELLOW}Note: Waiting for SSH git fetch / application startup...${NC}"
+echo "Check logs with: ${BLUE}make dev-logs${NC}"
+echo ""
+echo -e "${GREEN}Useful commands:${NC}"
+echo "  View logs:       ${BLUE}make dev-logs${NC}"
+echo "  Stop containers: ${BLUE}make dev-down${NC}"
+echo "  Access shell:    ${BLUE}make docker-shell${NC}"
+echo ""
 
 # If AUTO_OPEN_SHELL is enabled in .env or environment, open interactive shell in /workspace
 AUTO_OPEN_SHELL=$(grep -E '^AUTO_OPEN_SHELL=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)

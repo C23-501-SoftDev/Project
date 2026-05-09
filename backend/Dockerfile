@@ -5,21 +5,15 @@ ARG APP_UID=1000
 ARG APP_GID=1000
 ARG SOURCE_MODE=local
 
-WORKDIR /workspace
-
 # Install git and ssh for SSH mode support
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git openssh-client \
+    && apt-get install -y --no-install-recommends git openssh-client bash-completion \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Maven project file first to maximize dependency cache reuse.
-COPY --chown=${APP_UID}:${APP_GID} pom.xml ./
-RUN mvn -B -q -DskipTests dependency:go-offline
 
 # Copy source - behavior depends on SOURCE_MODE
 # In LOCAL mode: source is mounted at runtime
 # In SSH mode: source will be cloned at startup
-COPY src ./src 
 
 ENV MAVEN_CONFIG=/home/${APP_USER}/.m2
 ENV SOURCE_MODE=${SOURCE_MODE}
@@ -27,56 +21,108 @@ EXPOSE 8080
 
 ENV HOME=/home/${APP_USER}
 
-RUN mkdir -p /home/${APP_USER}/.m2 \
+RUN if ! getent group "${APP_GID}" >/dev/null 2>&1; then groupadd -o -g "${APP_GID}" "${APP_USER}"; fi \
+    && if ! id -u "${APP_USER}" >/dev/null 2>&1; then useradd -o -m -u "${APP_UID}" -g "${APP_GID}" -s /bin/sh "${APP_USER}"; fi
+
+RUN mkdir -p /home/${APP_USER}/.m2 /workspace \
     && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER} \
-    && chown -R "${APP_UID}:${APP_GID}" /workspace
+    && chown "${APP_UID}:${APP_GID}" /workspace \
+    && chmod 755 /home/${APP_USER} /workspace
 
 # Startup script that handles both LOCAL and SSH modes
-RUN cat > /workspace/startup.sh <<'EOF'
+RUN cat > /usr/local/bin/startup <<'EOF'
 #!/bin/sh
 set -e
 
-APP_ROOT="/workspace"
+BRANCH="${GIT_BRANCH:-main}"
 
-if [ "$SOURCE_MODE" = "ssh" ]; then
+cd /workspace
+
+if [ "$SOURCE_MODE" = "local" ]; then
+    # LOCAL mode: initialize git in /workspace and fetch from HTTPS
+    if [ -z "${GIT_REPO_URL:-}" ]; then
+        echo "SOURCE_MODE=local requires GIT_REPO_URL"
+        exit 1
+    fi
+
+    # Convert SSH URL to HTTPS if needed: git@github.com:owner/repo.git -> https://github.com/owner/repo.git
+    HTTPS_URL="$GIT_REPO_URL"
+    if printf '%s' "$GIT_REPO_URL" | grep -q "^git@"; then
+        HTTPS_URL=$(printf '%s' "$GIT_REPO_URL" | sed 's#^git@\([^:]*\):\(.*\)\.git$#https://\1/\2.git#')
+    fi
+
+    if [ ! -d ".git" ]; then
+        echo "LOCAL mode: Инициализирую репозиторий в /workspace"
+        git init
+        git remote add origin "$HTTPS_URL"
+        git fetch --prune origin "$BRANCH"
+        git checkout -f -B "$BRANCH" "origin/$BRANCH"
+        echo "LOCAL mode: Репозиторий загружен"
+    else
+        echo "LOCAL mode: Репозиторий уже в /workspace, обновляю"
+        git remote set-url origin "$HTTPS_URL"
+        git fetch --prune origin "$BRANCH"
+        if [ "${AUTO_PULL:-false}" = "true" ]; then
+            git checkout -f "$BRANCH"
+            git pull --ff-only origin "$BRANCH"
+        fi
+    fi
+
+elif [ "$SOURCE_MODE" = "ssh" ]; then
     if [ -z "${GIT_REPO_URL:-}" ]; then
         echo "SOURCE_MODE=ssh requires GIT_REPO_URL"
         exit 1
     fi
 
-    REPO_ROOT="${GIT_REPO_PATH:-/workspace/data/git-repo}"
-    BRANCH="${GIT_BRANCH:-main}"
+    GIT_DIR="${GIT_DIR:-/tmp/repo.git}"
+    export GIT_DIR
+    export GIT_WORK_TREE="/workspace"
 
-    mkdir -p "$REPO_ROOT"
-
-    if [ ! -d "$REPO_ROOT/.git" ]; then
-        echo "SSH mode: Выполняю полный clone репозитория в $REPO_ROOT"
-        rm -rf "$REPO_ROOT"
-        git clone -b "$BRANCH" "$GIT_REPO_URL" "$REPO_ROOT"
-    elif [ "${AUTO_PULL:-false}" = "true" ]; then
-        echo "SSH mode: Обновляю репозиторий (AUTO_PULL=true)"
-        git -C "$REPO_ROOT" fetch origin "$BRANCH"
-        git -C "$REPO_ROOT" checkout "$BRANCH"
-        git -C "$REPO_ROOT" pull --ff-only origin "$BRANCH"
+    if [ -z "${SSH_AUTH_SOCK:-}" ] || [ ! -S "$SSH_AUTH_SOCK" ]; then
+        echo "SOURCE_MODE=ssh requires a reachable SSH_AUTH_SOCK and loaded SSH key"
+        exit 1
     fi
 
-    APP_ROOT="$REPO_ROOT/backend"
+    REPO_HOST="${GIT_HOST:-$(printf '%s' "$GIT_REPO_URL" | sed -n 's#.*@\([^:/]*\).*#\1#p')}"
+    if [ -z "$REPO_HOST" ]; then
+        echo "SOURCE_MODE=ssh requires a parseable host in GIT_REPO_URL or explicit GIT_HOST"
+        exit 1
+    fi
+
+    mkdir -p "$HOME/.ssh"
+    chmod 700 "$HOME/.ssh"
+    if ! ssh-keygen -F "$REPO_HOST" >/dev/null 2>&1; then
+        echo "SSH mode: Добавляю host key для $REPO_HOST"
+        ssh-keyscan -H "$REPO_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null || {
+            echo "SOURCE_MODE=ssh requires known_hosts access for $REPO_HOST"
+            exit 1
+        }
+    fi
+
+    if [ ! -d "$GIT_DIR/objects" ]; then
+        echo "SSH mode: Инициализирую отдельный git-dir в $GIT_DIR"
+        rm -rf "$GIT_DIR"
+        git init "$GIT_DIR"
+        git --git-dir="$GIT_DIR" remote add origin "$GIT_REPO_URL"
+    else
+        git --git-dir="$GIT_DIR" remote set-url origin "$GIT_REPO_URL" 2>/dev/null \
+            || git --git-dir="$GIT_DIR" remote add origin "$GIT_REPO_URL"
+    fi
+
+    echo "SSH mode: Загружаю содержимое репозитория в /workspace"
+    git --git-dir="$GIT_DIR" fetch --prune origin "$BRANCH"
+    git --git-dir="$GIT_DIR" --work-tree="/workspace" checkout -f -B "$BRANCH" "origin/$BRANCH"
+
+    if [ "${AUTO_PULL:-false}" = "true" ]; then
+        echo "SSH mode: AUTO_PULL=true, репозиторий будет обновляться при каждом старте"
+    fi
 fi
 
-if [ ! -f "$APP_ROOT/pom.xml" ]; then
-    echo "pom.xml not found at $APP_ROOT"
-    exit 1
-fi
-
-echo "Starting Maven Spring Boot from $APP_ROOT..."
-mkdir -p /tmp/m2/repository
-cd "$APP_ROOT"
-exec mvn -B -Dmaven.repo.local=/tmp/m2/repository spring-boot:run
+tail -f /dev/null
 EOF
-RUN chmod +x /workspace/startup.sh && \
-    chown "${APP_UID}:${APP_GID}" /workspace/startup.sh
+RUN chmod +x /usr/local/bin/startup
 
 USER ${APP_UID}:${APP_GID}
 
 # Dev runtime with Spring profile configured from compose env.
-CMD ["/workspace/startup.sh"]
+CMD ["/usr/local/bin/startup"]

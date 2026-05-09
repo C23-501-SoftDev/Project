@@ -5,8 +5,18 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/.env"
 COMPOSE="docker compose --env-file $ENV_FILE"
 
-if ! command -v code >/dev/null 2>&1; then
-  echo "VS Code CLI 'code' not found. Install it from VS Code: Command Palette → 'Shell Command: Install 'code' command in PATH'."
+if command -v code >/dev/null 2>&1; then
+  CODE_LAUNCHER="code"
+elif [ "$(uname -s)" = "Darwin" ]; then
+  VSCODE_BUNDLED_CLI="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+  if [ -x "$VSCODE_BUNDLED_CLI" ]; then
+    CODE_LAUNCHER="$VSCODE_BUNDLED_CLI"
+  else
+    CODE_LAUNCHER="open"
+    echo "VS Code CLI 'code' not found. Using macOS fallback via 'open -a Visual Studio Code'."
+  fi
+else
+  echo "VS Code CLI 'code' not found. Install it from VS Code: Command Palette -> 'Shell Command: Install code command in PATH'."
   exit 1
 fi
 
@@ -51,20 +61,29 @@ else
   id_for_uri=$cid
 fi
 
-# Try multiple URI formats: full id, short id, and container name
+# Try URI formats with stable container name first.
+# Raw full container IDs may be interpreted inconsistently by Dev Containers.
 short_id=${id_for_uri:0:12}
-name_uri="vscode-remote://attached-container+kb_app/workspace"
-full_uri="vscode-remote://attached-container+${id_for_uri}/workspace"
-short_uri="vscode-remote://attached-container+${short_id}/workspace"
+name_uri="vscode-remote://attached-container+kb_app"
+full_uri="vscode-remote://attached-container+${id_for_uri}"
+short_uri="vscode-remote://attached-container+${short_id}"
 
 echo "Attempting to open VS Code. Candidate URIs:"
-echo "  1) $full_uri"
+echo "  1) $name_uri"
 echo "  2) $short_uri"
-echo "  3) $name_uri"
+echo "  3) $full_uri"
 
-for uri in "$full_uri" "$short_uri" "$name_uri"; do
-  if code --folder-uri "$uri" 2>/dev/null; then
-    echo "Opened VS Code for container $cid -> /workspace (URI: $uri)"
+for uri in "$name_uri" "$short_uri" "$full_uri"; do
+  if [ "$CODE_LAUNCHER" = "code" ] && code --folder-uri "$uri" 2>/dev/null; then
+    echo "Opened VS Code for container $cid (URI: $uri)"
+    exit 0
+  fi
+  if [ "$CODE_LAUNCHER" = "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" ] && "$CODE_LAUNCHER" --folder-uri "$uri" 2>/dev/null; then
+    echo "Opened VS Code for container $cid (URI: $uri)"
+    exit 0
+  fi
+  if [ "$CODE_LAUNCHER" = "open" ] && open -a "Visual Studio Code" --args --folder-uri "$uri" 2>/dev/null; then
+    echo "Opened VS Code for container $cid (URI: $uri)"
     exit 0
   fi
 done

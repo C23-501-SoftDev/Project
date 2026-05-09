@@ -11,3 +11,12 @@
 **/*.log
 Dockerfile*
 docker-compose*.yml
+
+# Default: ignore everything
+*
+
+# Keep only this dockerignore and the single build script
+!/.dockerignore
+!/scripts/dev/bootstrap.sh
+
+# Everything else remains ignored

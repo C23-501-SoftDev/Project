@@ -9,14 +9,27 @@
   ],
   "shutdownAction": "stopCompose",
   "remoteUser": "app",
+  "postCreateCommand": "git config --global --add safe.directory /workspace || true && git config --global --add safe.directory /workspace/backend || true",
   "customizations": {
     "vscode": {
       "extensions": [
+        "eamodio.gitlens",
+        "GitHub.vscode-pull-request-github",
         "vscjava.vscode-java-pack",
         "vmware.vscode-spring-boot",
         "ms-azuretools.vscode-docker",
         "redhat.vscode-yaml"
-      ]
+      ],
+      "settings": {
+        "git.autofetch": true,
+        "git.confirmSync": false,
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash"
+          }
+        }
+      }
     }
   }
 }
