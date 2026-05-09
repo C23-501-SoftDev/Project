@@ -8,10 +8,6 @@ $Blue = 'Blue'
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $EnvFile = Join-Path $ProjectRoot '.env'
 $EnvExample = Join-Path $ProjectRoot '.env.example'
-$AppPort = if ($env:APP_PORT) { $env:APP_PORT } else { '8080' }
-$HealthCheckUrl = "http://localhost:$AppPort/actuator/health"
-$MaxRetries = 15
-$RetryInterval = 10
 
 function Write-Section {
     param([string]$Text, [string]$Color = 'White')
@@ -178,7 +174,7 @@ try {
     # Respect SKIP_BUILD flag to avoid pulling/building images
     $skipBuild = Get-EnvValue -Key 'SKIP_BUILD'
     if ([string]::IsNullOrWhiteSpace($skipBuild)) { $skipBuild = $env:SKIP_BUILD }
-    if ($skipBuild -and $skipBuild.ToLower() -eq 'true') {
+    if ($skipBuild -and (($skipBuild.ToLower() -eq 'true') -or ($skipBuild -eq '1'))) {
         Write-Section 'SKIP_BUILD enabled — verifying images and that no build steps are present...' $Blue
         $cfg = & docker compose --env-file .env config 2>$null
         if (-not $cfg) {
@@ -229,8 +225,7 @@ try {
     exit 1
 }
 
-Write-Section "`n[6/6] Waiting for application to be ready..." $Yellow
-Write-Host 'Checking Docker container status...'
+Write-Section "`n[6/6] Verifying containers are running..." $Yellow
 
 $appRunning = docker ps --filter 'name=kb_app' --filter 'status=running' | Select-String -Quiet 'kb_app'
 if (-not $appRunning) {
@@ -255,68 +250,26 @@ if (-not $postgresRunning) {
 }
 Write-Section 'PostgreSQL container is running' $Green
 
-Write-Host 'Waiting for application to be healthy (this may take a minute)...'
-$attempt = 0
-$healthy = $false
-while ($attempt -lt $MaxRetries) {
-    $attempt++
-    try {
-        Invoke-WebRequest -Uri $HealthCheckUrl -UseBasicParsing -TimeoutSec 5 | Out-Null
-        Write-Section 'Application is healthy' $Green
-        $healthy = $true
-        break
-    } catch {
-        Write-Host "  Attempt $attempt/$MaxRetries..."
-        Start-Sleep -Seconds $RetryInterval
-    }
-}
-
-if (-not $healthy) {
-    Write-Section "Health check timed out after $($MaxRetries * $RetryInterval)s" $Yellow
-    Write-Host ''
-    Write-Host 'Checking application logs...'
-    try {
-        & docker compose --env-file .env logs --tail=50 app | Select-Object -Last 20
-    } catch {
-    }
-    Write-Host ''
-    Write-Section 'Application may still be starting. Check logs with:' $Yellow
-    Write-Host '  make dev-logs'
-    Write-Host ''
-    exit 0
-}
-
 Write-Host ''
 Write-Section '═══════════════════════════════════════════════════════════' $Blue
-Write-Section '✓ SETUP COMPLETE!' $Green
+Write-Section '✓ CONTAINERS STARTED!' $Green
 Write-Section '═══════════════════════════════════════════════════════════' $Blue
 Write-Host ''
-Write-Section 'Your development environment is ready:' $Green
-Write-Host ''
-Write-Host "  Application:    http://localhost:$AppPort"
-Write-Host "  Health Check:   $HealthCheckUrl"
-Write-Host '  Swagger API:    http://localhost:8080/swagger-ui.html'
+Write-Section 'Note: Waiting for SSH git fetch / application startup...' $Yellow
+Write-Host 'Check logs with: make dev-logs'
 Write-Host ''
 Write-Section 'Useful commands:' $Green
-Write-Host '  View logs:      make dev-logs'
+Write-Host '  View logs:       make dev-logs'
 Write-Host '  Stop containers: make dev-down'
-Write-Host '  Access shell:   make docker-shell'
-Write-Host ''
-Write-Section 'Next steps:' $Yellow
-Write-Host "  1. Open http://localhost:$AppPort in your browser"
-Write-Host '  2. Log in with credentials from the app documentation'
-Write-Host '  3. Start editing code in backend/src'
-Write-Host '  4. Changes will be reflected after Spring Boot recompiles (10-30 sec)'
+Write-Host '  Access shell:    make docker-shell'
 Write-Host ''
 
 # If AUTO_OPEN_SHELL is enabled in .env or environment, open interactive shell in /workspace
 $autoShell = Get-EnvValue -Key 'AUTO_OPEN_SHELL'
 if ([string]::IsNullOrWhiteSpace($autoShell)) { $autoShell = $env:AUTO_OPEN_SHELL }
-if ($autoShell -and $autoShell.ToLower() -eq 'true') {
+if ($autoShell -and (($autoShell.ToLower() -eq 'true') -or ($autoShell -eq '1'))) {
     Write-Section 'AUTO_OPEN_SHELL enabled — opening shell in app container (/workspace)...' $Blue
-    try {
-        & docker compose --env-file .env exec app sh -c "cd /workspace && exec sh"
-    } catch {
-        Write-Section 'Failed to open interactive shell into app container.' $Red
-    }
+    & docker compose --env-file .env exec app sh -c "cd /workspace && exec sh"
 }
+
+exit 0

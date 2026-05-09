@@ -39,33 +39,33 @@ BRANCH="${GIT_BRANCH:-main}"
 cd /workspace
 
 if [ "$SOURCE_MODE" = "local" ]; then
-    # LOCAL mode: initialize git in /workspace and fetch from HTTPS
-    if [ -z "${GIT_REPO_URL:-}" ]; then
-        echo "SOURCE_MODE=local requires GIT_REPO_URL"
-        exit 1
-    fi
-
-    # Convert SSH URL to HTTPS if needed: git@github.com:owner/repo.git -> https://github.com/owner/repo.git
-    HTTPS_URL="$GIT_REPO_URL"
-    if printf '%s' "$GIT_REPO_URL" | grep -q "^git@"; then
-        HTTPS_URL=$(printf '%s' "$GIT_REPO_URL" | sed 's#^git@\([^:]*\):\(.*\)\.git$#https://\1/\2.git#')
-    fi
-
-    if [ ! -d ".git" ]; then
-        echo "LOCAL mode: Инициализирую репозиторий в /workspace"
-        git init
-        git remote add origin "$HTTPS_URL"
-        git fetch --prune origin "$BRANCH"
-        git checkout -f -B "$BRANCH" "origin/$BRANCH"
-        echo "LOCAL mode: Репозиторий загружен"
-    else
-        echo "LOCAL mode: Репозиторий уже в /workspace, обновляю"
-        git remote set-url origin "$HTTPS_URL"
-        git fetch --prune origin "$BRANCH"
-        if [ "${AUTO_PULL:-false}" = "true" ]; then
-            git checkout -f "$BRANCH"
-            git pull --ff-only origin "$BRANCH"
+    # LOCAL mode: source is mounted from host or GIT_REPO_URL is provided
+    if [ -n "${GIT_REPO_URL:-}" ]; then
+        # Convert SSH URL to HTTPS if needed: git@github.com:owner/repo.git -> https://github.com/owner/repo.git
+        HTTPS_URL="$GIT_REPO_URL"
+        if printf '%s' "$GIT_REPO_URL" | grep -q "^git@"; then
+            HTTPS_URL=$(printf '%s' "$GIT_REPO_URL" | sed 's#^git@\([^:]*\):\(.*\)\.git$#https://\1/\2.git#')
         fi
+
+        if [ ! -d ".git" ]; then
+            echo "LOCAL mode: Инициализирую репозиторий в /workspace"
+            git init
+            git remote add origin "$HTTPS_URL"
+            git fetch --prune origin "$BRANCH"
+            git checkout -f -B "$BRANCH" "origin/$BRANCH"
+            echo "LOCAL mode: Репозиторий загружен"
+        else
+            echo "LOCAL mode: Репозиторий уже в /workspace, обновляю"
+            git remote set-url origin "$HTTPS_URL"
+            git fetch --prune origin "$BRANCH"
+            if [ "${AUTO_PULL:-false}" = "true" ]; then
+                git checkout -f "$BRANCH"
+                git pull --ff-only origin "$BRANCH"
+            fi
+        fi
+    else
+        echo "LOCAL mode: Ожидаю исходный код в /workspace (монтируется с хоста)"
+        echo "LOCAL mode: Если код еще не готов, монтируйте директорию или установите GIT_REPO_URL"
     fi
 
 elif [ "$SOURCE_MODE" = "ssh" ]; then
@@ -124,5 +124,6 @@ RUN chmod +x /usr/local/bin/startup
 
 USER ${APP_UID}:${APP_GID}
 
-# Dev runtime with Spring profile configured from compose env.
-CMD ["/usr/local/bin/startup"]
+# Override Maven base image entrypoint with our startup script
+ENTRYPOINT ["/usr/local/bin/startup"]
+CMD []

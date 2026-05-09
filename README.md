@@ -1,478 +1,489 @@
-# Быстрая настройка OpenSpec (новая машина)
-
-## 🚀 Быстрый старт для разработчиков (One-Click Setup)
-
-Новый разработчик может запустить полностью готовую среду разработки **одной кнопкой** в VS Code:
-
-### Требования
-
-- **Docker Desktop** (v24+) — [скачать](https://www.docker.com/products/docker-desktop)
-- **VS Code** — [скачать](https://code.visualstudio.com/)
-- **Git** — [скачать](https://git-scm.com/)
-
-### Первый запуск (1-5 минут)
-
-**Способ 1: Из VS Code (рекомендуется)**
-
-1. Откройте VS Code в папке проекта
-2. Нажмите `Cmd/Ctrl + Shift + P`, введите `Tasks: Run Task`
-3. Выберите **`Dev: One Click Setup`**
-4. Ждите 2-5 минут — скрипт автоматически:
-   - ✅ Проверит Docker
-   - ✅ Подготовит переменные окружения
-   - ✅ Поднимет контейнеры
-   - ✅ Проверит здоровье приложения
-
-**Способ 2: Из терминала**
-
-```bash
-# Если у вас установлена make:
-make dev-up
-
-# Или прямой запуск скрипта:
-./scripts/dev/bootstrap.sh
-```
-
-Результат одинаковый — скрипт автоматически подготовит окружение за 2-5 минут.
-
-#### Что важно при первом запуске
-
-- Убедитесь, что Docker Desktop запущен и работает (`docker --version`).
-- При первом запуске скрипт может создавать `.env` из `.env.example` и сгенерирует `JWT_SECRET_KEY`.
-- По умолчанию скрипт использует `--build` и при отсутствии локальных образов может скачать их из реестра.
-
-Если вы хотите избежать сетевых загрузок на новой машине, предварительно подготовьте образы локально или снимите флаг `--build` (см. раздел ниже про `SKIP_BUILD`).
-
-#### Настройка SSH-ключа для Git (первый запуск для нового участника команды)
-
-Выполните один раз, чтобы `git pull/push` работал без паролей.
-
-1. Сгенерируйте ключ (если его еще нет):
-
-```bash
-# macOS / Linux
-ssh-keygen -t ed25519 -C "you@example.com" -f ~/.ssh/id_ed25519
-
-# Windows (PowerShell)
-ssh-keygen -t ed25519 -C "you@example.com" -f $env:USERPROFILE\.ssh\id_ed25519
-```
-
-1. Запустите агент и добавьте ключ:
-
-```bash
-# macOS
-eval "$(ssh-agent -s)"
-ssh-add --apple-use-keychain ~/.ssh/id_ed25519
-
-# Linux
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
-
-# Windows (PowerShell)
-Get-Service ssh-agent | Set-Service -StartupType Automatic
-Start-Service ssh-agent
-ssh-add $env:USERPROFILE\.ssh\id_ed25519
-ssh-add -l
-```
-
-1. Скопируйте публичный ключ и добавьте его в GitHub:
-
-```bash
-# macOS / Linux
-cat ~/.ssh/id_ed25519.pub
-
-# Windows (PowerShell)
-Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub
-```
-
-Откройте GitHub → `Settings` → `SSH and GPG keys` → `New SSH key` и вставьте ключ.
-
-1. Проверьте SSH-доступ и работу Git:
-
-```bash
-ssh -T git@github.com
-git config --global user.name "Your Name"
-git config --global user.email "you@example.com"
-git remote -v
-git push -u origin <your-branch>
-```
-
-### После успешного запуска
-
-**Приложение готово к работе:**
-
-- 🌐 Приложение: <http://localhost:8080>
-- 📚 API документация (Swagger): <http://localhost:8080/swagger-ui.html>
-- 💚 Проверка здоровья: <http://localhost:8080/actuator/health>
-
-**Начните разработку:**
-
-1. Редактируйте код в `backend/src/` — изменения видны мгновенно
-2. Spring Boot автоматически пересобирает проект (10-30 сек)
-3. Обновите браузер — изменения применены
-
-**Полезные команды** (в VS Code или терминале):
-
-- `Cmd/Ctrl + Shift + P` → `Dev: View Logs` — видеть логи приложения
-- `make dev-down` — остановить контейнеры
-- `make docker-shell` — доступ в контейнер
-
-**Быстрый доступ и привязка VS Code к контейнеру**
-
-- Открыть shell сразу в `/workspace` (host):
-
-```bash
-make attach    # использует ./scripts/dev/attach.sh (или attach.ps1 на Windows)
-```
-
-- Открыть новый окно VS Code, привязанное к контейнеру (`/workspace`):
-
-```bash
-make attach-vscode
-```
-
-Эти цели добавлены в `.vscode/tasks.json` как `Dev: Attach` и `Dev: Attach VSCode`.
-
-Если `make attach-vscode` не срабатывает, убедитесь, что:
-
-- VS Code CLI `code` доступен в PATH (`code --version`).
-- Установлено расширение Remote - Containers.
-
-### 📂 Редактирование кода в контейнере (инструкция для новичков)
-
-Если вы хотите работать с кодом **внутри контейнера** (вместо редактирования на хосте):
-
-#### Шаг 1: Откройте оболочку контейнера
-
-```bash
-make docker-shell
-```
-
-Вы увидите приглашение командной строки примерно так:
-
-```
-app@kb_app:/workspace$
-```
-
-Это значит, что вы **внутри контейнера**, в папке `/workspace`.
-
-#### Шаг 2: Перейдите к коду приложения
-
-```bash
-# Перейдите в папку исходного кода
-cd /workspace/src/main/java/com/knowledgebase
-
-# Посмотрите структуру
-ls -la
-```
-
-Вы увидите слои архитектуры:
-
-```
-application/        ← сервисы и бизнес-логика
-domain/            ← ентитеты и интерфейсы
-infrastructure/     ← реализация репозиториев
-interfaces/         ← контроллеры REST API
-```
-
-#### Шаг 3: Редактируйте файлы внутри контейнера
-
-Выберите текстовый редактор:
-
-**Вариант 1: nano (простой редактор)**
-
-```bash
-nano /workspace/src/main/java/com/knowledgebase/interfaces/SomeController.java
-```
-
-- Редактируйте текст
-- Нажмите `Ctrl + X`, затем `Y`, затем `Enter` для сохранения
-
-**Вариант 2: vi/vim (мощный редактор)**
-
-```bash
-vi /workspace/src/main/java/com/knowledgebase/interfaces/SomeController.java
-```
-
-- Нажмите `i` для режима вставки
-- Редактируйте текст
-- Нажмите `Esc`, затем `:wq` для сохранения и выхода
-
-**Вариант 3: VS Code с Remote SSH (рекомендуется для больших файлов)**
-
-- VS Code → Extensions → установите "Remote - SSH"
-- VS Code → Remote Explorer → Connect to Host → localhost (требует SSH настройки)
-- Открывайте файлы в VS Code, но они редактируются внутри контейнера
-
-#### Шаг 4: Следите за пересборкой
-
-В **отдельном терминале** (не закрывая оболочку контейнера):
-
-```bash
-make dev-logs
-```
-
-Вы увидите логи пересборки:
-
-```
-[INFO] Restarting Spring Application...
-[INFO] Started Application in 8.234 seconds
-```
-
-#### Шаг 5: Протестируйте изменения
-
-1. Обновите браузер: <http://localhost:8080>
-2. Или проверьте API через Swagger: <http://localhost:8080/swagger-ui.html>
-
-#### Шаг 6: Выйдите из контейнера
-
-```bash
-exit
-```
-
-#### ⚠️ Важно для режима SSH (GIT_REPO_URL)
-
-Если в `.env` установлено `SOURCE_MODE=ssh`:
-
-- Код находится **только** внутри контейнера
-- Коммитьте и пушьте **перед** остановкой контейнера, иначе потеряете изменения:
-
-```bash
-# Внутри контейнера
-cd /workspace
-git add .
-git commit -m "feat: мое изменение"
-git push origin feature/моя-фича
-
-# Потом выйдите
-exit
-```
-
-#### 🔄 Быстрая переработка
-
-| Действие | Команда |
-|----------|---------|
-| Войти в контейнер | `make docker-shell` |
-| Перейти к коду | `cd /workspace/src/main/java/com/knowledgebase` |
-| Отредактировать файл | `nano путь/к/файлу.java` |
-| Смотреть логи (в другом окне) | `make dev-logs` |
-| Выйти из контейнера | `exit` |
-
-### Если что-то не работает
-
-| Проблема | Решение |
-|----------|---------|
-| Docker не запустился | Проверьте, что Docker Desktop работает (`docker --version`) |
-| Ошибка подключения БД | Подождите 1-2 минуты, приложение еще стартует |
-| Порт 8080 занят | Измените `APP_PORT` в `.env` на другой (например, 8081) |
-| Ошибка прав доступа (Linux/macOS) | Запустите `scripts/dev/bootstrap.sh` вручную |
-| Контейнер уже запущен, но VS Code не подключается | Попробуйте `make attach-vscode` или вручную `code --folder-uri "vscode-remote://attached-container+<container-id>/workspace"` |
-
-📖 **Подробная документация:** см. [backend/readme.md](backend/readme.md)
+# Project Documentation
+
+## Table of Contents
+1. [First-Time Setup](#first-time-setup)
+2. [Project Overview](#project-overview)
+3. [API Documentation](#api-documentation)
 
 ---
 
-1. Установите необходимые компоненты:
-   - Git
-   - Node.js 18+
-2. Установите OpenSpec CLI:
-   - `npm install -g @fission-ai/openspec@latest`
-3. Клонируйте репозитории так, чтобы они находились рядом:
-   - `D:\Soft-dev\Project`
-   - `D:\Soft-dev\Docs`
-4. Проверьте структуру:
-   - `D:\Soft-dev\Project\openspec\...`
-   - `D:\Soft-dev\Docs\documents\...`
+# First-Time Setup
 
-## Ежедневное использование
+## Prerequisites
 
-1. В `Project` выберите `featureId` из `openspec/feature-registry.json`.
-2. Начните изменение с OpenSpec (`/opsx:propose` в агенте).
-3. Реализуйте (`/opsx:apply`).
-4. Запустите проверки качества из `openspec/quality-gates.md`.
-5. Архивируйте (`/opsx:archive`) — это обновит `openspec/feature-registry.json`.
+- **Docker Desktop** installed and running
+  - [macOS/Linux](https://docs.docker.com/desktop/)
+  - [Windows](https://docs.docker.com/desktop/install/windows-install/)
+- **Git** installed (for cloning and management)
 
-## Поддерживаемые агенты
+---
 
-- Cursor (`.cursor/`)
-- Continue (`.continue/`)
-- Kilo Code (`.kilocode/`)
+## Unix/Linux/macOS Setup
 
-# Git Flow
-
-Мы используем упрощённую модель **GitHub Flow** с одной стабильной веткой `main`.
-
-## Основные правила
-
-- Ветка `main` всегда содержит работающий код, готовый к демонстрации.
-- Любое изменение (новая функция, исправление, документация) — отдельная ветка от `main`.
-- Попадание в `main` — только через Pull Request.
-- После вливания PR ветка удаляется.
-
-## Именование веток
-
-Используем префиксы для единообразия:
-
-- `feature: краткое-описание` — новый функционал
-- `fix: краткое-описание` — исправление ошибки
-- `docs: краткое-описание` — изменения в документации (readme или бэктрекер)
-- `refactor: краткое-описание` — рефакторинг без новой функциональности
-- `test: краткое-описание` — добавление/изменение тестов
-
-## Порядок работы над задачей
-
-1. Переключиться на актуальный `main`:
-
-   ```bash
-   git checkout main
-   git pull origin main
-   ```
-
-2. Создать ветку для задачи:
-
-   ```bash
-   git checkout -b feature/название-фичи
-   ```
-
-3. Работать в ветке, коммитить изменения. Коммиты оформляем осмысленно, используя формат:
-
-   ```text
-   feat: добавить форму регистрации
-   fix: исправить валидацию email
-   docs: обновить README
-   ```
-
-4. Отправить ветку в удалённый репозиторий:
-
-   ```bash
-   git push -u origin feature/название-фичи
-   ```
-
-5. Создать Pull Request в `main` через интерфейс GitHub.
-6. Дождаться одобрения от тестировщика (см. «Проверка Pull Request»).
-7. После одобрения выполнить слияние PR и удалить ветку.
-
-## Синхронизация с main перед коммитом
-
-Если в ветке `main` появились новые изменения **пока вы работали** над своей `feature`-веткой, нужно подтянуть их перед созданием Pull Request.
-
-### Способ 1: Rebase (рекомендуется — чистая история)
+### Step 1: Clone the Repository
 
 ```bash
-# 1. Убедитесь, что все ваши локальные изменения закоммичены
-git status
-
-# 2. Получите последние изменения с сервера
-git fetch origin
-
-# 3. Перепримените ваши коммиты на основе актуального main
-git rebase origin/main
-
-# Если есть конфликты — смотрите раздел "Решение конфликтов" ниже
+git clone https://github.com/C23-501-SoftDev/Project.git
+cd Project
 ```
 
-**Результат:** ваши коммиты будут сверху самых свежих изменений из `main`.
+### Step 2: Create Environment File
 
-### Способ 2: Merge (проще, но создает дополнительный коммит)
+Copy the example environment file and customize if needed:
 
 ```bash
-# 1. Убедитесь, что все ваши локальные изменения закоммичены
-git status
-
-# 2. Получите последние изменения с сервера
-git fetch origin
-
-# 3. Слейте main в вашу ветку
-git merge origin/main
-
-# Если есть конфликты — смотрите раздел "Решение конфликтов" ниже
+cp .env.example .env
 ```
 
-**Результат:** создается merge-коммит, история будет немного запутаннее.
+The `.env` file is pre-configured with:
+- `GIT_REPO_URL=git@github.com:C23-501-SoftDev/Project.git` (auto-cloning enabled)
+- `POSTGRES_DB=knowledge_base`
+- `POSTGRES_USER=kb_user`
+- `POSTGRES_PASSWORD=strong_password`
 
-### Способ 3: Pull (самый быстрый, но может дать неожиданные результаты)
+**Optional:** Edit `.env` to change any values (ports, credentials, etc.):
 
 ```bash
-# Просто подтянуть изменения
-git pull origin main
-
-# Это эквивалентно git fetch + git merge
+nano .env
+# or
+vim .env
 ```
 
-**Когда использовать каждый способ:**
+### Step 3: Start Services
 
-| Способ | Когда использовать |
-|--------|-------------------|
-| **Rebase** | Когда хотите чистую историю коммитов (большинство случаев) |
-| **Merge** | Когда боитесь конфликтов или хотите сохранить историю ветки |
-| **Pull** | Когда спешите и не хотите думать (не рекомендуется) |
-
-### Решение конфликтов
-
-Если при rebase или merge возникли конфликты:
+Build and start all containers:
 
 ```bash
-# 1. Посмотрите, какие файлы в конфликте
-git status
-
-# 2. Откройте конфликтный файл в редакторе
-# Вы увидите строки вроде:
-<<<<<<< HEAD
-  ваше изменение
-=======
-  изменение из main
->>>>>>> origin/main
-
-# 3. Выберите, что оставить:
-# - Удалите маркеры конфликта (<<<, ===, >>>)
-# - Оставьте нужный код
-# - Сохраните файл
-
-# 4. Добавьте файл в staging
-git add путь/к/файлу
-
-# 5. Продолжите rebase/merge
-git rebase --continue    # если был rebase
-# или
-git commit -m "Merge main into feature"  # если был merge
+docker compose up --pull always -d
 ```
 
-### ✅ Итоговый workflow перед Push
+Wait 30-40 seconds for the application to initialize. Check logs:
 
 ```bash
-# 1. Проверьте, что все изменения закоммичены
-git status
-
-# 2. Подтяните главную ветку
-git fetch origin
-git rebase origin/main  # или git merge origin/main
-
-# 3. Разрешите конфликты, если они есть
-
-# 4. Запушьте вашу ветку
-git push origin feature/название-фичи
-
-# 5. Создайте PR на GitHub
+docker logs kb_app -f
 ```
 
-## Проверка Pull Request
+Press `Ctrl+C` to exit logs.
 
-Каждый PR перед вливанием в `main` должен быть одобрен тестировщиком.
+### Step 4: Verify
 
-**Перед созданием PR автор** проверяет:
+Check container status:
 
-- Код не содержит отладочных артефактов (`console.log`, `debugger`, закомментированных блоков)
-- Все новые файлы добавлены в коммит
-- Изменения не ломают сборку и приложение запускается
+```bash
+docker ps
+```
 
-**Тестировщик** при получении PR проводит приёмочную проверку:
+You should see:
+- `kb_app` (project application) - Status: `Up` with `health: healthy`
+- `kb_postgres` (PostgreSQL database) - Status: `Up (healthy)`
 
-- Приложение запускается без ошибок
-- Базовый сценарий, описанный в PR, работает корректно
-- Отсутствуют конфликты слияния с `main`
+Access the application:
+- **Application**: http://localhost:8080
+- **PostgreSQL**: localhost:5432
 
-После проверки тестировщик нажимает **Approve** — и автор выполняет слияние.
+### Step 5: Stop Services
 
-## Роль Open Spec
+```bash
+docker compose down
+```
 
-Мы используем Open Spec с ИИ-агентами. Перед завершением задачи агент выполняет `/opsx:apply`, в ходе которого автоматически проверяет сборку и запуск приложения. Это гарантирует, что в Pull Request попадает код, уже прошедший первый уровень валидации.
+To stop and remove all data (volumes):
+
+```bash
+docker compose down -v
+```
+
+---
+
+## Windows Setup
+
+### Step 1: Clone the Repository
+
+Open **Command Prompt** or **PowerShell** and run:
+
+```powershell
+git clone https://github.com/C23-501-SoftDev/Project.git
+cd Project
+```
+
+Or use **Git Bash** (if installed):
+
+```bash
+git clone https://github.com/C23-501-SoftDev/Project.git
+cd Project
+```
+
+### Step 2: Create Environment File
+
+**Option A: Using Command Prompt**
+
+```cmd
+copy .env.example .env
+```
+
+**Option B: Using PowerShell**
+
+```powershell
+Copy-Item -Path .env.example -Destination .env
+```
+
+**Option C: Using Git Bash**
+
+```bash
+cp .env.example .env
+```
+
+The `.env` file is pre-configured with:
+- `GIT_REPO_URL=git@github.com:C23-501-SoftDev/Project.git` (auto-cloning enabled)
+- `POSTGRES_DB=knowledge_base`
+- `POSTGRES_USER=kb_user`
+- `POSTGRES_PASSWORD=strong_password`
+
+**Optional:** Edit `.env` to change any values:
+
+```powershell
+# Open in Notepad
+notepad .env
+
+# Or use your preferred editor
+code .env  # Visual Studio Code
+```
+
+### Step 3: Start Services
+
+Open **PowerShell** (or Command Prompt) in the project directory and run:
+
+```powershell
+docker compose up --pull always -d
+```
+
+Wait 30-40 seconds for the application to initialize. Check logs:
+
+```powershell
+docker logs kb_app -f
+```
+
+Press `Ctrl+C` to exit logs.
+
+### Step 4: Verify
+
+Check container status:
+
+```powershell
+docker ps
+```
+
+You should see:
+- `kb_app` (project application) - Status: `Up` with `health: healthy`
+- `kb_postgres` (PostgreSQL database) - Status: `Up (healthy)`
+
+Access the application:
+- **Application**: http://localhost:8080
+- **PostgreSQL**: localhost:5432
+
+### Step 5: Stop Services
+
+```powershell
+docker compose down
+```
+
+To stop and remove all data (volumes):
+
+```powershell
+docker compose down -v
+```
+
+---
+
+## Troubleshooting
+
+### Container Won't Start
+
+Check the application logs:
+
+```bash
+# Unix/macOS/Windows Git Bash
+docker logs kb_app
+
+# Windows PowerShell
+docker logs kb_app
+```
+
+### Port Already in Use
+
+If ports 8080 or 5432 are in use, edit `.env`:
+
+```env
+APP_PORT=8081
+POSTGRES_PORT=5433
+```
+
+Then restart:
+
+```bash
+docker compose down
+docker compose up --pull always -d
+```
+
+### Permission Denied (Unix/Linux)
+
+If you get permission errors on Linux/macOS, run Docker commands with `sudo` or add your user to the docker group:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+### Database Connection Issues
+
+Verify PostgreSQL is healthy:
+
+```bash
+docker ps
+```
+
+If `kb_postgres` status shows unhealthy, restart:
+
+```bash
+docker compose restart postgres
+```
+
+### SSH Auth Warning (Unix/macOS)
+
+The warning `SSH_AUTH_SOCK variable is not set` is safe to ignore. It appears because the repository is cloned via HTTPS internally, not SSH.
+
+---
+
+# Project Overview
+
+## Directory Structure
+
+```
+Project/
+├── backend/           # Spring Boot application (Java/Maven)
+├── frontend/          # Frontend code
+├── Dockerfile         # Application container definition
+├── docker-compose.yml # Multi-container orchestration
+├── .env              # Environment variables (created locally)
+├── .env.example      # Example environment template
+├── README.md         # This file
+└── BACKTRACKER.md    # API specification and page/endpoint mapping
+```
+
+---
+
+# API Documentation
+
+> **Цель:** Документ для синхронизации фронтенд- и бэкенд-разработки. Для каждой страницы указаны все API-запросы, которые она использует или должна использовать.
+>
+> **Легенда статусов:**
+> - ✅ — API реализован
+> - ❌ — API НЕ реализован (требуется разработка)
+> - 🔶 — Частично реализован
+
+> ⚠️ **Правило поддержки:**
+> Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить файл `BACKTRACKER.md`: изменить статусы (❌→✅), добавить/убрать строки.
+
+## Аутентификация
+
+### Страница входа (`GET /login`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| POST | `/login` | HTML-форма входа → установка JWT Cookie + CSRF Cookie, редирект на `/` | ✅ |
+| POST | `/api/auth/login` | REST-вход (JSON) → `{ token, user }` + HttpOnly Cookie | ✅ |
+
+**После входа:** редирект на `/` (главная страница)
+
+### Выход (`POST /logout`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| POST | `/logout` | Очистка JWT Cookie → редирект на `/login` | ✅ |
+
+---
+
+## Главная страница — Список документов (`GET /`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/spaces` | Список пространств, доступных текущему пользователю | ✅ |
+| GET | `/api/user/permissions?spaceId={id}` | Права текущего пользователя в пространстве (canRead, canEdit, canCreate) | ✅ |
+| GET | `/api/documents?page=0&size=20&sortBy=title&sortDir=asc` | Список документов с пагинацией | ❌ |
+| GET | `/api/documents?spaceId={id}` | Фильтрация документов по пространству | ❌ |
+| GET | `/api/documents?status=Published` | Фильтрация по статусу | ❌ |
+| POST | `/api/documents/search` | Поиск документов по названию/тексту с фильтрацией по дате | ❌ |
+
+---
+
+## Страница пространства (`GET /spaces/{id}`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/spaces/{id}` | Детали пространства (name, description, ownerId) | ❌ |
+| GET | `/api/spaces/{id}/documents?page=0&size=20` | Документы в пространстве с пагинацией | ❌ |
+| GET | `/api/spaces/{id}/tree` | Древовидная структура документов (для sidebar/TOC) | ❌ |
+| GET | `/api/user/permissions?spaceId={id}` | Проверка прав текущего пользователя | ✅ |
+
+---
+
+## Страница просмотра документа (`GET /documents/{id}`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/documents/{id}` | Полные данные документа (title, content, author, status, updatedAt, spaceId, templateId) | ❌ |
+| GET | `/api/documents/{id}/attachments` | Список вложений документа | ❌ |
+| GET | `/api/documents/{id}/permissions` | Права доступа к документу (поверх прав пространства) | ❌ |
+| GET | `/api/documents/{id}/versions?page=0&size=10` | Список версий документа | ❌ |
+| GET | `/api/user/permissions?spaceId={id}` | Права в пространстве (для отображения кнопок Edit/Delete) | ✅ |
+
+---
+
+## Страница создания документа (`GET /documents/new`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/templates?role={role}` | Список шаблонов, доступных текущей роли | ❌ |
+| GET | `/api/templates/{id}` | Содержимое шаблона (предзаполненный Markdown) | ❌ |
+| GET | `/api/spaces` | Список доступных пространств (для выбора при создании) | ✅ |
+| GET | `/api/user/permissions?spaceId={id}` | Проверка canCreate в выбранном пространстве | ✅ |
+| POST | `/api/documents` | Создание документа (body: `{ title, content, spaceId, templateId, status }`) | ❌ |
+| POST | `/api/blobs` | Загрузка вложения (multipart/form-data) → `{ url, id }` | ❌ |
+
+---
+
+## Страница редактирования документа (`GET /documents/{id}/edit`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/documents/{id}` | Текущее содержимое документа для редактора | ❌ |
+| PUT | `/api/documents/{id}` | Обновление документа (создаёт новую версию в Git) | ❌ |
+| POST | `/api/blobs` | Загрузка вложения (multipart/form-data) → `{ url, id }` | ❌ |
+| DELETE | `/api/blobs/{id}` | Удаление вложения | ❌ |
+| GET | `/api/documents/{id}/attachments` | Список текущих вложений | ❌ |
+| PUT | `/api/documents/{id}/permissions` | Настройка прав доступа к документу (поверх пространственных) | ❌ |
+| PATCH | `/api/documents/{id}/status` | Изменение статуса (Draft → Published) | ❌ |
+| DELETE | `/api/documents/{id}` | Soft-удаление документа (статус → Deleted) | ❌ |
+
+---
+
+## Страница истории версий (`GET /documents/{id}/history`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/documents/{id}/versions?page=0&size=20` | Список версий с пагинацией (gitHash, author, comment, createdAt) | ❌ |
+| GET | `/api/documents/{id}/versions/{gitHash}` | Содержимое конкретной версии | ❌ |
+| GET | `/api/documents/{id}/diff?from={hash1}&to={hash2}` | Сравнение двух версий (diff) | ❌ |
+| POST | `/api/documents/{id}/restore/{gitHash}` | Откат к версии (создаёт новую версию-копию) | ❌ |
+
+---
+
+## Страница поиска (`GET /search?q=...`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск по названию | ❌ |
+| GET | `/api/documents/search?q=запрос&spaceId={id}` | Поиск в конкретном пространстве | ❌ |
+| GET | `/api/documents/search?q=запрос&dateFrom=...&dateTo=...` | Поиск + фильтрация по дате | ❌ |
+| GET | `/api/documents/search?q=запрос&status=Published` | Поиск + фильтрация по статусу | ❌ |
+
+---
+
+## Экспорт
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/documents/{id}/export?format=pdf` | Экспорт в PDF (возвращает файл) | ❌ |
+| GET | `/api/documents/{id}/export?format=docx` | Экспорт в DOCX (возвращает файл) | ❌ |
+| GET | `/api/documents/{id}/export?format=html` | Экспорт в HTML (возвращает файл) | ❌ |
+| GET | `/api/documents/{id}/export?format=html&includeAttachments=true` | Экспорт с вложениями (архив) | ❌ |
+
+---
+
+## Корзина (`GET /admin/trash`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/documents/soft-deleted?page=0&size=20` | Список удалённых документов (is_deleted=true) | ❌ |
+| PUT | `/api/documents/{id}/restore` | Восстановление из корзины (Deleted → Published) | ❌ |
+| DELETE | `/api/documents/{id}/hard` | Физическое удаление (только ADMIN) | ❌ |
+| DELETE | `/api/documents/{id}/purge` | Физическое удаление (алиас для /hard) | ❌ |
+
+---
+
+## Админ-панель: Пользователи (`GET /admin/users`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/admin/users?page=0&size=20&sortBy=login&sortDir=asc` | Список пользователей с пагинацией и сортировкой | ✅ |
+| GET | `/api/admin/users?role=EDITOR` | Фильтрация по роли | ✅ |
+| GET | `/api/admin/users?search=admin` | Поиск по логину/email | ✅ |
+| GET | `/api/admin/users/{id}` | Детали пользователя | ✅ |
+| POST | `/api/admin/users` | Создание пользователя (`{ login, email, password, role }`) | ✅ |
+| PUT | `/api/admin/users/{id}` | Обновление (`{ login, email, role }`) | ✅ |
+| DELETE | `/api/admin/users/{id}` | Удаление (409, если есть связанные данные) | ✅ |
+| PUT | `/api/admin/users/{id}/password` | Сброс пароля (`{ newPassword }`) | ✅ |
+
+---
+
+## Админ-панель: Пространства (`GET /admin/spaces`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/admin/spaces` | Все пространства системы | ✅ |
+| POST | `/api/admin/spaces` | Создание пространства (`{ name, description, ownerId }`) | ✅ |
+| PUT | `/api/admin/spaces/{id}` | Обновление пространства | ❌ |
+| DELETE | `/api/admin/spaces/{id}` | Удаление пространства (RESTRICT если есть документы) | ❌ |
+| POST | `/api/admin/spaces/{spaceId}/permissions` | Назначение прав (`{ userId, permissionType: READ\|WRITE\|OWNER }`) | ✅ |
+| GET | `/api/admin/spaces/{id}/permissions` | Список прав пространства (с полями userLogin, userEmail) | ✅ |
+
+---
+
+## Справочник: Глобальные роли и права
+
+### Роли (GlobalRole)
+| Роль | Описание |
+|------|----------|
+| `ADMIN` | Полный доступ ко всему, видит все пространства |
+| `EDITOR` | Создание и редактирование документов с правом WRITE в пространстве |
+| `READER` | Только чтение с правом READ в пространстве |
+
+### Типы прав (PermissionType)
+| Тип | Описание |
+|-----|----------|
+| `READ` | Чтение документов в пространстве |
+| `WRITE` | Создание и редактирование документов |
+| `OWNER` | Полный контроль + управление правами |
+
+### Статусы документа (DocumentStatus)
+| Статус | Описание |
+|--------|----------|
+| `Draft` | Черновик, виден только автору и админам |
+| `Published` | Опубликован, доступен пользователям с правами |
+| `Deleted` | Soft-удалён, виден только в корзине |
+
+---
+
+## Справочник: Шаблонные типы документов
+
+### Для разработчика
+| Шаблон | Описание |
+|--------|----------|
+| `architecture` | Описание архитектуры |
+| `libraries` | Используемые библиотеки (name, type, license) |
+| `dev-environment` | Настройки среды разработки |
+
+### Для аналитика
+| Шаблон | Описание |
+|--------|----------|
+| `business-process` | Описание бизнес-процессов |
+| `requirements` | Требования (number auto, name, description .md, files) |
+| `user-instruction` | Пользовательская инструкция |
+
+### Для администратора
+| Шаблон | Описание |
+|--------|----------|
+| `system-config` | Конфигурация (environments, params) |
+| `environments` | Доступные среды |
+| `known-issues` | Известные проблемы |
+| `typical-queries` | Типовые запросы (category, type, description .md, files) |

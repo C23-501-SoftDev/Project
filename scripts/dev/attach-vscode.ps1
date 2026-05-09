@@ -9,10 +9,34 @@ if (-not (Get-Command code -ErrorAction SilentlyContinue)) {
     Write-ErrorAndExit "Please install 'code' and retry."
 }
 
-# Get container id
-$cid = (& docker compose --env-file $EnvFile ps -q app) -join ''
-if (-not $cid) { $cid = (& docker ps -q -f "name=kb_app") -join '' }
-if (-not $cid) { Write-ErrorAndExit 'App container not running. Start it with "make dev-up" first.' }
+# Get container id for app
+$cid = (& docker compose --env-file $EnvFile ps -q app 2>$null) -join ''
+if (-not $cid) {
+    $cid = (& docker ps -q -f "name=kb_app" 2>$null) -join ''
+}
+if (-not $cid) {
+    Write-Host "App container not running, attempting to start it with 'docker compose up -d'..."
+    try {
+        & docker compose --env-file $EnvFile up -d 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-ErrorAndExit "Failed to start containers. Start with 'make dev-up' and retry."
+        }
+    } catch {
+        Write-ErrorAndExit "Failed to start containers. Start with 'make dev-up' and retry."
+    }
+
+    $attempts = 0
+    while ($attempts -lt 30) {
+        $cid = (& docker ps -q -f "name=kb_app" 2>$null) -join ''
+        if ($cid) { break }
+        $attempts++
+        Start-Sleep -Seconds 1
+    }
+
+    if (-not $cid) {
+        Write-ErrorAndExit 'Timed out waiting for app container to start.'
+    }
+}
 
 # Ensure container still exists
 try {
@@ -21,21 +45,41 @@ try {
     Write-ErrorAndExit "App container ($cid) no longer exists. Start it with 'make dev-up' and retry."
 }
 
-# Prefer full container id for URI
+# Use full container ID if available
 $full = (& docker inspect --format='{{.Id}}' $cid) -join ''
 if ($full) { $idForUri = $full -replace '^sha256:' , '' } else { $idForUri = $cid }
 
-$uri = "vscode-remote://attached-container+$idForUri/workspace"
-Write-Host "Opening VS Code URI: $uri"
-try {
-    & code --folder-uri $uri
-    Write-Host "Opened VS Code for container $cid -> /workspace" -ForegroundColor Green
-} catch {
-    Write-Host "Failed to open VS Code with remote URI." -ForegroundColor Yellow
-    Write-Host "Possible reasons: 'code' CLI missing, Remote - Containers not installed, or the container stopped." -ForegroundColor Yellow
-    Write-Host "Run these to inspect the container:" -ForegroundColor Yellow
-    Write-Host "  docker ps -a --filter name=kb_app"
-    Write-Host "  docker inspect $cid"
-    Write-Host "Manual URI: $uri"
-    exit 1
+$shortId = if ($idForUri.Length -ge 12) { $idForUri.Substring(0, 12) } else { $idForUri }
+$nameUri = 'vscode-remote://attached-container+kb_app'
+$shortUri = "vscode-remote://attached-container+$shortId"
+$fullUri = "vscode-remote://attached-container+$idForUri"
+
+Write-Host 'Attempting to open VS Code. Candidate URIs:'
+Write-Host "  1) $nameUri"
+Write-Host "  2) $shortUri"
+Write-Host "  3) $fullUri"
+
+$uris = @($nameUri, $shortUri, $fullUri)
+foreach ($uri in $uris) {
+    try {
+        & code --folder-uri $uri 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Opened VS Code for container $cid (URI: $uri)" -ForegroundColor Green
+            exit 0
+        }
+    } catch {
+    }
 }
+
+Write-Host 'Failed to open VS Code with any container URI.' -ForegroundColor Red
+Write-Host "Possible reasons: 'code' CLI not in PATH, Remote - Containers extension missing, or the container stopped." -ForegroundColor Yellow
+Write-Host 'Diagnostics:' -ForegroundColor Yellow
+Write-Host '  docker ps -a --filter name=kb_app' -ForegroundColor Yellow
+docker ps -a --filter name=kb_app
+Write-Host "  docker inspect $cid" -ForegroundColor Yellow
+docker inspect $cid
+Write-Host 'Manual URIs:' -ForegroundColor Yellow
+Write-Host "  $fullUri"
+Write-Host "  $shortUri"
+Write-Host "  $nameUri"
+exit 1
