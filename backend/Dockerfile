@@ -120,10 +120,10 @@ fi
 
 tail -f /dev/null
 EOF
-RUN chmod +x /usr/local/bin/startup
-
-USER ${APP_UID}:${APP_GID}
+RUN chmod +x /usr/local/bin/startup && chmod 755 /usr/local/bin/startup
 
 # Override Maven base image entrypoint with our startup script
 ENTRYPOINT ["/usr/local/bin/startup"]
 CMD []
+
+USER ${APP_UID}:${APP_GID}
