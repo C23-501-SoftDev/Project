@@ -3,6 +3,15 @@
   "dockerComposeFile": "../docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",
+  "settings": {
+    "files.watcherExclude": {
+      "**/.git/objects/**": false,
+      "**/.git/worktree/**": false
+    }
+  },
+  "containerEnv": {
+    "GIT_DISCOVERY_ACROSS_FILESYSTEM": "true"
+  },
   "runServices": [
     "postgres",
     "app"

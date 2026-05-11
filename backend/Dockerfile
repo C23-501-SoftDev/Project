@@ -24,15 +24,18 @@ ENV HOME=/home/${APP_USER}
 RUN if ! getent group "${APP_GID}" >/dev/null 2>&1; then groupadd -o -g "${APP_GID}" "${APP_USER}"; fi \
     && if ! id -u "${APP_USER}" >/dev/null 2>&1; then useradd -o -m -u "${APP_UID}" -g "${APP_GID}" -s /bin/sh "${APP_USER}"; fi
 
-RUN mkdir -p /home/${APP_USER}/.m2 /workspace \
-    && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER} \
-    && chown "${APP_UID}:${APP_GID}" /workspace \
-    && chmod 755 /home/${APP_USER} /workspace
+#RUN mkdir -p /home/${APP_USER}/.m2 /workspace \
+#    && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER} \
+#    && chown "${APP_UID}:${APP_GID}" /workspace \
+#    && chmod 755 /home/${APP_USER} /workspace
+
+RUN mkdir -p /workspace && chown ${APP_UID}:${APP_GID} /workspace
+RUN mkdir -p /workspace/.git && chown ${APP_UID}:${APP_GID} /workspace/.git
 
 # Startup script that handles both LOCAL and SSH modes
 RUN cat > /usr/local/bin/startup <<'EOF'
 #!/bin/sh
-set -e
+set e
 
 BRANCH="${GIT_BRANCH:-main}"
 
@@ -91,7 +94,7 @@ elif [ "$SOURCE_MODE" = "ssh" ]; then
 
     mkdir -p "$HOME/.ssh"
     chmod 700 "$HOME/.ssh"
-    if ! ssh-keygen -F "$REPO_HOST" >/dev/null 2>&1; then
+    if ! ssh-keygen F "$REPO_HOST" >/dev/null 2>&1; then
         echo "SSH mode: Добавляю host key для $REPO_HOST"
         ssh-keyscan -H "$REPO_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null || {
             echo "SOURCE_MODE=ssh requires known_hosts access for $REPO_HOST"
@@ -123,7 +126,9 @@ EOF
 RUN chmod +x /usr/local/bin/startup && chmod 755 /usr/local/bin/startup
 
 # Override Maven base image entrypoint with our startup script
-ENTRYPOINT ["/usr/local/bin/startup"]
+#ENTRYPOINT ["/usr/local/bin/startup"]
+ENTRYPOINT ["tail", "-f", "/dev/null"]
 CMD []
 
 USER ${APP_UID}:${APP_GID}
+#################################
