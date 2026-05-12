@@ -1,18 +1,11 @@
 # Compose and scripts
 COMPOSE := docker compose --env-file .env
-SCRIPTS_DEV := ./scripts/dev
-ifeq ($(OS),Windows_NT)
-DEV_BOOTSTRAP := powershell -NoProfile -ExecutionPolicy Bypass -File $(SCRIPTS_DEV)/bootstrap.ps1
-else
-DEV_BOOTSTRAP := bash $(SCRIPTS_DEV)/bootstrap.sh
-endif
 
-.PHONY: dev-up dev-down dev-logs docker-up docker-down docker-logs docker-shell docker-up-extras
+.PHONY: dev-up dev-down dev-logs docker-shell build run
 
 # One-click development environment setup
 dev-up:
-	@echo "Starting dev environment..."
-	@$(DEV_BOOTSTRAP)
+	$(COMPOSE) up -d --build
 
 # Stop development containers
 dev-down:
@@ -22,34 +15,14 @@ dev-down:
 dev-logs:
 	$(COMPOSE) logs -f
 
-# Direct Docker compose commands (for advanced users)
-docker-up:
-	$(COMPOSE) up -d --build
-
-docker-up-extras:
-	$(COMPOSE) --profile extras up -d --build
-
-docker-down:
-	$(COMPOSE) down
-
-docker-logs:
-	$(COMPOSE) logs -f
-
+# Вход в контейнер приложения
 docker-shell:
-	$(COMPOSE) exec app sh -c "cd /workspace && exec sh"
+	docker exec -it kb_app /bin/bash
 
-ifeq ($(OS),Windows_NT)
-attach:
-	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/attach.ps1
-else
-attach:
-	@bash ./scripts/dev/attach.sh
-endif
+# Компиляция приложения в контейнере
+build:
+	docker exec kb_app mvn clean install -DskipTests
 
-ifeq ($(OS),Windows_NT)
-attach-vscode:
-	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/attach-vscode.ps1
-else
-attach-vscode:
-	@bash ./scripts/dev/attach-vscode.sh
-endif
+# Запуск приложения в контейнере
+run:
+	docker exec kb_app mvn spring-boot:run

@@ -6,7 +6,6 @@ services:
       args:
         APP_UID: ${UID:-1000}
         APP_GID: ${GID:-1000}
-        SOURCE_MODE: ${SOURCE_MODE:-local}
     container_name: kb_app
     user: "${UID:-1000}:${GID:-1000}"
     environment:
@@ -17,23 +16,10 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       GIT_REPO_PATH: /workspace
-      GIT_DIR: /tmp/repo.git
-      GIT_WORK_TREE: /workspace
-      LOGGING_FILE_NAME: ""
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      SOURCE_MODE: ${SOURCE_MODE:-local}
-      GIT_REPO_URL: ${GIT_REPO_URL:-}
-      GIT_BRANCH: ${GIT_BRANCH:-main}
-      AUTO_PULL: ${AUTO_PULL:-false}
-      SSH_AUTH_SOCK: ${SSH_AUTH_SOCK}
     ports:
       - "${APP_PORT:-8080}:8080"
-    volumes: []
-      # SSH auth only needed if SOURCE_MODE=ssh
-      # - ${SSH_AUTH_SOCK}:${SSH_AUTH_SOCK}
+    volumes:
+      - .:/workspace
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,7 +29,6 @@ services:
       timeout: 5s
       retries: 15
       start_period: 40s
-    restart: unless-stopped
 
   postgres:
     image: postgres:18-alpine
@@ -55,39 +40,11 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      # Postgres 18 image expects the volume mounted at /var/lib/postgresql
       - postgres_data:/var/lib/postgresql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 3s
-      retries: 20
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    container_name: kb_redis
-    profiles: [ "extras" ]
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    restart: unless-stopped
-
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: kb_rabbitmq
-    profiles: [ "extras" ]
-    ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
-    healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "check_running" ]
-      interval: 10s
-      timeout: 5s
       retries: 20
     restart: unless-stopped
 
