@@ -37,11 +37,17 @@ cp .env.example .env
 
 The `.env` file is pre-configured with:
 - `GIT_REPO_URL=git@github.com:C23-501-SoftDev/Project.git` (auto-cloning enabled)
+- `GIT_REPO_SSH_URL=git@github.com:C23-501-SoftDev/Project.git` (**for git push/pull inside container**)
 - `POSTGRES_DB=knowledge_base`
 - `POSTGRES_USER=kb_user`
 - `POSTGRES_PASSWORD=strong_password`
 
-**Optional:** Edit `.env` to change any values (ports, credentials, etc.):
+**⚠️ Important:** Ensure SSH is configured for git operations inside the container:
+1. Check that `GIT_REPO_SSH_URL` in `.env` matches your Git repository SSH address
+2. Your SSH key must be in `~/.ssh/` on the host machine
+3. Your git config must be set: `git config --global user.name "Your Name"` and `git config --global user.email "your@email.com"`
+
+**Optional:** Edit `.env` to change any values (ports, credentials, git URL, etc.):
 
 ```bash
 nano .env
@@ -54,7 +60,9 @@ vim .env
 Build and start all containers:
 
 ```bash
-docker compose up --pull always -d
+make dev-up
+# or
+docker compose --env-file .env up -d --build
 ```
 
 Wait 30-40 seconds for the application to initialize. Check logs:
@@ -62,6 +70,14 @@ Wait 30-40 seconds for the application to initialize. Check logs:
 ```bash
 docker logs kb_app -f
 ```
+
+You should see:
+```
+[startup.sh] Переключаем git remote на SSH: git@github.com:C23-501-SoftDev/Project.git
+[startup.sh] Git remote успешно обновлен
+```
+
+This means the **startup script automatically configured git SSH remote** for you.
 
 Press `Ctrl+C` to exit logs.
 
@@ -84,6 +100,8 @@ Access the application:
 ### Step 5: Stop Services
 
 ```bash
+make dev-down
+# or
 docker compose down
 ```
 
@@ -92,6 +110,50 @@ To stop and remove all data (volumes):
 ```bash
 docker compose down -v
 ```
+
+---
+
+## Working with Git inside the Container
+
+The **startup script** automatically:
+1. ✅ Configures git SSH remote from `GIT_REPO_SSH_URL` environment variable
+2. ✅ Mounts your git config (`~/.gitconfig`) so commits use your name/email
+3. ✅ Mounts your SSH keys (`~/.ssh`) for push/pull operations
+
+### Enter the Container
+
+```bash
+make docker-shell
+# or
+docker exec -it kb_app /bin/sh
+```
+
+### Verify Git is Configured
+
+```bash
+# Check SSH remote
+git remote -v
+
+# Check your git config
+git config --global user.name
+git config --global user.email
+```
+
+Expected output:
+```
+origin  git@github.com:C23-501-SoftDev/Project.git (fetch)
+origin  git@github.com:C23-501-SoftDev/Project.git (push)
+```
+
+### Make Commits and Push
+
+```bash
+git add .
+git commit -m "Описание вашего изменения"
+git push origin HEAD
+```
+
+✅ **No password required** — SSH keys and config are already set up!
 
 ---
 
@@ -135,9 +197,15 @@ cp .env.example .env
 
 The `.env` file is pre-configured with:
 - `GIT_REPO_URL=git@github.com:C23-501-SoftDev/Project.git` (auto-cloning enabled)
+- `GIT_REPO_SSH_URL=git@github.com:C23-501-SoftDev/Project.git` (**for git push/pull inside container**)
 - `POSTGRES_DB=knowledge_base`
 - `POSTGRES_USER=kb_user`
 - `POSTGRES_PASSWORD=strong_password`
+
+**⚠️ Important:** Ensure SSH is configured for git operations inside the container:
+1. Check that `GIT_REPO_SSH_URL` in `.env` matches your Git repository SSH address
+2. Your SSH key must be in `~/.ssh/` on your Windows user directory
+3. Your git config must be set: `git config --global user.name "Your Name"` and `git config --global user.email "your@email.com"`
 
 **Optional:** Edit `.env` to change any values:
 
@@ -154,7 +222,7 @@ code .env  # Visual Studio Code
 Open **PowerShell** (or Command Prompt) in the project directory and run:
 
 ```powershell
-docker compose up --pull always -d
+docker compose --env-file .env up -d --build
 ```
 
 Wait 30-40 seconds for the application to initialize. Check logs:
@@ -162,6 +230,14 @@ Wait 30-40 seconds for the application to initialize. Check logs:
 ```powershell
 docker logs kb_app -f
 ```
+
+You should see:
+```
+[startup.sh] Переключаем git remote на SSH: git@github.com:C23-501-SoftDev/Project.git
+[startup.sh] Git remote успешно обновлен
+```
+
+This means the **startup script automatically configured git SSH remote** for you.
 
 Press `Ctrl+C` to exit logs.
 
@@ -252,6 +328,43 @@ docker compose restart postgres
 
 The warning `SSH_AUTH_SOCK variable is not set` is safe to ignore. It appears because the repository is cloned via HTTPS internally, not SSH.
 
+### Git SSH Not Working in Container
+
+If you can't push/pull from inside the container, check:
+
+1. **SSH keys are accessible:**
+   ```bash
+   docker exec kb_app ls -la /home/app/.ssh/
+   # Should show: id_rsa, id_rsa.pub, known_hosts, config (or similar)
+   ```
+
+2. **Git SSH remote is configured:**
+   ```bash
+   docker exec kb_app git remote -v
+   # Should show: git@github.com:...
+   ```
+
+3. **Git config is loaded:**
+   ```bash
+   docker exec kb_app git config --global user.name
+   # Should show your name
+   ```
+
+4. **SSH key permissions are correct:**
+   ```bash
+   docker exec kb_app ls -l /home/app/.ssh/id_rsa
+   # Should show: -rw------- (600 permissions)
+   ```
+
+**Solution:** If SSH keys are missing or have wrong permissions:
+- On your **host machine**, ensure keys are in `~/.ssh/` with correct permissions:
+  ```bash
+  chmod 700 ~/.ssh
+  chmod 600 ~/.ssh/id_rsa
+  chmod 644 ~/.ssh/id_rsa.pub
+  ```
+- Then restart containers: `docker compose down && docker compose up -d --build`
+
 ---
 
 # Project Overview
@@ -261,14 +374,23 @@ The warning `SSH_AUTH_SOCK variable is not set` is safe to ignore. It appears be
 ```
 Project/
 ├── backend/           # Spring Boot application (Java/Maven)
+│   └── Dockerfile     # App container with startup script (auto-configures git SSH)
 ├── frontend/          # Frontend code
-├── Dockerfile         # Application container definition
-├── docker-compose.yml # Multi-container orchestration
-├── .env              # Environment variables (created locally)
+├── docker-compose.yml # Multi-container orchestration (mounts SSH keys & git config)
+├── .env              # Environment variables (created locally, includes GIT_REPO_SSH_URL)
 ├── .env.example      # Example environment template
 ├── README.md         # This file
 └── BACKTRACKER.md    # API specification and page/endpoint mapping
 ```
+
+### What Happens on `docker compose up`
+
+1. **Dockerfile builds** with embedded startup script
+2. **Container starts** and runs startup script:
+   - If `GIT_REPO_SSH_URL` is set → switches git remote to SSH
+   - Loads your git config (user.name, user.email)
+   - Mounts your SSH keys for authentication
+3. **Container waits** for your commands (`docker exec` or interactive shell)
 
 ---
 

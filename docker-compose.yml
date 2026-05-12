@@ -16,10 +16,28 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       GIT_REPO_PATH: /workspace
+      # SSH URL репозитория для git push/pull (например: git@github.com:USERNAME/REPO.git)
+      # Используется для быстрой установки remote: git remote set-url origin $GIT_REPO_SSH_URL
+      GIT_REPO_SSH_URL: ${GIT_REPO_SSH_URL}
+      # Для проброса SSH-агента (рекомендуемый способ для доступа к приватным репо):
+      # 1) Убедитесь, что на хосте запущен ssh-agent и переменная SSH_AUTH_SOCK экспортирована.
+      # 2) Раскомментируйте mapping в секции volumes ниже и эту строку (если хотите указать путь внутри контейнера).
+      # SSH_AUTH_SOCK: /ssh-agent
     ports:
       - "${APP_PORT:-8080}:8080"
     volumes:
       - .:/workspace
+      # Проброс глобального git-конфига пользователя, чтобы внутри контейнера
+      # git использовал те же user.name / user.email и другие настройки.
+      # Если нужно, чтобы контейнер мог менять конфиг — уберите ":ro".
+      - ${HOME}/.gitconfig:/home/app/.gitconfig:ro
+      # (Опционально) проброс SSH-ключей для доступа к приватным репозиториям.
+      # 1) Вариант A — проброс SSH-агента (рекомендуется):
+      # - ${SSH_AUTH_SOCK}:/ssh-agent
+      #    и раскомментировать переменную окружения выше: SSH_AUTH_SOCK: /ssh-agent
+      #    Этот способ безопаснее, ключи остаются на хосте, контейнер использует агент.
+      # 2) Вариант B — проброс директории ~/.ssh (используется в настоящее время):
+      - ${HOME}/.ssh:/home/app/.ssh
     depends_on:
       postgres:
         condition: service_healthy
