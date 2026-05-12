@@ -131,4 +131,3 @@ ENTRYPOINT ["tail", "-f", "/dev/null"]
 CMD []
 
 USER ${APP_UID}:${APP_GID}
-#################################
