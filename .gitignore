@@ -7,3 +7,5 @@ tests/E2E/playwright-report
 tests/E2E/test-results
 .github/
 .gitignore
+.idea/
+.vscode/

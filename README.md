@@ -1,6 +1,7 @@
 # Project Documentation
 
 ## Table of Contents
+
 1. [First-Time Setup](#first-time-setup)
 2. [Project Overview](#project-overview)
 3. [API Documentation](#api-documentation)
@@ -36,6 +37,7 @@ cp .env.example .env
 ```
 
 The `.env` file is pre-configured with:
+
 - `GIT_REPO_URL=git@github.com:C23-501-SoftDev/Project.git` (auto-cloning enabled)
 - `GIT_REPO_SSH_URL=git@github.com:C23-501-SoftDev/Project.git` (**for git push/pull inside container**)
 - `POSTGRES_DB=knowledge_base`
@@ -43,6 +45,7 @@ The `.env` file is pre-configured with:
 - `POSTGRES_PASSWORD=strong_password`
 
 **⚠️ Important:** Ensure SSH is configured for git operations inside the container:
+
 1. Check that `GIT_REPO_SSH_URL` in `.env` matches your Git repository SSH address
 2. Your SSH key must be in `~/.ssh/` on the host machine
 3. Your git config must be set: `git config --global user.name "Your Name"` and `git config --global user.email "your@email.com"`
@@ -72,6 +75,7 @@ docker logs kb_app -f
 ```
 
 You should see:
+
 ```
 [startup.sh] Переключаем git remote на SSH: git@github.com:C23-501-SoftDev/Project.git
 [startup.sh] Git remote успешно обновлен
@@ -90,12 +94,14 @@ docker ps
 ```
 
 You should see:
+
 - `kb_app` (project application) - Status: `Up` with `health: healthy`
 - `kb_postgres` (PostgreSQL database) - Status: `Up (healthy)`
 
 Access the application:
-- **Application**: http://localhost:8080
-- **PostgreSQL**: localhost:5432
+
+- **Application**: <http://localhost:8080>
+- **PostgreSQL**: localhost:5433
 
 ### Step 5: Stop Services
 
@@ -116,6 +122,7 @@ docker compose down -v
 ## Working with Git inside the Container
 
 The **startup script** automatically:
+
 1. ✅ Configures git SSH remote from `GIT_REPO_SSH_URL` environment variable
 2. ✅ Mounts your git config (`~/.gitconfig`) so commits use your name/email
 3. ✅ Mounts your SSH keys (`~/.ssh`) for push/pull operations
@@ -140,6 +147,7 @@ git config --global user.email
 ```
 
 Expected output:
+
 ```
 origin  git@github.com:C23-501-SoftDev/Project.git (fetch)
 origin  git@github.com:C23-501-SoftDev/Project.git (push)
@@ -196,6 +204,7 @@ cp .env.example .env
 ```
 
 The `.env` file is pre-configured with:
+
 - `GIT_REPO_URL=git@github.com:C23-501-SoftDev/Project.git` (auto-cloning enabled)
 - `GIT_REPO_SSH_URL=git@github.com:C23-501-SoftDev/Project.git` (**for git push/pull inside container**)
 - `POSTGRES_DB=knowledge_base`
@@ -203,6 +212,7 @@ The `.env` file is pre-configured with:
 - `POSTGRES_PASSWORD=strong_password`
 
 **⚠️ Important:** Ensure SSH is configured for git operations inside the container:
+
 1. Check that `GIT_REPO_SSH_URL` in `.env` matches your Git repository SSH address
 2. Your SSH key must be in `~/.ssh/` on your Windows user directory
 3. Your git config must be set: `git config --global user.name "Your Name"` and `git config --global user.email "your@email.com"`
@@ -232,6 +242,7 @@ docker logs kb_app -f
 ```
 
 You should see:
+
 ```
 [startup.sh] Переключаем git remote на SSH: git@github.com:C23-501-SoftDev/Project.git
 [startup.sh] Git remote успешно обновлен
@@ -250,12 +261,14 @@ docker ps
 ```
 
 You should see:
+
 - `kb_app` (project application) - Status: `Up` with `health: healthy`
 - `kb_postgres` (PostgreSQL database) - Status: `Up (healthy)`
 
 Access the application:
-- **Application**: http://localhost:8080
-- **PostgreSQL**: localhost:5432
+
+- **Application**: <http://localhost:8080>
+- **PostgreSQL**: localhost:5433
 
 ### Step 5: Stop Services
 
@@ -287,11 +300,11 @@ docker logs kb_app
 
 ### Port Already in Use
 
-If ports 8080 or 5432 are in use, edit `.env`:
+If ports 8080 or 5433 are in use, edit `.env`:
 
 ```env
 APP_PORT=8081
-POSTGRES_PORT=5433
+POSTGRES_PORT=5434
 ```
 
 Then restart:
@@ -333,36 +346,43 @@ The warning `SSH_AUTH_SOCK variable is not set` is safe to ignore. It appears be
 If you can't push/pull from inside the container, check:
 
 1. **SSH keys are accessible:**
+
    ```bash
    docker exec kb_app ls -la /home/app/.ssh/
    # Should show: id_rsa, id_rsa.pub, known_hosts, config (or similar)
    ```
 
 2. **Git SSH remote is configured:**
+
    ```bash
    docker exec kb_app git remote -v
    # Should show: git@github.com:...
    ```
 
 3. **Git config is loaded:**
+
    ```bash
    docker exec kb_app git config --global user.name
    # Should show your name
    ```
 
 4. **SSH key permissions are correct:**
+
    ```bash
    docker exec kb_app ls -l /home/app/.ssh/id_rsa
    # Should show: -rw------- (600 permissions)
    ```
 
 **Solution:** If SSH keys are missing or have wrong permissions:
+
 - On your **host machine**, ensure keys are in `~/.ssh/` with correct permissions:
+
   ```bash
   chmod 700 ~/.ssh
   chmod 600 ~/.ssh/id_rsa
   chmod 644 ~/.ssh/id_rsa.pub
   ```
+
 - Then restart containers: `docker compose down && docker compose up -d --build`
 
 ---
@@ -399,6 +419,7 @@ Project/
 > **Цель:** Документ для синхронизации фронтенд- и бэкенд-разработки. Для каждой страницы указаны все API-запросы, которые она использует или должна использовать.
 >
 > **Легенда статусов:**
+>
 > - ✅ — API реализован
 > - ❌ — API НЕ реализован (требуется разработка)
 > - 🔶 — Частично реализован
@@ -564,6 +585,7 @@ Project/
 ## Справочник: Глобальные роли и права
 
 ### Роли (GlobalRole)
+
 | Роль | Описание |
 |------|----------|
 | `ADMIN` | Полный доступ ко всему, видит все пространства |
@@ -571,6 +593,7 @@ Project/
 | `READER` | Только чтение с правом READ в пространстве |
 
 ### Типы прав (PermissionType)
+
 | Тип | Описание |
 |-----|----------|
 | `READ` | Чтение документов в пространстве |
@@ -578,6 +601,7 @@ Project/
 | `OWNER` | Полный контроль + управление правами |
 
 ### Статусы документа (DocumentStatus)
+
 | Статус | Описание |
 |--------|----------|
 | `Draft` | Черновик, виден только автору и админам |
@@ -589,6 +613,7 @@ Project/
 ## Справочник: Шаблонные типы документов
 
 ### Для разработчика
+
 | Шаблон | Описание |
 |--------|----------|
 | `architecture` | Описание архитектуры |
@@ -596,6 +621,7 @@ Project/
 | `dev-environment` | Настройки среды разработки |
 
 ### Для аналитика
+
 | Шаблон | Описание |
 |--------|----------|
 | `business-process` | Описание бизнес-процессов |
@@ -603,6 +629,7 @@ Project/
 | `user-instruction` | Пользовательская инструкция |
 
 ### Для администратора
+
 | Шаблон | Описание |
 |--------|----------|
 | `system-config` | Конфигурация (environments, params) |
