@@ -123,7 +123,7 @@ spring:
 
   # DataSource — PostgreSQL для разработки
   datasource:
-    url: jdbc:postgresql://localhost:5432/knowledge_base
+    url: jdbc:postgresql://localhost:5433/knowledge_base
     username: kb_user
     password: "strong_password"
     driver-class-name: org.postgresql.Driver
@@ -191,7 +191,7 @@ spring:
       on-profile: prod
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/knowledge_base}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/knowledge_base}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
