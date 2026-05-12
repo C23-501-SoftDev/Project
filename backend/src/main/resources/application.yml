@@ -123,9 +123,9 @@ spring:
 
   # DataSource — PostgreSQL для разработки
   datasource:
-    url: jdbc:postgresql://localhost:5433/knowledge_base
-    username: kb_user
-    password: "strong_password"
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/knowledge_base}
+    username: ${DB_USERNAME:kb_user}
+    password: ${DB_PASSWORD:strong_password}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5

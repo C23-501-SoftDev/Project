@@ -5,10 +5,13 @@ ARG APP_UID=1000
 ARG APP_GID=1000
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git nodejs npm \
+    && apt-get install -y --no-install-recommends git curl gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g openspec
+# Устанавливаем openspec глобально (до переключения на пользователя app)
+RUN npm install -g @fission-ai/openspec
 
 ENV MAVEN_CONFIG=/home/${APP_USER}/.m2
 EXPOSE 8080
