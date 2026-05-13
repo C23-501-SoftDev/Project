@@ -147,7 +147,7 @@ docker compose down -v
 - Continue (`.continue/`)
 - Kilo Code (`.kilocode/`)
 
-
+---
 
 ## Working with Git inside the Container
 
