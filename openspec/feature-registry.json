@@ -73,6 +73,23 @@
         "admin-users-crud",
         "spaces-and-permissions"
       ]
+    },
+    {
+      "featureId": "documents-crud",
+      "title": "Documents: CRUD operations with Git integration",
+      "status": "pending",
+      "area": "backend",
+      "repo": "Project",
+      "docs": [
+        "../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md"
+      ],
+      "endpoints": [
+        "GET /api/documents",
+        "GET /api/documents/{id}",
+        "POST /api/documents",
+        "PUT /api/documents/{id}",
+        "DELETE /api/documents/{id}"
+      ]
     }
   ]
 }

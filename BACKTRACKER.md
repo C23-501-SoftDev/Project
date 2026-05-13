@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-04-29
+**Дата обновления:** 2026-05-13
 
 ---
 
@@ -42,7 +42,7 @@
 | GET | `/api/spaces` | Список пространств, доступных текущему пользователю | ✅ |
 | GET | `/api/user/permissions?spaceId={id}` | Права текущего пользователя в пространстве (canRead, canEdit, canCreate) | ✅ |
 | GET | `/api/documents?page=0&size=20&sortBy=title&sortDir=asc` | Список документов с пагинацией | ❌ |
-| GET | `/api/documents?spaceId={id}` | Фильтрация документов по пространству | ❌ |
+| GET | `/api/documents?spaceId={id}` | Фильтрация документов по пространству | ✅ |
 | GET | `/api/documents?status=Published` | Фильтрация по статусу | ❌ |
 | POST | `/api/documents/search` | Поиск документов по названию/тексту с фильтрацией по дате | ❌ |
 
@@ -68,7 +68,7 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/{id}` | Полные данные документа (title, content, author, status, updatedAt, spaceId, templateId) | ❌ |
+| GET | `/api/documents/{id}` | Полные данные документа (title, content, author, status, updatedAt, spaceId, templateId) | ✅ |
 | GET | `/api/documents/{id}/attachments` | Список вложений документа | ❌ |
 | GET | `/api/documents/{id}/permissions` | Права доступа к документу (поверх прав пространства) | ❌ |
 | GET | `/api/documents/{id}/versions?page=0&size=10` | Список версий документа | ❌ |
@@ -89,7 +89,7 @@
 | GET | `/api/templates/{id}` | Содержимое шаблона (предзаполненный Markdown) | ❌ |
 | GET | `/api/spaces` | Список доступных пространств (для выбора при создании) | ✅ |
 | GET | `/api/user/permissions?spaceId={id}` | Проверка canCreate в выбранном пространстве | ✅ |
-| POST | `/api/documents` | Создание документа (body: `{ title, content, spaceId, templateId, status }`) | ❌ |
+| POST | `/api/documents` | Создание документа (body: `{ title, content, spaceId, templateId, status }`) | ✅ |
 | POST | `/api/blobs` | Загрузка вложения (multipart/form-data) → `{ url, id }` | ❌ |
 
 **Формат создания (POST /api/documents):**
@@ -109,14 +109,14 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/{id}` | Текущее содержимое документа для редактора | ❌ |
-| PUT | `/api/documents/{id}` | Обновление документа (создаёт новую версию в Git) | ❌ |
+| GET | `/api/documents/{id}` | Текущее содержимое документа для редактора | ✅ |
+| PUT | `/api/documents/{id}` | Обновление документа (создаёт новую версию в Git) | ✅ |
 | POST | `/api/blobs` | Загрузка вложения (multipart/form-data) → `{ url, id }` | ❌ |
 | DELETE | `/api/blobs/{id}` | Удаление вложения | ❌ |
 | GET | `/api/documents/{id}/attachments` | Список текущих вложений | ❌ |
 | PUT | `/api/documents/{id}/permissions` | Настройка прав доступа к документу (поверх пространственных) | ❌ |
 | PATCH | `/api/documents/{id}/status` | Изменение статуса (Draft → Published) | ❌ |
-| DELETE | `/api/documents/{id}` | Soft-удаление документа (статус → Deleted) | ❌ |
+| DELETE | `/api/documents/{id}` | Soft-удаление документа (статус → Deleted) | ✅ |
 
 **Формат обновления (PUT /api/documents/{id}):**
 ```json
@@ -251,11 +251,11 @@
 
 | Блок | Эндпоинты | Статус |
 |------|-----------|--------|
-| **Документы CRUD** | GET/POST/PUT/DELETE `/api/documents` | ❌ |
-| **Документы — просмотр** | GET `/api/documents/{id}` | ❌ |
-| **Документы — создание** | POST `/api/documents` + шаблоны | ❌ |
-| **Документы — редактирование** | PUT `/api/documents/{id}` | ❌ |
-| **Документы — удаление** | DELETE `/api/documents/{id}` (soft) | ❌ |
+| **Документы CRUD** | GET/POST/PUT/DELETE `/api/documents` | ✅ |
+| **Документы — просмотр** | GET `/api/documents/{id}` | ✅ |
+| **Документы — создание** | POST `/api/documents` + шаблоны | ✅ |
+| **Документы — редактирование** | PUT `/api/documents/{id}` | ✅ |
+| **Документы — удаление** | DELETE `/api/documents/{id}` (soft) | ✅ |
 | **Версии** | GET `/api/documents/{id}/versions` | ❌ |
 | **Diff версий** | GET `/api/documents/{id}/diff` | ❌ |
 | **Откат версии** | POST `/api/documents/{id}/restore` | ❌ |
