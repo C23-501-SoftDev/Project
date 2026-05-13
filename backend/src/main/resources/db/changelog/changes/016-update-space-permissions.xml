@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 016: Переименование space_permissions в space_user_permissions и создание space_group_permissions
+    
+    Изменения:
+    - Переименование space_permissions -> space_user_permissions
+    - Создание новой таблицы space_group_permissions для прав групп
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="016-rename-space-permissions-and-create-group-permissions" author="knowledgebase-dev">
+        <comment>Переименование space_permissions и создание space_group_permissions</comment>
+
+        <!-- Переименовываем таблицу space_permissions в space_user_permissions -->
+        <renameTable
+                oldTableName="space_permissions"
+                newTableName="space_user_permissions" />
+
+        <!-- Переименовываем primary key constraint -->
+        <sql>
+            ALTER INDEX pk_space_permissions RENAME TO pk_space_user_permissions;
+        </sql>
+
+        <!-- Переименовываем unique constraint -->
+        <sql>
+            ALTER TABLE space_user_permissions RENAME CONSTRAINT uq_space_permissions TO uq_space_user_permissions;
+        </sql>
+
+        <!-- Переименовываем check constraint -->
+        <sql>
+            ALTER TABLE space_user_permissions RENAME CONSTRAINT chk_space_permissions_type TO chk_space_user_permissions_type;
+        </sql>
+
+        <!-- Переименовываем foreign key constraints -->
+        <sql>
+            ALTER TABLE space_user_permissions RENAME CONSTRAINT fk_space_permissions_space TO fk_space_user_permissions_space;
+        </sql>
+        <sql>
+            ALTER TABLE space_user_permissions RENAME CONSTRAINT fk_space_permissions_user TO fk_space_user_permissions_user;
+        </sql>
+
+        <!-- Переименовываем индексы -->
+        <sql>
+            ALTER INDEX idx_space_permissions_space RENAME TO idx_space_user_permissions_space;
+        </sql>
+        <sql>
+            ALTER INDEX idx_space_permissions_user RENAME TO idx_space_user_permissions_user;
+        </sql>
+
+        <!-- Создаем таблицу space_group_permissions -->
+        <createTable tableName="space_group_permissions"
+                     remarks="Права групп пользователей на конкретные пространства">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_space_group_permissions" nullable="false"/>
+            </column>
+            <column name="space_id" type="BIGINT" remarks="Пространство">
+                <constraints nullable="false"/>
+            </column>
+            <column name="group_id" type="BIGINT" remarks="Группа">
+                <constraints nullable="false"/>
+            </column>
+            <column name="permission_type" type="VARCHAR(20)"
+                    remarks="Тип права: READ, WRITE, OWNER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"
+                    remarks="Дата выдачи права">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- CHECK constraint на допустимые значения permission_type -->
+        <sql>
+            ALTER TABLE space_group_permissions
+                ADD CONSTRAINT chk_space_group_permissions_type
+                    CHECK (permission_type IN ('READ', 'WRITE', 'OWNER'));
+        </sql>
+
+        <!-- Уникальность -->
+        <addUniqueConstraint
+                tableName="space_group_permissions"
+                columnNames="space_id, group_id, permission_type"
+                constraintName="uq_space_group_permissions"/>
+
+        <!-- Foreign Key constraints -->
+        <addForeignKeyConstraint
+                baseTableName="space_group_permissions"
+                baseColumnNames="space_id"
+                constraintName="fk_space_group_permissions_space"
+                referencedTableName="spaces"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+                baseTableName="space_group_permissions"
+                baseColumnNames="group_id"
+                constraintName="fk_space_group_permissions_group"
+                referencedTableName="user_groups"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <!-- Индексы -->
+        <createIndex tableName="space_group_permissions" indexName="idx_space_group_permissions_space">
+            <column name="space_id"/>
+        </createIndex>
+
+        <createIndex tableName="space_group_permissions" indexName="idx_space_group_permissions_group">
+            <column name="group_id"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="space_group_permissions"/>
+            
+            <!-- Восстанавливаем старые имена -->
+            <sql>ALTER INDEX idx_space_user_permissions_user RENAME TO idx_space_permissions_user;</sql>
+            <sql>ALTER INDEX idx_space_user_permissions_space RENAME TO idx_space_permissions_space;</sql>
+            <sql>ALTER TABLE space_user_permissions RENAME CONSTRAINT fk_space_permissions_user TO fk_space_permissions_user;</sql>
+            <sql>ALTER TABLE space_user_permissions RENAME CONSTRAINT fk_space_permissions_space TO fk_space_permissions_space;</sql>
+            <sql>ALTER TABLE space_user_permissions RENAME CONSTRAINT chk_space_user_permissions_type TO chk_space_permissions_type;</sql>
+            <sql>ALTER TABLE space_user_permissions RENAME CONSTRAINT uq_space_user_permissions TO uq_space_permissions;</sql>
+            <sql>ALTER INDEX pk_space_user_permissions RENAME TO pk_space_permissions;</sql>
+            <renameTable
+                    oldTableName="space_user_permissions"
+                    newTableName="space_permissions" />
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

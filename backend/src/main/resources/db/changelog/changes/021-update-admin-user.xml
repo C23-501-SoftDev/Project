@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 021: Обновление пользователя admin на новую схему ролей
+    
+    Изменения:
+    - Обновление role с 'Admin' на 'EDITOR'
+    - Установка is_admin = TRUE
+    - Установка is_deleted = FALSE
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="021-update-admin-user-to-new-role-schema" author="knowledgebase-dev">
+        <comment>Обновление пользователя admin на новую схему ролей (EDITOR + is_admin)</comment>
+
+        <sql>
+            UPDATE users
+            SET role = 'EDITOR',
+                is_admin = TRUE,
+                is_deleted = FALSE
+            WHERE login = 'admin';
+        </sql>
+
+        <rollback>
+            <sql>
+                UPDATE users
+                SET role = 'Admin',
+                    is_admin = FALSE
+                WHERE login = 'admin';
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

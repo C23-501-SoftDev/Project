@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 023: Удаление триггера soft_delete_dependencies
+    
+    После перехода на статус 'Deleted' вместо is_deleted, этот триггер больше не нужен.
+    Soft-удаление теперь обрабатывается на уровне приложения через обновление статуса.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="023-drop-soft-delete-trigger" author="knowledgebase-dev">
+        <comment>Удаление триггера soft_delete_dependencies (больше не нужен)</comment>
+
+        <sql>DROP TRIGGER IF EXISTS trigger_documents_soft_delete_deps ON documents;</sql>
+        <sql>DROP FUNCTION IF EXISTS soft_delete_dependencies();</sql>
+
+        <rollback>
+            <sql splitStatements="false">
+                CREATE OR REPLACE FUNCTION soft_delete_dependencies()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    IF NEW.is_deleted = TRUE AND OLD.is_deleted = FALSE THEN
+                        UPDATE versions SET is_deleted = TRUE 
+                        WHERE document_id = NEW.id AND is_deleted = FALSE;
+                        
+                        UPDATE attachments SET is_deleted = TRUE 
+                        WHERE document_id = NEW.id AND is_deleted = FALSE;
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+            </sql>
+
+            <sql>
+                CREATE TRIGGER trigger_documents_soft_delete_deps
+                    AFTER UPDATE ON documents
+                    FOR EACH ROW
+                    EXECUTE FUNCTION soft_delete_dependencies();
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

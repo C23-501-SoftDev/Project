@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 019: Удаление is_deleted из таблицы attachments
+    
+    Вложения больше не поддерживают soft-delete. Они удаляются каскадно при hard-delete документа.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="019-remove-is-deleted-from-attachments" author="knowledgebase-dev">
+        <comment>Удаление колонки is_deleted из таблицы attachments</comment>
+
+        <dropColumn tableName="attachments" columnName="is_deleted"/>
+
+        <rollback>
+            <addColumn tableName="attachments">
+                <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false">
+                    <constraints nullable="false"/>
+                </column>
+            </addColumn>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

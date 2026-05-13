@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 017: Обновление таблицы documents
+    
+    Изменения:
+    - Удаление колонки content (содержимое теперь в Git)
+    - Удаление колонок is_deleted, deleted_at (теперь только статус Deleted)
+    - Добавление колонки git_file_path (VARCHAR(500), NOT NULL, UNIQUE)
+    - Изменение FK parent_document_id: ON DELETE CASCADE -> ON DELETE RESTRICT
+    - Обновление индексов
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="017-update-documents-table" author="knowledgebase-dev">
+        <comment>Обновление таблицы documents: добавление git_file_path, удаление content/is_deleted/deleted_at</comment>
+
+        <!-- Сначала добавляем git_file_path, чтобы таблица не осталась без контента -->
+        <addColumn tableName="documents">
+            <column name="git_file_path" type="VARCHAR(500)" remarks="Относительный путь к .md-файлу в Git-репозитории">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <!-- Генерируем git_file_path для существующих документов на основе id -->
+        <sql>
+            UPDATE documents SET git_file_path = 'spaces/' || space_id || '/' || id || '.md' WHERE git_file_path IS NULL;
+        </sql>
+
+        <!-- Теперь делаем git_file_path NOT NULL -->
+        <addNotNullConstraint tableName="documents" columnName="git_file_path" constraintName="nn_documents_git_file_path"/>
+
+        <!-- Добавляем уникальный constraint на git_file_path -->
+        <addUniqueConstraint
+                tableName="documents"
+                columnNames="git_file_path"
+                constraintName="uq_documents_git_file_path"/>
+
+        <!-- Удаляем колонку content -->
+        <dropColumn tableName="documents" columnName="content"/>
+
+        <!-- Удаляем триггер set_deleted_at (больше не нужен) -->
+        <sql>DROP TRIGGER IF EXISTS trigger_documents_set_deleted_at ON documents;</sql>
+        <sql>DROP FUNCTION IF EXISTS set_deleted_at();</sql>
+
+        <!-- Удаляем колонку deleted_at -->
+        <dropColumn tableName="documents" columnName="deleted_at"/>
+
+        <!-- Удаляем колонку is_deleted -->
+        <dropColumn tableName="documents" columnName="is_deleted"/>
+
+        <!-- Пересоздаем FK parent_document_id с ON DELETE RESTRICT вместо CASCADE -->
+        <dropForeignKeyConstraint baseTableName="documents" constraintName="fk_documents_parent"/>
+        
+        <addForeignKeyConstraint
+                baseTableName="documents"
+                baseColumnNames="parent_document_id"
+                constraintName="fk_documents_parent"
+                referencedTableName="documents"
+                referencedColumnNames="id"
+                onDelete="RESTRICT"/>
+
+        <!-- Обновляем индексы -->
+        <!-- Удаляем старый составной индекс без WHERE -->
+        <dropIndex tableName="documents" indexName="idx_documents_space_status"/>
+        
+        <!-- Создаем partial index для статусов != 'Deleted' -->
+        <sql>
+            CREATE INDEX idx_documents_space_status ON documents(space_id, status) WHERE status != 'Deleted';
+        </sql>
+
+        <!-- Создаем partial index для published документов -->
+        <sql>
+            CREATE INDEX idx_documents_published ON documents(status) WHERE status = 'Published';
+        </sql>
+
+        <rollback>
+            <sql>DROP INDEX IF EXISTS idx_documents_published;</sql>
+            <sql>DROP INDEX IF EXISTS idx_documents_space_status;</sql>
+            <createIndex tableName="documents" indexName="idx_documents_space_status">
+                <column name="space_id"/>
+                <column name="status"/>
+            </createIndex>
+            
+            <dropForeignKeyConstraint baseTableName="documents" constraintName="fk_documents_parent"/>
+            <addForeignKeyConstraint
+                    baseTableName="documents"
+                    baseColumnNames="parent_document_id"
+                    constraintName="fk_documents_parent"
+                    referencedTableName="documents"
+                    referencedColumnNames="id"
+                    onDelete="CASCADE"/>
+            
+            <addColumn tableName="documents">
+                <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false">
+                    <constraints nullable="false"/>
+                </column>
+            </addColumn>
+            <addColumn tableName="documents">
+                <column name="deleted_at" type="TIMESTAMP" remarks="Дата мягкого удаления"/>
+            </addColumn>
+            <addColumn tableName="documents">
+                <column name="content" type="TEXT" remarks="Содержимое документа в Markdown"/>
+            </addColumn>
+            
+            <dropUniqueConstraint tableName="documents" constraintName="uq_documents_git_file_path"/>
+            <dropNotNullConstraint tableName="documents" columnName="git_file_path"/>
+            <dropColumn tableName="documents" columnName="git_file_path"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

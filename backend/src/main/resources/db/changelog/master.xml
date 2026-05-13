@@ -23,4 +23,17 @@
     <include file="db/changelog/changes/011-add-soft-delete-dependencies-trigger.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/012-create-hard-delete-function.xml" relativeToChangelogFile="false"/>
 
+    <!-- Обновления по новой модели данных (группы, права на пространства,_git для документов) -->
+    <include file="db/changelog/changes/013-update-users-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/014-create-user-groups-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/015-create-user-group-members-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/016-update-space-permissions.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/017-update-documents-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/018-remove-is-deleted-from-versions.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/019-remove-is-deleted-from-attachments.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/020-drop-document-permissions-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/021-update-admin-user.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/022-update-hard-delete-function.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/023-drop-soft-delete-trigger.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

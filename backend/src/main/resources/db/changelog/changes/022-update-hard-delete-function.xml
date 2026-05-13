@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 022: Обновление функции hard_delete_document после удаления document_permissions
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="022-update-hard-delete-function" author="knowledgebase-dev">
+        <comment>Обновление функции hard_delete_document (удалена ссылка на document_permissions)</comment>
+
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION hard_delete_document(p_document_id BIGINT)
+            RETURNS VOID AS $$
+            BEGIN
+                DELETE FROM versions WHERE document_id = p_document_id;
+                DELETE FROM attachments WHERE document_id = p_document_id;
+                DELETE FROM documents WHERE id = p_document_id;
+            END;
+            $$ LANGUAGE plpgsql SECURITY DEFINER;
+        </sql>
+
+        <sql>
+            COMMENT ON FUNCTION hard_delete_document IS 'Полное физическое удаление документа (только для администратора)';
+        </sql>
+
+        <rollback>
+            <sql splitStatements="false">
+                CREATE OR REPLACE FUNCTION hard_delete_document(p_document_id BIGINT)
+                RETURNS VOID AS $$
+                BEGIN
+                    DELETE FROM versions WHERE document_id = p_document_id;
+                    DELETE FROM attachments WHERE document_id = p_document_id;
+                    DELETE FROM document_permissions WHERE document_id = p_document_id;
+                    DELETE FROM documents WHERE id = p_document_id;
+                END;
+                $$ LANGUAGE plpgsql SECURITY DEFINER;
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

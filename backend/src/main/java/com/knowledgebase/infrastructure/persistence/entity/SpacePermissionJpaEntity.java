@@ -9,14 +9,14 @@ import java.time.LocalDateTime;
  * Отражает таблицу space_permissions в PostgreSQL.
  */
 @Entity
-@Table(name = "space_permissions",
+@Table(name = "space_user_permissions",
     indexes = {
-        @Index(name = "idx_space_permissions_space", columnList = "space_id"),
-        @Index(name = "idx_space_permissions_user", columnList = "user_id")
+        @Index(name = "idx_space_user_permissions_space", columnList = "space_id"),
+        @Index(name = "idx_space_user_permissions_user", columnList = "user_id")
     },
     uniqueConstraints = {
         @UniqueConstraint(
-            name = "uq_space_permissions",
+            name = "uq_space_user_permissions",
             columnNames = {"space_id", "user_id", "permission_type"})
     }
 )

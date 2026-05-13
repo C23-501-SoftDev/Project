@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 013: Обновление таблицы users - добавление is_admin, is_deleted, обновление role constraint
+    
+    Изменения:
+    - Добавление колонки is_admin (BOOLEAN, NOT NULL, DEFAULT FALSE)
+    - Добавление колонки is_deleted (BOOLEAN, NOT NULL, DEFAULT FALSE)
+    - Обновление CHECK constraint для role: ('Admin', 'Editor', 'Reader') -> ('GUEST', 'READER', 'EDITOR')
+    - Создание индекса idx_users_not_deleted WHERE is_deleted = false
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="013-update-users-table-add-admin-deleted-flags" author="knowledgebase-dev">
+        <comment>Добавление is_admin, is_deleted в users и обновление role constraint</comment>
+
+        <!-- Добавляем колонку is_admin -->
+        <addColumn tableName="users">
+            <column name="is_admin" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <!-- Добавляем колонку is_deleted -->
+        <addColumn tableName="users">
+            <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <!-- Сначала удаляем старый CHECK constraint на role -->
+        <sql>
+            ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_role;
+        </sql>
+
+        <!-- Затем обновляем существующие данные: 'Admin' -> 'EDITOR' + is_admin = TRUE -->
+        <sql>
+            UPDATE users SET role = 'EDITOR', is_admin = TRUE WHERE role = 'Admin';
+        </sql>
+
+        <!-- Создаем новый CHECK constraint для role -->
+        <sql>
+            ALTER TABLE users
+                ADD CONSTRAINT chk_users_role
+                    CHECK (role IN ('GUEST', 'READER', 'EDITOR'));
+        </sql>
+
+        <!-- Создаем partial index для не удаленных пользователей -->
+        <sql>
+            CREATE INDEX idx_users_not_deleted ON users(id) WHERE is_deleted = false;
+        </sql>
+
+        <rollback>
+            <sql>DROP INDEX IF EXISTS idx_users_not_deleted;</sql>
+            <sql>ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_role;</sql>
+            <!-- Возвращаем роли к старому формату (до удаления колонок) -->
+            <sql>UPDATE users SET role = 'Admin' WHERE is_admin = TRUE AND role = 'EDITOR';</sql>
+            <sql>UPDATE users SET role = 'Editor' WHERE role = 'EDITOR';</sql>
+            <sql>UPDATE users SET role = 'Reader' WHERE role = 'READER';</sql>
+            <sql>UPDATE users SET role = 'Reader' WHERE role = 'GUEST';</sql>
+            <dropColumn tableName="users" columnName="is_deleted"/>
+            <dropColumn tableName="users" columnName="is_admin"/>
+            <sql>
+                ALTER TABLE users
+                    ADD CONSTRAINT chk_users_role
+                        CHECK (role IN ('Admin', 'Editor', 'Reader'));
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
