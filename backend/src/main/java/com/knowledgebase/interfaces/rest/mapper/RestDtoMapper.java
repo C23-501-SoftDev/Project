@@ -1,9 +1,11 @@
 package com.knowledgebase.interfaces.rest.mapper;
 
+import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
 import com.knowledgebase.interfaces.rest.dto.response.UserResponse;
@@ -85,6 +87,23 @@ public class RestDtoMapper {
                 email,
                 permission.getPermissionType(),
                 permission.getGrantedAt()
+        );
+    }
+
+    // ── Document ──────────────────────────────────────────────────────────────
+
+    public DocumentResponse toDocumentResponse(Document document, String content) {
+        if (document == null) return null;
+        return new DocumentResponse(
+                document.getId(),
+                document.getTitle(),
+                document.getSpaceId(),
+                document.getAuthorId(),
+                document.getStatus(),
+                content,
+                document.getGitFilePath(),
+                document.getCreatedAt(),
+                document.getUpdatedAt()
         );
     }
 }
