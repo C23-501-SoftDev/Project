@@ -1,0 +1,18 @@
+# Handle line endings automatically for files detected as text
+# and perform LF normalization (convert CRLF to LF on commit)
+* text=auto
+
+# Standardize line endings to LF for specific file types
+*.sh text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+
+# Denote files that truly are binary and should not be modified
+*.png binary
+*.jpg binary
+*.gif binary
