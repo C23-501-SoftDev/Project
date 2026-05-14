@@ -1,4 +1,7 @@
 <div class="admin-users-page">
+    <!-- Current user ID for self-editing detection -->
+    <input type="hidden" id="currentUserId" th:value="${currentUser.id}">
+    
     <div class="header">
         <h1>Пользователи</h1>
         <button class="button-primary" id="createBtn" onclick="openCreateModal()">+ Создать пользователя</button>
@@ -234,6 +237,7 @@
         document.getElementById('userEmail').value = '';
         document.getElementById('userRole').value = 'GUEST';
         document.getElementById('userIsAdmin').checked = false;
+        document.getElementById('userIsAdmin').disabled = false;
         document.getElementById('userPassword').value = '';
 
         try {
@@ -242,6 +246,13 @@
             document.getElementById('userEmail').value = user.email || '';
             document.getElementById('userRole').value = user.role || 'GUEST';
             document.getElementById('userIsAdmin').checked = user.isAdmin || false;
+            
+            // Запрещаем администратору изменять свой собственный статус админа
+            const currentUserId = parseInt(document.getElementById('currentUserId').value);
+            if (currentUserId === id && user.isAdmin) {
+                document.getElementById('userIsAdmin').disabled = true;
+                document.getElementById('userIsAdmin').title = 'Нельзя снять с себя права администратора';
+            }
         } catch (e) {
             console.error('Failed to load user:', e);
         }

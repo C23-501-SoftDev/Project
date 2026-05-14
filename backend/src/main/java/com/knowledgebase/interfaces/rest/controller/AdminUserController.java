@@ -1,6 +1,7 @@
 package com.knowledgebase.interfaces.rest.controller;
 
 import com.knowledgebase.application.service.UserService;
+import com.knowledgebase.domain.exception.AccessDeniedException;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.advice.ErrorResponse;
 import com.knowledgebase.interfaces.rest.dto.request.ChangePasswordRequest;
@@ -20,6 +21,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -154,6 +156,8 @@ public class AdminUserController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Пользователь обновлён",
             content = @Content(schema = @Schema(implementation = UserResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Недостаточно прав",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "404", description = "Пользователь не найден",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "409", description = "Конфликт данных",
@@ -161,12 +165,18 @@ public class AdminUserController {
     })
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateUserRequest request) {
+            @Valid @RequestBody UpdateUserRequest request,
+            @AuthenticationPrincipal User currentUser) {
         // isAdmin может быть null в request, используем текущее значение
-        User currentUser = userService.getUserById(id);
-        boolean isAdmin = request.isAdmin() != null ? request.isAdmin() : currentUser.getIsAdmin();
+        User targetUser = userService.getUserById(id);
+        boolean isAdmin = request.isAdmin() != null ? request.isAdmin() : targetUser.getIsAdmin();
 
-        User user = userService.updateUser(id, request.login(), request.email(), request.role(), isAdmin);
+        // Запрещаем администратору снимать с себя права админа
+        if (currentUser.getId().equals(id) && targetUser.getIsAdmin() && !isAdmin) {
+            throw new AccessDeniedException("Администратор не может снять с себя права администратора");
+        }
+
+        User user = userService.updateUser(id, request.login(), request.email(), request.role(), isAdmin, currentUser.getId());
         return ResponseEntity.ok(mapper.toUserResponse(user));
     }
 

@@ -1,6 +1,7 @@
 package com.knowledgebase.application.service;
 
 import com.knowledgebase.domain.event.UserCreatedEvent;
+import com.knowledgebase.domain.exception.AccessDeniedException;
 import com.knowledgebase.domain.exception.ConflictException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.GlobalRole;
@@ -91,17 +92,23 @@ public class UserService {
      * Обновляет профиль пользователя (логин, email, роль, isAdmin).
      * Пароль не обновляется этим методом — используйте changePassword().
      *
-     * @param userId  ID обновляемого пользователя
-     * @param login   новый логин (null = без изменений)
-     * @param email   новый email (null = без изменений)
-     * @param role    новая роль (null = без изменений)
-     * @param isAdmin новый флаг администратора
+     * @param userId        ID обновляемого пользователя
+     * @param login         новый логин (null = без изменений)
+     * @param email         новый email (null = без изменений)
+     * @param role          новая роль (null = без изменений)
+     * @param isAdmin       новый флаг администратора
+     * @param currentUserId ID текущего пользователя (для проверки прав)
      * @return обновлённый пользователь
      */
     @Transactional
-    public User updateUser(Long userId, String login, String email, GlobalRole role, boolean isAdmin) {
+    public User updateUser(Long userId, String login, String email, GlobalRole role, boolean isAdmin, Long currentUserId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
+
+        // Запрещаем администратору снимать с себя права админа
+        if (userId.equals(currentUserId) && user.getIsAdmin() && !isAdmin) {
+            throw new AccessDeniedException("Администратор не может снять с себя права администратора");
+        }
 
         // Проверяем уникальность нового логина (если изменяется)
         if (login != null && !login.equals(user.getLogin()) && userRepository.existsByLoginIncludingDeleted(login)) {
