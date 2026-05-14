@@ -9,3 +9,5 @@ tests/E2E/test-results
 .gitignore
 .idea/
 .vscode/
+.kilo/
+.kilocode/rules
