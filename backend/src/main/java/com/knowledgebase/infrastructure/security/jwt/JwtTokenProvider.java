@@ -19,13 +19,14 @@ import java.util.Date;
  * Отвечает за:
  * - Генерацию JWT при успешной аутентификации
  * - Валидацию JWT при каждом запросе
- * - Извлечение claims (userId, role) из токена
+ * - Извлечение claims (userId, role, isAdmin) из токена
  *
  * Алгоритм подписи: HMAC-SHA256 (HS256)
  * Claims в токене:
  *   - sub: ID пользователя (String)
  *   - userId: Long ID пользователя
- *   - role: строковое значение роли (Admin, Editor, Reader)
+ *   - role: строковое значение роли (Guest, Reader, Editor)
+ *   - isAdmin: boolean флаг администратора
  *   - iat: время выпуска
  *   - exp: время истечения
  */
@@ -39,6 +40,9 @@ public class JwtTokenProvider {
 
     /** Claim для ID пользователя */
     public static final String CLAIM_USER_ID = "userId";
+
+    /** Claim для флага администратора */
+    public static final String CLAIM_IS_ADMIN = "isAdmin";
 
     @Value("${app.jwt.secret-key}")
     private String secretKeyString;
@@ -59,7 +63,8 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .setSubject(user.getId().toString())
                 .claim(CLAIM_USER_ID, user.getId())
-                .claim(CLAIM_ROLE, user.getRole().getDbValue())  // "Admin", "Editor", "Reader"
+                .claim(CLAIM_ROLE, user.getRole().getDbValue())
+                .claim(CLAIM_IS_ADMIN, user.isAdmin())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -87,6 +92,17 @@ public class JwtTokenProvider {
         Claims claims = parseClaims(token);
         String roleStr = claims.get(CLAIM_ROLE, String.class);
         return GlobalRole.fromDbValue(roleStr);
+    }
+
+    /**
+     * Извлекает флаг администратора из JWT токена.
+     *
+     * @param token JWT токен
+     * @return true если пользователь является администратором
+     */
+    public boolean isAdminFromToken(String token) {
+        Claims claims = parseClaims(token);
+        return claims.get(CLAIM_IS_ADMIN, Boolean.class);
     }
 
     /**

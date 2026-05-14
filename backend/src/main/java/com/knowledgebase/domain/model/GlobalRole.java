@@ -7,30 +7,32 @@ package com.knowledgebase.domain.model;
  * Дополнительные права на уровне пространств задаются через SpacePermission.
  *
  * Логика доступа:
- * - ADMIN  → полный доступ без ограничений
- * - EDITOR → может создавать/редактировать документы, но только в пространствах
- *            с WRITE или OWNER правами
- * - READER → только чтение, никогда не может редактировать документы
+ * - GUEST  → минимальные права, только просмотр публичных ресурсов
+ * - READER → чтение документов в разрешённых пространствах
+ * - EDITOR → создание и редактирование документов (с WRITE/OWNER правами)
+ *
+ * Доступ к админ-панели определяется отдельным флагом isAdmin в User,
+ * а не глобальной ролью.
  */
 public enum GlobalRole {
 
     /**
-     * Администратор — неограниченный доступ ко всем ресурсам.
-     * Может управлять пользователями, пространствами, выполнять hard-delete.
+     * Гость — минимальные права доступа.
+     * Только просмотр публичных ресурсов.
      */
-    ADMIN("Admin"),
+    GUEST("Guest"),
+
+    /**
+     * Читатель — только чтение документов в разрешённых пространствах.
+     * Не может создавать или редактировать документы.
+     */
+    READER("Reader"),
 
     /**
      * Редактор — может создавать и редактировать документы,
      * но только в пространствах с правами WRITE или OWNER.
      */
-    EDITOR("Editor"),
-
-    /**
-     * Читатель — только просмотр документов в разрешённых пространствах.
-     * Не может создавать или редактировать документы.
-     */
-    READER("Reader");
+    EDITOR("Editor");
 
     /** Значение в БД (используется в Liquibase CHECK constraint) */
     private final String dbValue;
@@ -45,6 +47,7 @@ public enum GlobalRole {
 
     /**
      * Возвращает роль по значению из БД.
+     * Добавлен fallback для обратной совместимости: "Admin" → EDITOR.
      * @throws IllegalArgumentException если значение не найдено
      */
     public static GlobalRole fromDbValue(String dbValue) {
@@ -53,12 +56,16 @@ public enum GlobalRole {
                 return role;
             }
         }
+        // Fallback для обратной совместимости JWT (старые токены с "Admin")
+        if ("Admin".equals(dbValue)) {
+            return EDITOR;
+        }
         throw new IllegalArgumentException("Неизвестная роль: " + dbValue);
     }
 
     /**
      * Возвращает роль для использования в Spring Security
-     * (с префиксом ROLE_ — например, ROLE_ADMIN).
+     * (с префиксом ROLE_ — например, ROLE_READER).
      */
     public String getSpringSecurityRole() {
         return "ROLE_" + this.name();

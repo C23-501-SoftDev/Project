@@ -19,23 +19,28 @@ import java.util.Optional;
  */
 public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
 
+    Optional<UserJpaEntity> findByLoginAndIsDeletedFalse(String login);
+
     Optional<UserJpaEntity> findByLogin(String login);
 
-    Optional<UserJpaEntity> findByEmail(String email);
+    Optional<UserJpaEntity> findByEmailAndIsDeletedFalse(String email);
+
+    Optional<UserJpaEntity> findByIdAndIsDeletedFalse(Long id);
+
+    boolean existsByLoginAndIsDeletedFalse(String login);
+
+    boolean existsByEmailAndIsDeletedFalse(String email);
 
     boolean existsByLogin(String login);
 
     boolean existsByEmail(String email);
 
+    Page<UserJpaEntity> findByIsDeletedFalse(Pageable pageable);
+
     Page<UserJpaEntity> findAll(Pageable pageable);
 
-    /**
-     * Проверяет, является ли пользователь владельцем пространств.
-     * Используется при проверке возможности удаления (ON DELETE RESTRICT).
-     *
-     * Нативный SQL, потому что JPA Entity Graph между UserJpaEntity и SpaceJpaEntity
-     * здесь не нужен — нам достаточно простого COUNT.
-     */
+    long countByIsDeletedFalse();
+
     @Query(value = "SELECT COUNT(*) > 0 FROM spaces WHERE owner_id = :userId", nativeQuery = true)
     boolean hasOwnedSpaces(@Param("userId") Long userId);
 }

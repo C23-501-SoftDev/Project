@@ -57,25 +57,52 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public Optional<User> findById(Long id) {
+        return jpaRepository.findByIdAndIsDeletedFalse(id)
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<User> findByIdIncludingDeleted(Long id) {
         return jpaRepository.findById(id)
                 .map(mapper::toDomain);
     }
 
     @Override
     public Optional<User> findByLogin(String login) {
+        return jpaRepository.findByLoginAndIsDeletedFalse(login)
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<User> findByLoginIncludingDeleted(String login) {
         return jpaRepository.findByLogin(login)
                 .map(mapper::toDomain);
     }
 
     @Override
     public Optional<User> findByEmail(String email) {
-        return jpaRepository.findByEmail(email)
+        return jpaRepository.findByEmailAndIsDeletedFalse(email)
                 .map(mapper::toDomain);
     }
 
     @Override
-    public List<User> findAll(int page, int size, String sortBy, String sortDir) {
-        // Белый список допустимых полей сортировки (защита от SQL injection)
+    public List<User> findAllActive(int page, int size, String sortBy, String sortDir) {
+        String safeSortBy = List.of("id", "login", "email", "role", "createdAt", "updatedAt")
+                .contains(sortBy) ? sortBy : "createdAt";
+
+        Sort sort = Sort.Direction.DESC.name().equalsIgnoreCase(sortDir)
+                ? Sort.by(safeSortBy).descending()
+                : Sort.by(safeSortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return jpaRepository.findByIsDeletedFalse(pageable)
+                .stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findAllIncludingDeleted(int page, int size, String sortBy, String sortDir) {
         String safeSortBy = List.of("id", "login", "email", "role", "createdAt", "updatedAt")
                 .contains(sortBy) ? sortBy : "createdAt";
 
@@ -91,34 +118,35 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public long count() {
+    public long countActive() {
+        return jpaRepository.countByIsDeletedFalse();
+    }
+
+    @Override
+    public long countAll() {
         return jpaRepository.count();
     }
 
     @Override
-    public void deleteById(Long id) {
-        jpaRepository.deleteById(id);
+    public boolean existsByLogin(String login) {
+        return jpaRepository.existsByLoginAndIsDeletedFalse(login);
     }
 
     @Override
-    public boolean existsByLogin(String login) {
+    public boolean existsByLoginIncludingDeleted(String login) {
         return jpaRepository.existsByLogin(login);
     }
 
     @Override
     public boolean existsByEmail(String email) {
+        return jpaRepository.existsByEmailAndIsDeletedFalse(email);
+    }
+
+    @Override
+    public boolean existsByEmailIncludingDeleted(String email) {
         return jpaRepository.existsByEmail(email);
     }
 
-    /**
-     * Проверяет наличие документов у пользователя (ON DELETE RESTRICT).
-     *
-     * Использует нативный SQL через JdbcTemplate, т.к. таблица documents
-     * появится в следующей итерации. При её отсутствии метод безопасно возвращает false.
-     *
-     * РАСШИРЕНИЕ: Когда будет добавлена таблица documents — этот метод автоматически
-     * начнёт возвращать корректный результат без изменений кода.
-     */
     @Override
     public boolean hasDocuments(Long userId) {
         try {
@@ -129,27 +157,16 @@ public class UserRepositoryImpl implements UserRepository {
             );
             return count != null && count > 0;
         } catch (DataAccessException e) {
-            // Таблица documents ещё не существует в текущем MVP
             log.debug("Таблица documents не найдена при проверке пользователя {}: {}", userId, e.getMessage());
             return false;
         }
     }
 
-    /**
-     * Проверяет, является ли пользователь владельцем пространств (ON DELETE RESTRICT).
-     */
     @Override
     public boolean hasOwnedSpaces(Long userId) {
         return jpaRepository.hasOwnedSpaces(userId);
     }
 
-    /**
-     * Проверяет наличие версий документов у пользователя (ON DELETE RESTRICT).
-     *
-     * Аналогично hasDocuments — безопасно работает до появления таблицы versions.
-     *
-     * РАСШИРЕНИЕ: Когда будет добавлена таблица versions — начнёт работать автоматически.
-     */
     @Override
     public boolean hasVersions(Long userId) {
         try {
@@ -160,7 +177,6 @@ public class UserRepositoryImpl implements UserRepository {
             );
             return count != null && count > 0;
         } catch (DataAccessException e) {
-            // Таблица versions ещё не существует в текущем MVP
             log.debug("Таблица versions не найдена при проверке пользователя {}: {}", userId, e.getMessage());
             return false;
         }

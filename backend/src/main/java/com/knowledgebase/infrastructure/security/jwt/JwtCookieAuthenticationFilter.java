@@ -18,6 +18,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -64,9 +65,15 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
                 User user = userRepository.findById(userId).orElse(null);
 
                 if (user != null) {
-                    List<SimpleGrantedAuthority> authorities = List.of(
-                            new SimpleGrantedAuthority(role.getSpringSecurityRole())
-                    );
+                    List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+
+                    // Добавляем роль из GlobalRole (ROLE_GUEST, ROLE_READER, ROLE_EDITOR)
+                    authorities.add(new SimpleGrantedAuthority(role.getSpringSecurityRole()));
+
+                    // Добавляем ROLE_ADMIN если пользователь является администратором
+                    if (user.isAdmin()) {
+                        authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                    }
 
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(user, null, authorities);
@@ -76,7 +83,8 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                    log.debug("Пользователь аутентифицирован через Cookie: userId={}, role={}", userId, role);
+                    log.debug("Пользователь аутентифицирован через Cookie: userId={}, role={}, isAdmin={}",
+                            userId, role, user.isAdmin());
                 }
             }
         } catch (Exception e) {

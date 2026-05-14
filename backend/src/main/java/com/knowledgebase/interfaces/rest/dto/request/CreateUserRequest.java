@@ -30,7 +30,10 @@ public record CreateUserRequest(
     String password,
 
     @Schema(description = "Глобальная роль пользователя", example = "EDITOR",
-            allowableValues = {"ADMIN", "EDITOR", "READER"})
+            allowableValues = {"GUEST", "READER", "EDITOR"})
     @NotNull(message = "Роль не может быть null")
-    GlobalRole role
+    GlobalRole role,
+
+    @Schema(description = "Флаг администратора", example = "false")
+    boolean isAdmin
 ) {}

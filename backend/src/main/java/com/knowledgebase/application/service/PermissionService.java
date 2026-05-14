@@ -1,6 +1,5 @@
 package com.knowledgebase.application.service;
 
-import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.PermissionType;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import org.slf4j.Logger;
@@ -15,11 +14,10 @@ import java.util.List;
  *
  * Реализует логику RBAC из US4.1.3:
  *
- * | Роль   | /api/admin/** | Создание/редактирование | Чтение |
- * |--------|--------------|------------------------|--------|
- * | ADMIN  | всегда       | всегда                 | всегда |
- * | EDITOR | никогда      | WRITE/OWNER в space    | любое право в space |
- * | READER | никогда      | никогда                | любое право в space |
+ * | Флаг isAdmin | /api/admin/** | Создание/редактирование | Чтение |
+ * |--------------|--------------|------------------------|--------|
+ * | true         | всегда       | всегда                 | всегда |
+ * | false        | никогда      | WRITE/OWNER в space    | любое право в space |
  *
  * Используется в @PreAuthorize выражениях и напрямую в сервисах.
  */
@@ -39,23 +37,20 @@ public class PermissionService {
      * Проверяет, может ли пользователь создавать/редактировать документы в пространстве.
      *
      * Логика:
-     * - ADMIN → всегда true
+     * - isAdmin=true → всегда true
      * - EDITOR → true если есть WRITE или OWNER в пространстве
-     * - READER → всегда false
+     * - READER/GUEST → всегда false
      *
-     * @param userId  ID пользователя
-     * @param role    глобальная роль
-     * @param spaceId ID пространства
+     * @param userId   ID пользователя
+     * @param isAdmin  флаг администратора
+     * @param spaceId  ID пространства
      * @return true если операция разрешена
      */
-    public boolean canWrite(Long userId, GlobalRole role, Long spaceId) {
-        if (role == GlobalRole.ADMIN) {
+    public boolean canWrite(Long userId, boolean isAdmin, Long spaceId) {
+        if (isAdmin) {
             return true;
         }
-        if (role == GlobalRole.READER) {
-            return false;
-        }
-        // EDITOR: проверяем права на пространство
+        // EDITOR/READER/GUEST: проверяем права на пространство
         return permissionRepository.hasWriteAccess(spaceId, userId);
     }
 
@@ -63,16 +58,16 @@ public class PermissionService {
      * Проверяет, может ли пользователь читать документы в пространстве.
      *
      * Логика:
-     * - ADMIN → всегда true
+     * - isAdmin=true → всегда true
      * - EDITOR/READER → true если есть хоть одно право (READ, WRITE, OWNER)
      *
-     * @param userId  ID пользователя
-     * @param role    глобальная роль
-     * @param spaceId ID пространства
+     * @param userId   ID пользователя
+     * @param isAdmin  флаг администратора
+     * @param spaceId  ID пространства
      * @return true если чтение разрешено
      */
-    public boolean canRead(Long userId, GlobalRole role, Long spaceId) {
-        if (role == GlobalRole.ADMIN) {
+    public boolean canRead(Long userId, boolean isAdmin, Long spaceId) {
+        if (isAdmin) {
             return true;
         }
         // EDITOR и READER: нужно явное право на пространство
@@ -86,13 +81,13 @@ public class PermissionService {
      * Для ADMIN возвращает [READ, WRITE, OWNER] — полный набор прав.
      * Для остальных — фактические права из space_permissions.
      *
-     * @param userId  ID пользователя
-     * @param role    глобальная роль
-     * @param spaceId ID пространства
+     * @param userId   ID пользователя
+     * @param isAdmin  флаг администратора
+     * @param spaceId  ID пространства
      * @return список прав
      */
-    public List<PermissionType> getUserPermissions(Long userId, GlobalRole role, Long spaceId) {
-        if (role == GlobalRole.ADMIN) {
+    public List<PermissionType> getUserPermissions(Long userId, boolean isAdmin, Long spaceId) {
+        if (isAdmin) {
             // ADMIN имеет все права неявно
             return List.of(PermissionType.READ, PermissionType.WRITE, PermissionType.OWNER);
         }
@@ -107,14 +102,14 @@ public class PermissionService {
      * Возвращает флаги прав для UI (canRead, canWrite, canCreate).
      * Используется фронтендом для скрытия кнопок редактирования.
      *
-     * @param userId  ID пользователя
-     * @param role    глобальная роль
-     * @param spaceId ID пространства
+     * @param userId   ID пользователя
+     * @param isAdmin  флаг администратора
+     * @param spaceId  ID пространства
      * @return флаги прав
      */
-    public PermissionFlags getPermissionFlags(Long userId, GlobalRole role, Long spaceId) {
-        boolean read = canRead(userId, role, spaceId);
-        boolean write = canWrite(userId, role, spaceId);
+    public PermissionFlags getPermissionFlags(Long userId, boolean isAdmin, Long spaceId) {
+        boolean read = canRead(userId, isAdmin, spaceId);
+        boolean write = canWrite(userId, isAdmin, spaceId);
         return new PermissionFlags(read, write, write); // canCreate == canWrite
     }
 

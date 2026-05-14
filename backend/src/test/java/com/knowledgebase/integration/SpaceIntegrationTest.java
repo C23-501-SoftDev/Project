@@ -15,7 +15,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
 
     @Test
     void admin_canCreateSpace_duplicateNameReturns409_andOwnerDefaultsToCurrentUser() throws Exception {
-        User admin = persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        User admin = persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         String adminJwt = loginAndGetJwt("admin", "admin123");
 
         String spaceName = "space-" + uniqueLogin("kb");
@@ -44,7 +44,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
 
     @Test
     void admin_grantsPermission_andUserSeesSpaceInMySpaces() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         User editor = persistUser("editor", "editor123", "editor@knowledgebase.local", GlobalRole.EDITOR);
 
         String adminJwt = loginAndGetJwt("admin", "admin123");
@@ -94,7 +94,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
 
     @Test
     void grantPermission_toNonExistingUser_orSpace_returns404() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         String adminJwt = loginAndGetJwt("admin", "admin123");
 
         // non-existing space

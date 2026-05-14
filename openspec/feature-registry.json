@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-16",
+  "updatedAt": "2026-05-14",
   "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
   "features": [
     {
@@ -85,7 +85,7 @@
     {
       "featureId": "global-refactor-role-model-and-user",
       "title": "Refactor user role model: GUEST/READER/EDITOR + is_admin flag, refactor user",
-      "status": "proposed",
+      "status": "done",
       "area": "backend+frontend",
       "repo": "Project",
       "docs": [
@@ -97,16 +97,18 @@
         "../../Docs/050.entities.md"
         
       ],
-      "description": "Refactor user role model from flat enum (ADMIN/EDITOR/READER) to two-component model: global role (GUEST/READER/EDITOR) + independent is_admin boolean flag. Affects JWT claims, RBAC logic, security config, and all role-related UI.",
+      "description": "Refactor user role model from flat enum (ADMIN/EDITOR/READER) to two-component model: global role (GUEST/READER/EDITOR) + independent is_admin boolean flag. Added soft-delete with restore. Affects JWT claims, RBAC logic, security config, and all role-related UI.",
       "endpoints": [
         "POST /api/auth/login",
         "GET /api/auth/me",
-        "GET /api/admin/users",
+        "GET /api/admin/users?includeDeleted={true|false}",
+        "GET /api/admin/users/{id}",
         "POST /api/admin/users",
         "PUT /api/admin/users/{id}",
-        "GET /api/user/permissions",
         "DELETE /api/admin/users/{id}",
-        "POST /api/admin/users/{id}/restore"
+        "POST /api/admin/users/{id}/restore",
+        "PUT /api/admin/users/{id}/password",
+        "GET /api/user/permissions"
       ],
       "dependsOn": [
         "auth-jwt-cookie",

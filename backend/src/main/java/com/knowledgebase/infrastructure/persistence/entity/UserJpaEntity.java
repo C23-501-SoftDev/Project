@@ -17,7 +17,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "users", indexes = {
     @Index(name = "uq_users_login", columnList = "login", unique = true),
-    @Index(name = "uq_users_email", columnList = "email", unique = true)
+    @Index(name = "uq_users_email", columnList = "email", unique = true),
+    @Index(name = "idx_users_not_deleted", columnList = "id")
 })
 public class UserJpaEntity {
 
@@ -35,12 +36,18 @@ public class UserJpaEntity {
     private String email;
 
     /**
-     * Роль хранится как строка (Admin, Editor, Reader).
-     * Не используем @Enumerated(EnumType.STRING) напрямую т.к.
-     * enum называется GlobalRole, а в БД значения с заглавной буквы (Admin, не ADMIN).
+     * Роль хранится как строка (Guest, Reader, Editor).
      */
     @Column(name = "role", nullable = false, length = 20)
     private String role;
+
+    /** Флаг администратора — доступ к админ-панели */
+    @Column(name = "is_admin", nullable = false)
+    private boolean isAdmin = false;
+
+    /** Флаг soft-удаления */
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -69,6 +76,12 @@ public class UserJpaEntity {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    public boolean isAdmin() { return isAdmin; }
+    public void setIsAdmin(boolean isAdmin) { this.isAdmin = isAdmin; }
+
+    public boolean isDeleted() { return isDeleted; }
+    public void setIsDeleted(boolean isDeleted) { this.isDeleted = isDeleted; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
