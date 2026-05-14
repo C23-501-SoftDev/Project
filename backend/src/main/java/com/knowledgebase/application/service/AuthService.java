@@ -40,23 +40,28 @@ public class AuthService {
      * @param login    логин пользователя
      * @param password пароль в открытом виде
      * @return User если аутентификация успешна
-     * @throws InvalidCredentialsException если логин/пароль неверны
+     * @throws InvalidCredentialsException если логин/пароль неверны или пользователь удалён
      */
     public User authenticate(String login, String password) {
-        // Ищем пользователя по логину
-        User user = userRepository.findByLogin(login)
+        // Ищем пользователя по логину (включая удалённых для проверки статуса)
+        User user = userRepository.findByLoginIncludingDeleted(login)
                 .orElseThrow(() -> {
                     log.warn("Попытка входа с несуществующим логином: {}", login);
-                    // Не раскрываем, что именно неверно (логин или пароль) — безопасность
                     return new InvalidCredentialsException();
                 });
+
+        // Проверяем, не удалён ли пользователь
+        if (user.isDeleted()) {
+            log.warn("Попытка входа удалённого пользователя: {}", login);
+            throw new InvalidCredentialsException();
+        }
 
         // Проверяем хеш пароля (BCrypt)
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             log.warn("Неверный пароль для пользователя: {}", login);
             throw new InvalidCredentialsException();
         }
-        log.info("Успешная аутентификация пользователя: {} (роль: {})", login, user.getRole());
+        log.info("Успешная аутентификация пользователя: {} (роль: {}, isAdmin: {})", login, user.getRole(), user.isAdmin());
         return user;
     }
 

@@ -39,6 +39,8 @@ public class RestDtoMapper {
                 user.getLogin(),
                 user.getEmail(),
                 user.getRole(),
+                user.getIsAdmin(),
+                user.getIsDeleted(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

@@ -26,14 +26,28 @@ public interface UserRepository {
     User save(User user);
 
     /**
-     * Находит пользователя по ID.
+     * Находит активного пользователя по ID (is_deleted = false).
      * @param id уникальный идентификатор
      * @return Optional с пользователем или пустой Optional
      */
     Optional<User> findById(Long id);
 
     /**
-     * Находит пользователя по логину.
+     * Находит пользователя по ID, включая удалённых.
+     * @param id уникальный идентификатор
+     * @return Optional с пользователем или пустой Optional
+     */
+    Optional<User> findByIdIncludingDeleted(Long id);
+
+    /**
+     * Находит пользователя по логину, включая удалённых.
+     * @param login логин пользователя
+     * @return Optional с пользователем или пустой Optional
+     */
+    Optional<User> findByLoginIncludingDeleted(String login);
+
+    /**
+     * Находит активного пользователя по логину (is_deleted = false).
      * Используется при аутентификации.
      * @param login логин пользователя
      * @return Optional с пользователем или пустой Optional
@@ -49,40 +63,63 @@ public interface UserRepository {
     Optional<User> findByEmail(String email);
 
     /**
-     * Возвращает всех пользователей с пагинацией.
+     * Возвращает всех активных пользователей (is_deleted = false) с пагинацией.
      * @param page  номер страницы (0-based)
      * @param size  размер страницы
      * @param sortBy поле для сортировки
      * @param sortDir направление сортировки (asc/desc)
      * @return список пользователей
      */
-    List<User> findAll(int page, int size, String sortBy, String sortDir);
+    List<User> findAllActive(int page, int size, String sortBy, String sortDir);
 
     /**
-     * Возвращает общее количество пользователей.
+     * Возвращает всех пользователей, включая удалённых, с пагинацией.
+     * @param page  номер страницы (0-based)
+     * @param size  размер страницы
+     * @param sortBy поле для сортировки
+     * @param sortDir направление сортировки (asc/desc)
+     * @return список пользователей
+     */
+    List<User> findAllIncludingDeleted(int page, int size, String sortBy, String sortDir);
+
+    /**
+     * Возвращает общее количество активных пользователей (is_deleted = false).
      * Используется для пагинации.
      */
-    long count();
+    long countActive();
 
     /**
-     * Удаляет пользователя по ID.
-     * @param id ID пользователя
+     * Возвращает общее количество пользователей, включая удалённых.
      */
-    void deleteById(Long id);
+    long countAll();
 
     /**
-     * Проверяет, существует ли пользователь с данным логином.
+     * Проверяет, существует ли активный пользователь с данным логином (is_deleted = false).
      * @param login логин для проверки
      * @return true если существует
      */
     boolean existsByLogin(String login);
 
     /**
-     * Проверяет, существует ли пользователь с данным email.
+     * Проверяет, существует ли пользователь с данным логином, включая удалённых.
+     * @param login логин для проверки
+     * @return true если существует
+     */
+    boolean existsByLoginIncludingDeleted(String login);
+
+    /**
+     * Проверяет, существует ли активный пользователь с данным email (is_deleted = false).
      * @param email email для проверки
      * @return true если существует
      */
     boolean existsByEmail(String email);
+
+    /**
+     * Проверяет, существует ли пользователь с данным email, включая удалённых.
+     * @param email email для проверки
+     * @return true если существует
+     */
+    boolean existsByEmailIncludingDeleted(String email);
 
     /**
      * Проверяет, является ли пользователь автором документов.

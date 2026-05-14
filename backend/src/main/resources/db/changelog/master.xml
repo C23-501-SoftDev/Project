@@ -36,4 +36,8 @@
     <include file="db/changelog/changes/022-update-hard-delete-function.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/023-drop-soft-delete-trigger.xml" relativeToChangelogFile="false"/>
 
+    <!-- Рефактор модели ролей и soft-delete -->
+    <include file="db/changelog/changes/024-refactor-role-model-and-user.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/025-fix-role-constraint.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

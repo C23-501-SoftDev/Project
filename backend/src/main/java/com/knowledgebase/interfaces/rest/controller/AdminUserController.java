@@ -1,6 +1,7 @@
 package com.knowledgebase.interfaces.rest.controller;
 
 import com.knowledgebase.application.service.UserService;
+import com.knowledgebase.domain.exception.AccessDeniedException;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.advice.ErrorResponse;
 import com.knowledgebase.interfaces.rest.dto.request.ChangePasswordRequest;
@@ -20,6 +21,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -51,9 +53,11 @@ public class AdminUserController {
     /**
      * GET /api/admin/users
      * Список всех пользователей с пагинацией.
+     * По умолчанию возвращает только активных (is_deleted = false).
+     * Параметр includeDeleted=true возвращает всех, включая удалённых.
      */
     @GetMapping
-    @Operation(summary = "Список пользователей", description = "Возвращает список всех пользователей с пагинацией")
+    @Operation(summary = "Список пользователей", description = "Возвращает список пользователей с пагинацией. По умолчанию только активных.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Список пользователей"),
         @ApiResponse(responseCode = "403", description = "Доступ запрещён",
@@ -70,10 +74,21 @@ public class AdminUserController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
 
             @Parameter(description = "Направление сортировки", example = "desc")
-            @RequestParam(defaultValue = "desc") String sortDir) {
+            @RequestParam(defaultValue = "desc") String sortDir,
 
-        List<User> users = userService.getAllUsers(page, size, sortBy, sortDir);
-        long total = userService.countUsers();
+            @Parameter(description = "Включить удалённых пользователей", example = "false")
+            @RequestParam(defaultValue = "false") boolean includeDeleted) {
+
+        List<User> users;
+        long total;
+
+        if (includeDeleted) {
+            users = userService.getAllUsersIncludingDeleted(page, size, sortBy, sortDir);
+            total = userService.countUsersIncludingDeleted();
+        } else {
+            users = userService.getAllUsers(page, size, sortBy, sortDir);
+            total = userService.countUsers();
+        }
 
         List<UserResponse> userResponses = users.stream()
                 .map(mapper::toUserResponse)
@@ -84,10 +99,10 @@ public class AdminUserController {
 
     /**
      * GET /api/admin/users/{id}
-     * Получить пользователя по ID.
+     * Получить пользователя по ID (включая удалённых).
      */
     @GetMapping("/{id}")
-    @Operation(summary = "Получить пользователя", description = "Возвращает данные пользователя по ID")
+    @Operation(summary = "Получить пользователя", description = "Возвращает данные пользователя по ID, включая удалённых")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Данные пользователя",
             content = @Content(schema = @Schema(implementation = UserResponse.class))),
@@ -97,7 +112,7 @@ public class AdminUserController {
     public ResponseEntity<UserResponse> getUserById(
             @Parameter(description = "ID пользователя", required = true)
             @PathVariable Long id) {
-        User user = userService.getUserById(id);
+        User user = userService.getUserByIdIncludingDeleted(id);
         return ResponseEntity.ok(mapper.toUserResponse(user));
     }
 
@@ -121,13 +136,14 @@ public class AdminUserController {
                 request.login(),
                 request.email(),
                 request.password(),
-                request.role());
+                request.role(),
+                request.isAdmin());
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toUserResponse(user));
     }
 
     /**
      * PUT /api/admin/users/{id}
-     * Обновить данные пользователя (логин, email, роль).
+     * Обновить данные пользователя (логин, email, роль, isAdmin).
      * Пароль не обновляется — используйте PUT /api/admin/users/{id}/password.
      *
      * ВАЖНО: При изменении роли новые права вступят в силу только после
@@ -135,11 +151,13 @@ public class AdminUserController {
      */
     @PutMapping("/{id}")
     @Operation(summary = "Обновить пользователя",
-               description = "Обновляет логин, email и/или роль. " +
+               description = "Обновляет логин, email, роль и/или isAdmin. " +
                              "Изменение роли вступит в силу после следующего входа пользователя.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Пользователь обновлён",
             content = @Content(schema = @Schema(implementation = UserResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Недостаточно прав",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "404", description = "Пользователь не найден",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "409", description = "Конфликт данных",
@@ -147,34 +165,60 @@ public class AdminUserController {
     })
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateUserRequest request) {
-        User user = userService.updateUser(id, request.login(), request.email(), request.role());
+            @Valid @RequestBody UpdateUserRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        // isAdmin может быть null в request, используем текущее значение
+        User targetUser = userService.getUserById(id);
+        boolean isAdmin = request.isAdmin() != null ? request.isAdmin() : targetUser.getIsAdmin();
+
+        // Запрещаем администратору снимать с себя права админа
+        if (currentUser.getId().equals(id) && targetUser.getIsAdmin() && !isAdmin) {
+            throw new AccessDeniedException("Администратор не может снять с себя права администратора");
+        }
+
+        User user = userService.updateUser(id, request.login(), request.email(), request.role(), isAdmin, currentUser.getId());
         return ResponseEntity.ok(mapper.toUserResponse(user));
     }
 
     /**
      * DELETE /api/admin/users/{id}
-     * Удалить пользователя.
-     *
-     * Проверяет наличие связанных данных (ON DELETE RESTRICT):
-     * - Нельзя удалить если есть документы (author_id)
-     * - Нельзя удалить если является владельцем пространств (owner_id)
-     * - Нельзя удалить если создавал версии (versions.author_id)
+     * Выполняет soft-delete пользователя.
+     * Данные пользователя сохраняются для истории авторства.
+     * Возвращает 200 с данными пользователя (а не 204).
      */
     @DeleteMapping("/{id}")
-    @Operation(summary = "Удалить пользователя",
-               description = "Физически удаляет пользователя. " +
-                             "Возвращает 409 Conflict если у пользователя есть документы, пространства или версии.")
+    @Operation(summary = "Удалить пользователя (soft-delete)",
+               description = "Выполняет soft-delete. Данные сохраняются для истории. " +
+                             "Возвращает данные удалённого пользователя.")
     @ApiResponses({
-        @ApiResponse(responseCode = "204", description = "Пользователь удалён"),
+        @ApiResponse(responseCode = "200", description = "Пользователь soft-удалён",
+            content = @Content(schema = @Schema(implementation = UserResponse.class))),
         @ApiResponse(responseCode = "404", description = "Пользователь не найден",
-            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-        @ApiResponse(responseCode = "409", description = "Невозможно удалить (есть связанные данные)",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<UserResponse> deleteUser(@PathVariable Long id) {
+        User user = userService.deleteUser(id);
+        return ResponseEntity.ok(mapper.toUserResponse(user));
+    }
+
+    /**
+     * POST /api/admin/users/{id}/restore
+     * Восстановить soft-удалённого пользователя.
+     */
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "Восстановить пользователя",
+               description = "Восстанавливает soft-удалённого пользователя.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Пользователь восстановлен",
+            content = @Content(schema = @Schema(implementation = UserResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Пользователь не найден",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Пользователь не был удалён",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<UserResponse> restoreUser(@PathVariable Long id) {
+        User user = userService.restoreUser(id);
+        return ResponseEntity.ok(mapper.toUserResponse(user));
     }
 
     /**

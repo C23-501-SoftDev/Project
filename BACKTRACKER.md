@@ -210,13 +210,13 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/admin/users?page=0&size=20&sortBy=login&sortDir=asc` | Список пользователей с пагинацией и сортировкой | ✅ |
-| GET | `/api/admin/users?role=EDITOR` | Фильтрация по роли | ✅ |
-| GET | `/api/admin/users?search=admin` | Поиск по логину/email | ✅ |
-| GET | `/api/admin/users/{id}` | Детали пользователя | ✅ |
-| POST | `/api/admin/users` | Создание пользователя (`{ login, email, password, role }`) | ✅ |
-| PUT | `/api/admin/users/{id}` | Обновление (`{ login, email, role }`) | ✅ |
-| DELETE | `/api/admin/users/{id}` | Удаление (409, если есть связанные данные) | ✅ |
+| GET | `/api/admin/users?page=0&size=20&sortBy=login&sortDir=asc` | Список активных пользователей с пагинацией | ✅ |
+| GET | `/api/admin/users?includeDeleted=true` | Список всех пользователей (включая удалённых) | ✅ |
+| GET | `/api/admin/users/{id}` | Детали пользователя (включая удалённых) | ✅ |
+| POST | `/api/admin/users` | Создание пользователя (`{ login, email, password, role, isAdmin }`) | ✅ |
+| PUT | `/api/admin/users/{id}` | Обновление (`{ login, email, role, isAdmin }`) | ✅ |
+| DELETE | `/api/admin/users/{id}` | Soft-delete (возвращает 200 с данными пользователя) | ✅ |
+| POST | `/api/admin/users/{id}/restore` | Восстановление soft-удалённого пользователя | ✅ |
 | PUT | `/api/admin/users/{id}/password` | Сброс пароля (`{ newPassword }`) | ✅ |
 
 ---
@@ -279,7 +279,7 @@
 | Блок | Эндпоинты | Статус |
 |------|-----------|--------|
 | **Auth + Logout** | POST `/api/auth/login`, GET `/api/auth/me`, POST `/logout` | ✅ |
-| **Users CRUD** | Full CRUD `/api/admin/users` + password | ✅ |
+| **Users CRUD** | Full CRUD `/api/admin/users` + password + restore + soft-delete | ✅ |
 | **Spaces list + create** | GET/POST `/api/spaces`, GET `/api/admin/spaces` | ✅ |
 | **Permissions** | POST `/api/admin/spaces/{id}/permissions`, GET `/api/user/permissions` | ✅ |
 
@@ -290,9 +290,14 @@
 ### Роли (GlobalRole)
 | Роль | Описание |
 |------|----------|
-| `ADMIN` | Полный доступ ко всему, видит все пространства |
+| `GUEST` | Минимальные права, только просмотр публичных ресурсов |
+| `READER` | Чтение документов в разрешённых пространствах |
 | `EDITOR` | Создание и редактирование документов с правом WRITE в пространстве |
-| `READER` | Только чтение с правом READ в пространстве |
+
+### Флаг администратора (isAdmin)
+| Поле | Описание |
+|------|----------|
+| `isAdmin` | Boolean флаг в User, определяющий доступ к админ-панели (не зависит от GlobalRole) |
 
 ### Типы прав (PermissionType)
 | Тип | Описание |

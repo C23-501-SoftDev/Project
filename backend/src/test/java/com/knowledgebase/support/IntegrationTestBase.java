@@ -73,7 +73,12 @@ public abstract class IntegrationTestBase {
 
     protected User persistUser(String login, String rawPassword, String email, GlobalRole role) {
         String hash = passwordEncoder.encode(rawPassword);
-        return userRepository.save(User.create(login, hash, email, role));
+        return userRepository.save(User.create(login, hash, email, role, false));
+    }
+
+    protected User persistUser(String login, String rawPassword, String email, GlobalRole role, boolean isAdmin) {
+        String hash = passwordEncoder.encode(rawPassword);
+        return userRepository.save(User.create(login, hash, email, role, isAdmin));
     }
 
     protected String loginAndGetJwt(String login, String password) throws Exception {

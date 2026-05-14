@@ -27,3 +27,6 @@
 - **endpoints**: `GET /admin/users`, `GET /admin/spaces`, `GET /admin/settings`, `GET/POST/PUT/DELETE /api/admin/users`, `GET/POST/PUT/DELETE /api/admin/spaces`
 - **docs**: `../Docs/documents/prototypes/admin-panel/index.html`
 
+### global-refactor-role-model-and-user — Global refactor: Role model and user
+- **status**: proposed
+- dependsOn: `auth-jwt-cookie`, `admin-users-crud`, `spaces-and-permissions`

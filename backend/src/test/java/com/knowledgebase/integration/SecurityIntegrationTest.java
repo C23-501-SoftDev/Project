@@ -21,7 +21,7 @@ class SecurityIntegrationTest extends IntegrationTestBase {
 
     @Test
     void adminApi_requiresAuthentication_andAdminRole() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         persistUser("reader", "reader123", "reader@knowledgebase.local", GlobalRole.READER);
 
         // Не аутентифицирован

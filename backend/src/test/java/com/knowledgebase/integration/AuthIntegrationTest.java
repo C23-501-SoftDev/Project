@@ -16,7 +16,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
 
     @Test
     void login_success_setsJwtCookie_andReturnsUser() throws Exception {
-        User user = persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        User user = persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
 
         String body = """
                 {"login":"%s","password":"%s"}
@@ -30,11 +30,11 @@ class AuthIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.tokenType", is("Bearer")))
                 .andExpect(jsonPath("$.user.id", is(user.getId().intValue())))
                 .andExpect(jsonPath("$.user.login", is("admin")))
-                .andExpect(jsonPath("$.user.role", is("ADMIN")))
+                .andExpect(jsonPath("$.user.role", is("EDITOR")))
+                .andExpect(jsonPath("$.user.isAdmin", is(true)))
                 .andReturn();
 
         String setCookie = result.getResponse().getHeader("Set-Cookie");
-        // AuthController ставит cookie через заголовок вручную
         org.junit.jupiter.api.Assertions.assertNotNull(setCookie);
         org.junit.jupiter.api.Assertions.assertTrue(setCookie.contains("JWT="));
         org.junit.jupiter.api.Assertions.assertTrue(setCookie.contains("HttpOnly"));
@@ -44,7 +44,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
 
     @Test
     void login_invalidCredentials_returns401ErrorResponse() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
@@ -57,6 +57,22 @@ class AuthIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void login_deletedUser_returns401() throws Exception {
+        String login = uniqueLogin("deleted");
+        String email = login + "@example.com";
+        User user = persistUser(login, "pass123", email, GlobalRole.READER, false);
+
+        // Soft-delete the user
+        user.softDelete();
+        userRepository.save(user);
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"login\":\"" + login + "\",\"password\":\"pass123\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void me_withoutJwtCookie_returns401() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());
@@ -64,14 +80,14 @@ class AuthIntegrationTest extends IntegrationTestBase {
 
     @Test
     void me_withJwtCookie_returnsCurrentUser() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         String jwt = loginAndGetJwt("admin", "admin123");
 
         mockMvc.perform(get("/api/auth/me").cookie(jwtCookie(jwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.login", is("admin")))
-                .andExpect(jsonPath("$.role", is("ADMIN")))
-                .andExpect(jsonPath("$.email", is("admin@knowledgebase.local")));
+                .andExpect(jsonPath("$.role", is("EDITOR")))
+                .andExpect(jsonPath("$.email", is("admin@knowledgebase.local")))
+                .andExpect(jsonPath("$.isAdmin", is(true)));
     }
 }
-

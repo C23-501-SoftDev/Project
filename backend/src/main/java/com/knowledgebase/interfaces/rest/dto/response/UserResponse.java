@@ -21,8 +21,14 @@ public record UserResponse(
     @Schema(description = "Email пользователя", example = "admin@example.com")
     String email,
 
-    @Schema(description = "Глобальная роль", example = "ADMIN")
+    @Schema(description = "Глобальная роль", example = "READER")
     GlobalRole role,
+
+    @Schema(description = "Флаг администратора", example = "true")
+    boolean isAdmin,
+
+    @Schema(description = "Флаг soft-удаления", example = "false")
+    boolean isDeleted,
 
     @Schema(description = "Дата создания")
     LocalDateTime createdAt,

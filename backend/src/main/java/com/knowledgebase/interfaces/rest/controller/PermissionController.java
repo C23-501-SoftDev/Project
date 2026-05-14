@@ -80,12 +80,13 @@ public class PermissionController {
         spaceService.getSpaceById(spaceId);
 
         // Получаем список прав (для ADMIN — все, для остальных — из space_permissions)
+        boolean isAdmin = currentUser.isAdmin();
         List<PermissionType> permissions = permissionService.getUserPermissions(
-                currentUser.getId(), currentUser.getRole(), spaceId);
+                currentUser.getId(), isAdmin, spaceId);
 
         // Получаем флаги для UI
         PermissionService.PermissionFlags flags = permissionService.getPermissionFlags(
-                currentUser.getId(), currentUser.getRole(), spaceId);
+                currentUser.getId(), isAdmin, spaceId);
 
         UserPermissionsResponse response = new UserPermissionsResponse(
                 spaceId,
