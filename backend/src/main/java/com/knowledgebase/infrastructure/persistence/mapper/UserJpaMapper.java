@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  * Маппер между доменным объектом User и JPA-сущностью UserJpaEntity.
  *
  * Ручная реализация вместо MapStruct для управления конвертацией
- * Enum GlobalRole ↔ String (значения в БД: "Admin", "Editor", "Reader").
+ * Enum GlobalRole ↔ String (значения в БД: "Guest", "Reader", "Editor").
  */
 @Component
 public class UserJpaMapper {
@@ -25,8 +25,9 @@ public class UserJpaMapper {
         entity.setLogin(user.getLogin());
         entity.setPasswordHash(user.getPasswordHash());
         entity.setEmail(user.getEmail());
-        // Конвертируем enum → строку для БД (Admin, Editor, Reader)
         entity.setRole(user.getRole() != null ? user.getRole().getDbValue() : null);
+        entity.setIsAdmin(user.getIsAdmin());
+        entity.setIsDeleted(user.getIsDeleted());
         entity.setCreatedAt(user.getCreatedAt());
         entity.setUpdatedAt(user.getUpdatedAt());
         return entity;
@@ -38,7 +39,6 @@ public class UserJpaMapper {
     public User toDomain(UserJpaEntity entity) {
         if (entity == null) return null;
 
-        // Конвертируем строку из БД → enum
         GlobalRole role = entity.getRole() != null
                 ? GlobalRole.fromDbValue(entity.getRole())
                 : GlobalRole.READER;
@@ -49,6 +49,8 @@ public class UserJpaMapper {
                 entity.getPasswordHash(),
                 entity.getEmail(),
                 role,
+                entity.isAdmin(),
+                entity.isDeleted(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

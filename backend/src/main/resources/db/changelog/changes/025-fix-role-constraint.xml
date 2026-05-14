@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="025-fix-existing-Admin-roles" author="knowledgebase-dev">
+        <comment>Миграция оставшихся Admin ролей -> Editor и обновление constraint</comment>
+        <sql>
+            -- Мигрируем все оставшиеся 'Admin' -> 'Editor'
+            UPDATE users SET role = 'Editor' WHERE role = 'Admin';
+            
+            -- Обновляем constraint на актуальные роли
+            ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_role;
+            ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN ('Guest', 'Reader', 'Editor'));
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

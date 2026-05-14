@@ -15,7 +15,7 @@ class PermissionIntegrationTest extends IntegrationTestBase {
 
     @Test
     void myPermissions_adminAlwaysHasAllFlags_andNonExistingSpaceReturns404() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         String adminJwt = loginAndGetJwt("admin", "admin123");
 
         mockMvc.perform(get("/api/user/permissions?spaceId=999999")
@@ -46,7 +46,7 @@ class PermissionIntegrationTest extends IntegrationTestBase {
 
     @Test
     void myPermissions_editorFlags_dependOnSpacePermissions() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         User editor = persistUser("editor", "editor123", "editor@knowledgebase.local", GlobalRole.EDITOR);
 
         String adminJwt = loginAndGetJwt("admin", "admin123");
@@ -109,7 +109,7 @@ class PermissionIntegrationTest extends IntegrationTestBase {
 
     @Test
     void mySpaces_endpoint_returnsSpacesWithAnyPermission() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         User reader = persistUser("reader", "reader123", "reader@knowledgebase.local", GlobalRole.READER);
 
         String adminJwt = loginAndGetJwt("admin", "admin123");

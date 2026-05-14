@@ -26,8 +26,14 @@ public class User {
     /** Уникальный email пользователя */
     private String email;
 
-    /** Глобальная роль: ADMIN, EDITOR, READER */
+    /** Глобальная роль: GUEST, READER, EDITOR */
     private GlobalRole role;
+
+    /** Флаг администратора — определяет доступ к админ-панели */
+    private boolean isAdmin;
+
+    /** Флаг soft-удаления */
+    private boolean isDeleted;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -37,20 +43,23 @@ public class User {
 
     /**
      * Фабричный метод для создания нового пользователя.
-     * Устанавливает дефолтную роль READER и временные метки.
+     * Устанавливает дефолтную роль READER, isAdmin=false, isDeleted=false.
      *
      * @param login      уникальный логин
      * @param passwordHash хеш пароля (BCrypt)
      * @param email      уникальный email
      * @param role       глобальная роль
+     * @param isAdmin    флаг администратора
      * @return новый экземпляр User
      */
-    public static User create(String login, String passwordHash, String email, GlobalRole role) {
+    public static User create(String login, String passwordHash, String email, GlobalRole role, boolean isAdmin) {
         User user = new User();
         user.login = login;
         user.passwordHash = passwordHash;
         user.email = email;
         user.role = role != null ? role : GlobalRole.READER;
+        user.isAdmin = isAdmin;
+        user.isDeleted = false;
         user.createdAt = LocalDateTime.now();
         user.updatedAt = LocalDateTime.now();
         return user;
@@ -61,13 +70,16 @@ public class User {
      * Используется в маппере при чтении из БД.
      */
     public static User restore(Long id, String login, String passwordHash, String email,
-                               GlobalRole role, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                               GlobalRole role, boolean isAdmin, boolean isDeleted,
+                               LocalDateTime createdAt, LocalDateTime updatedAt) {
         User user = new User();
         user.id = id;
         user.login = login;
         user.passwordHash = passwordHash;
         user.email = email;
         user.role = role;
+        user.isAdmin = isAdmin;
+        user.isDeleted = isDeleted;
         user.createdAt = createdAt;
         user.updatedAt = updatedAt;
         return user;
@@ -75,9 +87,40 @@ public class User {
 
     // Методы бизнес-логики
 
-    /** Проверяет, является ли пользователь администратором */
+    /**
+     * Мягкое удаление пользователя (soft-delete).
+     * Устанавливает флаг isDeleted = true.
+     */
+    public void softDelete() {
+        this.isDeleted = true;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Восстановление удалённого пользователя.
+     * Устанавливает флаг isDeleted = false.
+     */
+    public void restore() {
+        this.isDeleted = false;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /** Проверяет, является ли пользователь удалённым */
+    public boolean isDeleted() {
+        return isDeleted;
+    }
+
+    /** Проверяет, является ли пользователь активным (не удалённым) */
+    public boolean isActive() {
+        return !isDeleted;
+    }
+
+    /**
+     * Проверяет, является ли пользователь администратором.
+     * Проверяет поле isAdmin, а не роль.
+     */
     public boolean isAdmin() {
-        return GlobalRole.ADMIN.equals(this.role);
+        return isAdmin;
     }
 
     /** Проверяет, является ли пользователь редактором */
@@ -86,7 +129,7 @@ public class User {
     }
 
     /** Обновляет данные профиля пользователя */
-    public void updateProfile(String login, String email, GlobalRole role) {
+    public void updateProfile(String login, String email, GlobalRole role, boolean isAdmin) {
         if (login != null && !login.isBlank()) {
             this.login = login;
         }
@@ -96,6 +139,7 @@ public class User {
         if (role != null) {
             this.role = role;
         }
+        this.isAdmin = isAdmin;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -112,11 +156,13 @@ public class User {
     public String getPasswordHash() { return passwordHash; }
     public String getEmail() { return email; }
     public GlobalRole getRole() { return role; }
+    public boolean getIsAdmin() { return isAdmin; }
+    public boolean getIsDeleted() { return isDeleted; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
     @Override
     public String toString() {
-        return "User{id=" + id + ", login='" + login + "', role=" + role + "}";
+        return "User{id=" + id + ", login='" + login + "', role=" + role + ", isAdmin=" + isAdmin + "}";
     }
 }

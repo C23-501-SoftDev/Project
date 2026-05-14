@@ -1,6 +1,7 @@
 package com.knowledgebase.application.service;
 
 import com.knowledgebase.domain.event.UserCreatedEvent;
+import com.knowledgebase.domain.exception.AccessDeniedException;
 import com.knowledgebase.domain.exception.ConflictException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.GlobalRole;
@@ -20,10 +21,11 @@ import java.util.List;
  *
  * Реализует use cases:
  * - Создание пользователя (только через администратора)
- * - Обновление профиля (логин, email, роль)
+ * - Обновление профиля (логин, email, роль, isAdmin)
  * - Смена пароля
- * - Удаление с проверкой ссылочной целостности
- * - Получение списка пользователей
+ * - Soft-delete вместо hard-delete
+ * - Восстановление удалённых пользователей
+ * - Получение списка пользователей с фильтрацией по status
  */
 @Service
 @Transactional(readOnly = true)
@@ -51,20 +53,21 @@ public class UserService {
      * @param email    уникальный email
      * @param password пароль в открытом виде (будет захеширован)
      * @param role     глобальная роль
+     * @param isAdmin  флаг администратора
      * @return созданный пользователь
      * @throws ConflictException если логин или email уже заняты
      */
     @Transactional
-    public User createUser(String login, String email, String password, GlobalRole role) {
-        log.debug("Создание пользователя: login={}, email={}, role={}", login, email, role);
+    public User createUser(String login, String email, String password, GlobalRole role, boolean isAdmin) {
+        log.debug("Создание пользователя: login={}, email={}, role={}, isAdmin={}", login, email, role, isAdmin);
 
-        // Проверяем уникальность логина
-        if (userRepository.existsByLogin(login)) {
+        // Проверяем уникальность логина (включая удалённых — логин всегда уникален)
+        if (userRepository.existsByLoginIncludingDeleted(login)) {
             throw new ConflictException("Пользователь с логином '" + login + "' уже существует");
         }
 
-        // Проверяем уникальность email
-        if (userRepository.existsByEmail(email)) {
+        // Проверяем уникальность email (включая удалённых — email всегда уникален)
+        if (userRepository.existsByEmailIncludingDeleted(email)) {
             throw new ConflictException("Пользователь с email '" + email + "' уже существует");
         }
 
@@ -72,7 +75,7 @@ public class UserService {
         String passwordHash = passwordEncoder.encode(password);
 
         // Создаём доменный объект через фабричный метод
-        User user = User.create(login, passwordHash, email, role);
+        User user = User.create(login, passwordHash, email, role, isAdmin);
 
         // Сохраняем
         User savedUser = userRepository.save(user);
@@ -86,32 +89,39 @@ public class UserService {
     }
 
     /**
-     * Обновляет профиль пользователя (логин, email, роль).
+     * Обновляет профиль пользователя (логин, email, роль, isAdmin).
      * Пароль не обновляется этим методом — используйте changePassword().
      *
-     * @param userId ID обновляемого пользователя
-     * @param login  новый логин (null = без изменений)
-     * @param email  новый email (null = без изменений)
-     * @param role   новая роль (null = без изменений)
+     * @param userId        ID обновляемого пользователя
+     * @param login         новый логин (null = без изменений)
+     * @param email         новый email (null = без изменений)
+     * @param role          новая роль (null = без изменений)
+     * @param isAdmin       новый флаг администратора
+     * @param currentUserId ID текущего пользователя (для проверки прав)
      * @return обновлённый пользователь
      */
     @Transactional
-    public User updateUser(Long userId, String login, String email, GlobalRole role) {
+    public User updateUser(Long userId, String login, String email, GlobalRole role, boolean isAdmin, Long currentUserId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
+        // Запрещаем администратору снимать с себя права админа
+        if (userId.equals(currentUserId) && user.getIsAdmin() && !isAdmin) {
+            throw new AccessDeniedException("Администратор не может снять с себя права администратора");
+        }
+
         // Проверяем уникальность нового логина (если изменяется)
-        if (login != null && !login.equals(user.getLogin()) && userRepository.existsByLogin(login)) {
+        if (login != null && !login.equals(user.getLogin()) && userRepository.existsByLoginIncludingDeleted(login)) {
             throw new ConflictException("Пользователь с логином '" + login + "' уже существует");
         }
 
         // Проверяем уникальность нового email (если изменяется)
-        if (email != null && !email.equals(user.getEmail()) && userRepository.existsByEmail(email)) {
+        if (email != null && !email.equals(user.getEmail()) && userRepository.existsByEmailIncludingDeleted(email)) {
             throw new ConflictException("Пользователь с email '" + email + "' уже существует");
         }
 
         // Применяем изменения через метод домена
-        user.updateProfile(login, email, role);
+        user.updateProfile(login, email, role, isAdmin);
 
         User updated = userRepository.save(user);
         log.info("Пользователь обновлён: id={}", userId);
@@ -138,43 +148,47 @@ public class UserService {
     }
 
     /**
-     * Удаляет пользователя.
-     * Проверяет наличие связанных данных (ON DELETE RESTRICT).
+     * Выполняет soft-delete пользователя.
+     * Вместо физического удаления устанавливает флаг isDeleted = true.
+     * Данные пользователя сохраняются для сохранения истории авторства.
      *
      * @param userId ID удаляемого пользователя
      * @throws UserNotFoundException если пользователь не найден
-     * @throws ConflictException если пользователь имеет документы, пространства или версии
      */
     @Transactional
-    public void deleteUser(Long userId) {
-        // Проверяем существование
-        if (!userRepository.findById(userId).isPresent()) {
-            throw new UserNotFoundException(userId);
+    public User deleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        // Выполняем soft-delete через доменный метод
+        user.softDelete();
+        User saved = userRepository.save(user);
+
+        log.info("Пользователь soft-удалён: id={}", userId);
+        return saved;
+    }
+
+    /**
+     * Восстанавливает soft-удалённого пользователя.
+     *
+     * @param userId ID восстанавливаемого пользователя
+     * @return восстановленный пользователь
+     * @throws UserNotFoundException если пользователь не найден или не был удалён
+     */
+    @Transactional
+    public User restoreUser(Long userId) {
+        User user = userRepository.findByIdIncludingDeleted(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        if (!user.isDeleted()) {
+            throw new ConflictException("Пользователь не был удалён");
         }
 
-        // Проверка ON DELETE RESTRICT: документы
-        if (userRepository.hasDocuments(userId)) {
-            throw new ConflictException(
-                "Невозможно удалить пользователя: он является автором документов. " +
-                "Сначала удалите или переназначьте документы.");
-        }
+        user.restore();
+        User saved = userRepository.save(user);
 
-        // Проверка ON DELETE RESTRICT: пространства
-        if (userRepository.hasOwnedSpaces(userId)) {
-            throw new ConflictException(
-                "Невозможно удалить пользователя: он является владельцем пространств. " +
-                "Сначала удалите или передайте права на пространства.");
-        }
-
-        // Проверка ON DELETE RESTRICT: версии
-        if (userRepository.hasVersions(userId)) {
-            throw new ConflictException(
-                "Невозможно удалить пользователя: он создавал версии документов. " +
-                "Сначала удалите связанные версии.");
-        }
-
-        userRepository.deleteById(userId);
-        log.info("Пользователь удалён: id={}", userId);
+        log.info("Пользователь восстановлен: id={}", userId);
+        return saved;
     }
 
     /**
@@ -188,7 +202,15 @@ public class UserService {
     }
 
     /**
-     * Возвращает список всех пользователей с пагинацией.
+     * Возвращает пользователя по ID, включая удалённых.
+     */
+    public User getUserByIdIncludingDeleted(Long userId) {
+        return userRepository.findByIdIncludingDeleted(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+    }
+
+    /**
+     * Возвращает список активных пользователей (is_deleted = false) с пагинацией.
      *
      * @param page    номер страницы (0-based)
      * @param size    размер страницы
@@ -197,13 +219,27 @@ public class UserService {
      * @return список пользователей на странице
      */
     public List<User> getAllUsers(int page, int size, String sortBy, String sortDir) {
-        return userRepository.findAll(page, size, sortBy, sortDir);
+        return userRepository.findAllActive(page, size, sortBy, sortDir);
     }
 
     /**
-     * Возвращает общее количество пользователей (для пагинации).
+     * Возвращает список всех пользователей (включая удалённых) с пагинацией.
+     */
+    public List<User> getAllUsersIncludingDeleted(int page, int size, String sortBy, String sortDir) {
+        return userRepository.findAllIncludingDeleted(page, size, sortBy, sortDir);
+    }
+
+    /**
+     * Возвращает общее количество активных пользователей (для пагинации).
      */
     public long countUsers() {
-        return userRepository.count();
+        return userRepository.countActive();
+    }
+
+    /**
+     * Возвращает общее количество пользователей, включая удалённых.
+     */
+    public long countUsersIncludingDeleted() {
+        return userRepository.countAll();
     }
 }

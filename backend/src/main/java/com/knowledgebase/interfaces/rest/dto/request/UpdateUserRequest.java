@@ -24,5 +24,8 @@ public record UpdateUserRequest(
     String email,
 
     @Schema(description = "Новая роль (null = без изменений)", example = "READER")
-    GlobalRole role
+    GlobalRole role,
+
+    @Schema(description = "Новый флаг администратора (false = без изменений)")
+    Boolean isAdmin
 ) {}

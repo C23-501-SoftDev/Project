@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 024: Refactor role model and add soft-delete
+    
+    1. Добавляет колонку is_admin (BOOLEAN NOT NULL DEFAULT FALSE)
+    2. Добавляет колонку is_deleted (BOOLEAN NOT NULL DEFAULT FALSE)
+    3. Обновляет CHECK constraint chk_users_role на ('Guest', 'Reader', 'Editor')
+    4. Добавляет частичный индекс idx_users_not_deleted
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="024-refactor-role-model-and-user" author="knowledgebase-dev">
+        <comment>Рефактор модели ролей: добавление is_admin, is_deleted и обновление ролей</comment>
+
+        <sql>
+            -- Сначала создаём колонки, если нет
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE NOT NULL;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE NOT NULL;
+
+            -- Дропаем старый constraint
+            ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_role;
+            
+            -- Конвертируем все варианты ролей в title case:
+            -- 'Admin'  -> 'Editor' (и ставим is_admin=true)
+            -- 'ADMIN'  -> 'Editor' (и ставим is_admin=true)
+            -- 'EDITOR' -> 'Editor'
+            -- 'READER' -> 'Reader'
+            -- 'GUEST'  -> 'Guest'
+            UPDATE users SET is_admin = TRUE WHERE role IN ('Admin', 'ADMIN');
+            UPDATE users SET role = 'Editor' WHERE role IN ('Admin', 'ADMIN', 'EDITOR');
+            UPDATE users SET role = 'Reader' WHERE role IN ('Reader', 'READER');
+            UPDATE users SET role = 'Guest' WHERE role IN ('Guest', 'GUEST');
+
+            -- Теперь создаём новый constraint с title case
+            ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN ('Guest', 'Reader', 'Editor'));
+
+            -- Индекс
+            DROP INDEX IF EXISTS idx_users_not_deleted;
+            CREATE INDEX idx_users_not_deleted ON users (id) WHERE is_deleted = false;
+        </sql>
+
+        <rollback>
+            <sql>DROP INDEX IF EXISTS idx_users_not_deleted;</sql>
+            <sql>
+                UPDATE users SET role = 'Admin' WHERE is_admin = true;
+                UPDATE users SET role = 'Editor' WHERE is_admin = false AND role = 'Editor';
+                ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_role;
+                ALTER TABLE users
+                    ADD CONSTRAINT chk_users_role
+                        CHECK (role IN ('Admin', 'Editor', 'Reader'));
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

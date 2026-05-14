@@ -13,7 +13,7 @@ class ValidationErrorIntegrationTest extends IntegrationTestBase {
 
     @Test
     void createUser_invalidPayload_returns400_withFieldErrors() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         String adminJwt = loginAndGetJwt("admin", "admin123");
 
         mockMvc.perform(post("/api/admin/users")
@@ -41,7 +41,7 @@ class ValidationErrorIntegrationTest extends IntegrationTestBase {
 
     @Test
     void grantPermission_invalidPayload_returns400_withFieldErrors() throws Exception {
-        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.ADMIN);
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         String adminJwt = loginAndGetJwt("admin", "admin123");
 
         // создаём space, чтобы не получить 404 до валидации тела
