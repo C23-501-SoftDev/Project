@@ -1,15 +1,124 @@
-<div class="document-edit-page">
-    <h1>Редактирование документа</h1>
-    <p>Документ #<span th:text="${documentId}">ID</span></p>
-    <form method="post">
-        <div>
-            <label for="title">Заголовок:</label>
-            <input type="text" id="title" name="title" required>
+<div class="document-edit-page" style="height: calc(100vh - 64px); display: flex; flex-direction: column;">
+    <input type="hidden" id="documentId" th:value="${documentId}">
+    
+    <div class="editor-header" style="padding: 12px 24px; border-bottom: 1px solid #E5E7EB; background: #FFF; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <a href="/" class="button-secondary" style="min-width:auto; padding:6px 12px; text-decoration:none;">&larr; Назад</a>
+            <h2 style="margin:0; font-size:18px;" id="headerTitle">Редактирование</h2>
         </div>
-        <div>
-            <label for="content">Содержание:</label>
-            <textarea id="content" name="content" rows="10"></textarea>
+        <div class="editor-actions" style="display:flex; align-items:center; gap:12px;">
+            <span class="badge" id="statusBadge">Draft</span>
+            <button class="button-primary" id="saveBtn">Сохранить (Ctrl+S)</button>
         </div>
-        <button type="submit">Сохранить</button>
-    </form>
+    </div>
+
+    <div class="editor-metadata" style="padding: 12px 24px; border-bottom: 1px solid #E5E7EB; background: #F9FAFB; display: flex; gap: 16px; align-items: center;">
+        <div class="field" style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:600; color:#6B7280;">TITLE</label>
+            <input type="text" id="docTitleField" style="padding:4px 8px; font-size:13px; border:1px solid #D1D5DB; border-radius:4px; min-width:250px;">
+        </div>
+        <div class="field" style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:600; color:#6B7280;">STATUS</label>
+            <select id="docStatusField" style="padding:4px 8px; font-size:13px; border:1px solid #D1D5DB; border-radius:4px;">
+                <option value="Draft">Draft</option>
+                <option value="Published">Published</option>
+                <option value="Deleted">Deleted</option>
+            </select>
+        </div>
+        <div class="field" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6B7280;">
+            <span>Автор: <span id="authorName">...</span></span>
+        </div>
+    </div>
+
+    <div class="editor-main" style="flex:1; display:flex; overflow:hidden;">
+        <div class="editor-pane" style="flex:1; display:flex; flex-direction:column; border-right:1px solid #E5E7EB;">
+            <div class="pane-header" style="padding:4px 12px; background:#F3F4F6; border-bottom:1px solid #E5E7EB; font-size:11px; font-weight:bold; color:#6B7280; text-transform:uppercase;">Wiki Markup</div>
+            <textarea id="editorTextarea" style="flex:1; width:100%; border:none; padding:16px; font-family:monospace; font-size:14px; resize:none; outline:none;" placeholder="Введите текст в формате Markdown..."></textarea>
+        </div>
+        <div class="preview-pane" style="flex:1; display:flex; flex-direction:column; background:#FFF;">
+            <div class="pane-header" style="padding:4px 12px; background:#F3F4F6; border-bottom:1px solid #E5E7EB; font-size:11px; font-weight:bold; color:#6B7280; text-transform:uppercase;">Предпросмотр</div>
+            <div id="previewContent" style="flex:1; padding:24px; overflow-y:auto;" class="markdown-body">
+                <!-- Отрендеренный HTML -->
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- Подключаем marked.js для рендеринга Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script>
+(function() {
+    const docId = document.getElementById('documentId').value;
+    const textarea = document.getElementById('editorTextarea');
+    const preview = document.getElementById('previewContent');
+    let currentDoc = null;
+
+    async function loadDocument() {
+        try {
+            currentDoc = await apiFetch(`/api/documents/${docId}`);
+            document.getElementById('docTitleField').value = currentDoc.title;
+            document.getElementById('docStatusField').value = currentDoc.status;
+            document.getElementById('authorName').textContent = currentDoc.authorId;
+            document.getElementById('headerTitle').textContent = currentDoc.title;
+            textarea.value = currentDoc.content || '';
+            updateStatusBadge();
+            renderPreview();
+        } catch (e) {
+            showToast('Ошибка загрузки документа', 'error');
+        }
+    }
+
+    function renderPreview() {
+        preview.innerHTML = marked.parse(textarea.value);
+    }
+
+    function updateStatusBadge() {
+        const status = document.getElementById('docStatusField').value;
+        const badge = document.getElementById('statusBadge');
+        badge.textContent = status;
+        badge.className = 'badge ' + status.toLowerCase();
+    }
+
+    async function saveDocument() {
+        const title = document.getElementById('docTitleField').value.trim();
+        const status = document.getElementById('docStatusField').value;
+        const content = textarea.value;
+
+        if (!title) {
+            showToast('Заголовок не может быть пустым', 'error');
+            return;
+        }
+
+        try {
+            const result = await apiFetch(`/api/documents/${docId}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    title,
+                    status,
+                    content
+                })
+            });
+            currentDoc = result;
+            document.getElementById('headerTitle').textContent = title;
+            updateStatusBadge();
+            showToast('Сохранено');
+        } catch (e) {
+            console.error('Save failed:', e);
+        }
+    }
+
+    textarea.addEventListener('input', renderPreview);
+    document.getElementById('docStatusField').addEventListener('change', updateStatusBadge);
+    document.getElementById('saveBtn').addEventListener('click', saveDocument);
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            saveDocument();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', loadDocument);
+})();
+</script>

@@ -1,4 +1,87 @@
 <div class="document-new-page">
-    <h1>Создание документа</h1>
-    <p>На этой странице будут создавать новые документы.</p>
+    <div class="header">
+        <h1>Создать документ</h1>
+        <a href="/" class="button-secondary" style="text-decoration:none;">&larr; К списку</a>
+    </div>
+
+    <div class="form-container" style="max-width:600px; margin-top:24px; background:#fff; padding:24px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+        <form id="createDocForm" onsubmit="return false;">
+            <div class="form-group">
+                <label>Название *</label>
+                <input type="text" id="docTitle" placeholder="Введите название документа" required style="width:100%; padding:8px; margin-bottom:16px;">
+            </div>
+            <div class="form-group">
+                <label>Пространство *</label>
+                <select id="docSpace" required style="width:100%; padding:8px; margin-bottom:16px;">
+                    <option value="">Выберите пространство...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Начальный контент (Markdown)</label>
+                <textarea id="docContent" placeholder="# Новый документ" style="width:100%; height:150px; padding:8px; margin-bottom:16px;"></textarea>
+            </div>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button type="button" class="button-secondary" onclick="location.href='/'">Отмена</button>
+                <button type="submit" class="button-primary" id="submitBtn">Создать и перейти к редактору</button>
+            </div>
+        </form>
+    </div>
 </div>
+
+<script>
+(function() {
+    async function fetchSpaces() {
+        try {
+            const spaces = await apiFetch('/api/spaces');
+            const select = document.getElementById('docSpace');
+            spaces.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to fetch spaces:', e);
+        }
+    }
+
+    async function createDocument(e) {
+        const title = document.getElementById('docTitle').value.trim();
+        const spaceId = document.getElementById('docSpace').value;
+        const content = document.getElementById('docContent').value;
+
+        if (!title || !spaceId) {
+            showToast('Заголовок и пространство обязательны', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.textContent = 'Создание...';
+
+        try {
+            const response = await apiFetch('/api/documents', {
+                method: 'POST',
+                body: JSON.stringify({
+                    title,
+                    spaceId: parseInt(spaceId),
+                    content,
+                    status: 'Draft'
+                })
+            });
+            showToast('Документ успешно создан');
+            setTimeout(() => {
+                location.href = `/documents/${response.id}/edit`;
+            }, 500);
+        } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'Создать и перейти к редактору';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchSpaces();
+        document.getElementById('createDocForm').addEventListener('submit', createDocument);
+    });
+})();
+</script>
