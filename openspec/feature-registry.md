@@ -28,5 +28,11 @@
 - **docs**: `../Docs/documents/prototypes/admin-panel/index.html`
 
 ### global-refactor-role-model-and-user — Global refactor: Role model and user
-- **status**: proposed
-- dependsOn: `auth-jwt-cookie`, `admin-users-crud`, `spaces-and-permissions`
+- **status**: done
+- **dependsOn**: `auth-jwt-cookie`, `admin-users-crud`, `spaces-and-permissions`
+
+### space-crud — Spaces: Full CRUD operations for Admin
+- **status**: pending
+- **dependsOn**: `spaces-and-permissions`
+- **endpoints**: `GET/POST/PUT/DELETE /api/admin/spaces`
+- **docs**: `../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md`

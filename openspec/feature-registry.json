@@ -95,7 +95,6 @@
         "../../Docs/070.role-matrix.md",
         "../../Docs/120.data-model.md",
         "../../Docs/050.entities.md"
-        
       ],
       "description": "Refactor user role model from flat enum (ADMIN/EDITOR/READER) to two-component model: global role (GUEST/READER/EDITOR) + independent is_admin boolean flag. Added soft-delete with restore. Affects JWT claims, RBAC logic, security config, and all role-related UI.",
       "endpoints": [
@@ -115,7 +114,43 @@
         "admin-users-crud",
         "spaces-and-permissions"
       ]
+    },
+    {
+      "featureId": "space-crud",
+      "title": "Spaces: Full CRUD operations for Admin",
+      "status": "pending",
+      "area": "backend",
+      "repo": "Project",
+      "docs": [
+        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md"
+      ],
+      "endpoints": [
+        "GET /api/admin/spaces",
+        "POST /api/admin/spaces",
+        "GET /api/admin/spaces/{id}",
+        "PUT /api/admin/spaces/{id}",
+        "DELETE /api/admin/spaces/{id}"
+      ],
+      "dependsOn": [
+        "spaces-and-permissions"
+      ]
+    },
+    {
+      "featureId": "documents-crud",
+      "title": "Documents: CRUD operations with Git integration",
+      "status": "pending",
+      "area": "backend",
+      "repo": "Project",
+      "docs": [
+        "../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md"
+      ],
+      "endpoints": [
+        "GET /api/documents",
+        "GET /api/documents/{id}",
+        "POST /api/documents",
+        "PUT /api/documents/{id}",
+        "DELETE /api/documents/{id}"
+      ]
     }
   ]
 }
-
