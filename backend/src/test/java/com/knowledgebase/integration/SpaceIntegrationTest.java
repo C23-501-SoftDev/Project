@@ -7,11 +7,73 @@ import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class SpaceIntegrationTest extends IntegrationTestBase {
+
+    @Test
+    void admin_canManageSpace_CRUD() throws Exception {
+        User admin = persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
+        User newOwner = persistUser("newowner", "pass123", "owner@kb.local", GlobalRole.READER);
+        String adminJwt = loginAndGetJwt("admin", "admin123");
+
+        String spaceName = "space-crud-" + uniqueLogin("kb");
+
+        // 1. Create
+        String createResp = mockMvc.perform(post("/api/admin/spaces")
+                        .cookie(jwtCookie(adminJwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","description":"initial desc"}
+                                """.formatted(spaceName)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long spaceId = Long.parseLong(createResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
+
+        // 2. Get Details
+        mockMvc.perform(get("/api/admin/spaces/" + spaceId)
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is(spaceName)))
+                .andExpect(jsonPath("$.description", is("initial desc")));
+
+        // 3. Update (including owner change)
+        String updatedName = spaceName + "-updated";
+        mockMvc.perform(put("/api/admin/spaces/" + spaceId)
+                        .cookie(jwtCookie(adminJwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "%s",
+                                  "description": "updated desc",
+                                  "ownerId": %d
+                                }
+                                """.formatted(updatedName, newOwner.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is(updatedName)))
+                .andExpect(jsonPath("$.description", is("updated desc")))
+                .andExpect(jsonPath("$.ownerId", is(newOwner.getId().intValue())));
+
+        // Verify permissions updated: new owner should have OWNER permission
+        mockMvc.perform(get("/api/admin/spaces/" + spaceId + "/permissions")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.userId == %d && @.permissionType == 'OWNER')]".formatted(newOwner.getId()), not(empty())));
+
+        // 4. Delete
+        mockMvc.perform(delete("/api/admin/spaces/" + spaceId)
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isNoContent());
+
+        // Verify 404 after delete
+        mockMvc.perform(get("/api/admin/spaces/" + spaceId)
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isNotFound());
+    }
 
     @Test
     void admin_canCreateSpace_duplicateNameReturns409_andOwnerDefaultsToCurrentUser() throws Exception {

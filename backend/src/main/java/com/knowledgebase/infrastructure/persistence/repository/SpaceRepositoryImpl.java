@@ -75,6 +75,11 @@ public class SpaceRepositoryImpl implements SpaceRepository {
     }
 
     @Override
+    public boolean existsByNameAndIdNot(String name, Long id) {
+        return jpaRepository.existsByNameAndIdNot(name, id);
+    }
+
+    @Override
     public long count() {
         return jpaRepository.count();
     }

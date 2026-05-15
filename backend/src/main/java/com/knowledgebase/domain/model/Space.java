@@ -63,6 +63,14 @@ public class Space {
         return space;
     }
 
+    /** Обновляет информацию о пространстве */
+    public void update(String name, String description, Long ownerId) {
+        this.name = name;
+        this.description = description;
+        this.ownerId = ownerId;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     /** Обновляет описание пространства */
     public void updateDescription(String description) {
         this.description = description;

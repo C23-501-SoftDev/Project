@@ -116,6 +116,26 @@
       ]
     },
     {
+      "featureId": "space-crud",
+      "title": "Spaces: Full CRUD operations for Admin",
+      "status": "pending",
+      "area": "backend",
+      "repo": "Project",
+      "docs": [
+        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md"
+      ],
+      "endpoints": [
+        "GET /api/admin/spaces",
+        "POST /api/admin/spaces",
+        "GET /api/admin/spaces/{id}",
+        "PUT /api/admin/spaces/{id}",
+        "DELETE /api/admin/spaces/{id}"
+      ],
+      "dependsOn": [
+        "spaces-and-permissions"
+      ]
+    },
+    {
       "featureId": "documents-crud",
       "title": "Documents: CRUD operations with Git integration",
       "status": "pending",

@@ -91,6 +91,74 @@ public class SpaceService {
     }
 
     /**
+     * Обновляет данные пространства.
+     * Если владелец изменился, обновляет права доступа.
+     *
+     * @param spaceId     ID пространства
+     * @param name        новое имя
+     * @param description новое описание
+     * @param ownerId     новый владелец
+     * @return обновленное пространство
+     */
+    @Transactional
+    public Space updateSpace(Long spaceId, String name, String description, Long ownerId) {
+        log.debug("Обновление пространства: id={}, name={}, ownerId={}", spaceId, name, ownerId);
+
+        Space space = spaceRepository.findById(spaceId)
+                .orElseThrow(() -> new SpaceNotFoundException(spaceId));
+
+        // Проверяем уникальность имени, если оно изменилось
+        if (!space.getName().equals(name) && spaceRepository.existsByName(name)) {
+            throw new ConflictException("Пространство с именем '" + name + "' уже существует");
+        }
+
+        // Проверяем существование нового владельца
+        if (!userRepository.findById(ownerId).isPresent()) {
+            throw new UserNotFoundException(ownerId);
+        }
+
+        Long oldOwnerId = space.getOwnerId();
+        space.update(name, description, ownerId);
+        Space updatedSpace = spaceRepository.save(space);
+
+        // Если владелец изменился, обновляем права
+        if (!oldOwnerId.equals(ownerId)) {
+            log.info("Смена владельца пространства {}: {} -> {}", spaceId, oldOwnerId, ownerId);
+            
+            // Удаляем старое право OWNER
+            permissionRepository.deleteBySpaceIdAndUserIdAndPermissionType(
+                    spaceId, oldOwnerId, PermissionType.OWNER);
+            
+            // Назначаем новое право OWNER
+            SpacePermission newOwnerPermission = SpacePermission.grant(
+                    spaceId, ownerId, PermissionType.OWNER);
+            permissionRepository.save(newOwnerPermission);
+        }
+
+        return updatedSpace;
+    }
+
+    /**
+     * Удаляет пространство.
+     *
+     * @param spaceId ID пространства
+     */
+    @Transactional
+    public void deleteSpace(Long spaceId) {
+        log.info("Удаление пространства: id={}", spaceId);
+        
+        if (!spaceRepository.findById(spaceId).isPresent()) {
+            throw new SpaceNotFoundException(spaceId);
+        }
+
+        // Удаляем все права доступа к этому пространству
+        permissionRepository.deleteBySpaceId(spaceId);
+        
+        // Удаляем само пространство
+        spaceRepository.deleteById(spaceId);
+    }
+
+    /**
      * Возвращает все пространства (для ADMIN).
      * Доступ проверяется в контроллере через @PreAuthorize.
      *
