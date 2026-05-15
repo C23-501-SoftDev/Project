@@ -85,6 +85,16 @@ public interface SpacePermissionRepository {
     void deleteById(Long id);
 
     /**
+     * Удаляет конкретное право пользователя в пространстве.
+     */
+    void deleteBySpaceIdAndUserIdAndPermissionType(Long spaceId, Long userId, PermissionType permissionType);
+
+    /**
+     * Удаляет все права для пространства.
+     */
+    void deleteBySpaceId(Long spaceId);
+
+    /**
      * Удаляет все права пользователя в пространстве.
      * Используется при отзыве всех прав сразу.
      */

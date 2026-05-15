@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-04-29
+**Дата обновления:** 2026-05-15
 
 ---
 
@@ -57,7 +57,7 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/spaces/{id}` | Детали пространства (name, description, ownerId) | ❌ |
+| GET | `/api/admin/spaces/{id}` | Детали пространства (name, description, ownerId) | ✅ |
 | GET | `/api/spaces/{id}/documents?page=0&size=20` | Документы в пространстве с пагинацией | ❌ |
 | GET | `/api/spaces/{id}/tree` | Древовидная структура документов (для sidebar/TOC) | ❌ |
 | GET | `/api/user/permissions?spaceId={id}` | Проверка прав текущего пользователя | ✅ |
@@ -227,8 +227,9 @@
 |-------|----------|----------|--------|
 | GET | `/api/admin/spaces` | Все пространства системы | ✅ |
 | POST | `/api/admin/spaces` | Создание пространства (`{ name, description, ownerId }`) | ✅ |
-| PUT | `/api/admin/spaces/{id}` | Обновление пространства | ❌ |
-| DELETE | `/api/admin/spaces/{id}` | Удаление пространства (RESTRICT если есть документы) | ❌ |
+| GET | `/api/admin/spaces/{id}` | Детали пространства | ✅ |
+| PUT | `/api/admin/spaces/{id}` | Обновление пространства | ✅ |
+| DELETE | `/api/admin/spaces/{id}` | Удаление пространства (RESTRICT если есть документы) | ✅ |
 | POST | `/api/admin/spaces/{spaceId}/permissions` | Назначение прав (`{ userId, permissionType: READ|WRITE|OWNER }`) | ✅ |
 | GET | `/api/admin/spaces/{id}/permissions` | Список прав пространства (с полями userLogin, userEmail) | ✅ |
 
@@ -270,8 +271,7 @@
 |------|-----------|--------|
 | **Корзина** | GET `/api/documents/soft-deleted`, restore, hard-delete | ❌ |
 | **Дерево документов** | GET `/api/spaces/{id}/tree` | ❌ |
-| **Права к документу** | GET/PUT `/api/documents/{id}/permissions` | ❌ |
-| **Пространства CRUD** | PUT/DELETE `/api/admin/spaces` | ❌ |
+| **Пространства CRUD** | GET/POST/PUT/DELETE `/api/admin/spaces` | ✅ |
 | **Поиск пользователей** | search param в `/api/admin/users` | ❌ |
 
 ### Уже реализовано

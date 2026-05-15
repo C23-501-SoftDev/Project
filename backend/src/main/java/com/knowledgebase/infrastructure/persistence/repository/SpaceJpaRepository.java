@@ -17,5 +17,7 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
 
     boolean existsByName(String name);
 
+    boolean existsByNameAndIdNot(String name, Long id);
+
     Page<SpaceJpaEntity> findByOwnerId(Long ownerId, Pageable pageable);
 }

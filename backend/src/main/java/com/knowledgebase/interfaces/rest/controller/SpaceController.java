@@ -7,6 +7,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.advice.ErrorResponse;
 import com.knowledgebase.interfaces.rest.dto.request.CreateSpaceRequest;
 import com.knowledgebase.interfaces.rest.dto.request.GrantPermissionRequest;
+import com.knowledgebase.interfaces.rest.dto.request.UpdateSpaceRequest;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
 import com.knowledgebase.interfaces.rest.mapper.RestDtoMapper;
@@ -106,6 +107,65 @@ public class SpaceController {
 
         Space space = spaceService.createSpace(request.name(), request.description(), ownerId);
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toSpaceResponse(space));
+    }
+
+    /**
+     * GET /api/admin/spaces/{spaceId}
+     * Получение данных пространства (только ADMIN).
+     */
+    @GetMapping("/api/admin/spaces/{spaceId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Данные пространства", description = "Возвращает детальную информацию о пространстве")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Данные пространства",
+            content = @Content(schema = @Schema(implementation = SpaceResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Пространство не найдено",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<SpaceResponse> getSpace(@PathVariable Long spaceId) {
+        Space space = spaceService.getSpaceById(spaceId);
+        return ResponseEntity.ok(mapper.toSpaceResponse(space));
+    }
+
+    /**
+     * PUT /api/admin/spaces/{spaceId}
+     * Обновление данных пространства (только ADMIN).
+     */
+    @PutMapping("/api/admin/spaces/{spaceId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Обновить пространство", description = "Обновляет данные пространства и права владельца")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Пространство обновлено",
+            content = @Content(schema = @Schema(implementation = SpaceResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Пространство не найдено",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Имя пространства уже занято",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<SpaceResponse> updateSpace(
+            @PathVariable Long spaceId,
+            @Valid @RequestBody UpdateSpaceRequest request) {
+
+        Space updated = spaceService.updateSpace(
+                spaceId, request.getName(), request.getDescription(), request.getOwnerId());
+        return ResponseEntity.ok(mapper.toSpaceResponse(updated));
+    }
+
+    /**
+     * DELETE /api/admin/spaces/{spaceId}
+     * Удаление пространства (только ADMIN).
+     */
+    @DeleteMapping("/api/admin/spaces/{spaceId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Удалить пространство", description = "Удаляет пространство и связанные права доступа")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Пространство удалено"),
+        @ApiResponse(responseCode = "404", description = "Пространство не найдено",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<Void> deleteSpace(@PathVariable Long spaceId) {
+        spaceService.deleteSpace(spaceId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

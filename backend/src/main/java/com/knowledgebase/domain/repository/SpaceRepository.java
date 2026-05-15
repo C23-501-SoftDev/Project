@@ -51,6 +51,11 @@ public interface SpaceRepository {
     boolean existsByName(String name);
 
     /**
+     * Проверяет, существует ли пространство с данным именем, исключая указанный ID.
+     */
+    boolean existsByNameAndIdNot(String name, Long id);
+
+    /**
      * Возвращает общее количество пространств.
      */
     long count();

@@ -91,4 +91,16 @@ public class SpacePermissionRepositoryImpl implements SpacePermissionRepository 
     public void deleteBySpaceIdAndUserId(Long spaceId, Long userId) {
         jpaRepository.deleteBySpaceIdAndUserId(spaceId, userId);
     }
+
+    @Override
+    @Transactional
+    public void deleteBySpaceIdAndUserIdAndPermissionType(Long spaceId, Long userId, PermissionType permissionType) {
+        jpaRepository.deleteBySpaceIdAndUserIdAndPermissionType(spaceId, userId, permissionType.name());
+    }
+
+    @Override
+    @Transactional
+    public void deleteBySpaceId(Long spaceId) {
+        jpaRepository.deleteBySpaceId(spaceId);
+    }
 }

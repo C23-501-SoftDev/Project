@@ -51,4 +51,18 @@ public interface SpacePermissionJpaRepository
             AND sp.userId = :userId
             """)
     void deleteBySpaceIdAndUserId(@Param("spaceId") Long spaceId, @Param("userId") Long userId);
+
+    @Modifying
+    @Query("""
+            DELETE FROM SpacePermissionJpaEntity sp
+            WHERE sp.spaceId = :spaceId
+            AND sp.userId = :userId
+            AND sp.permissionType = :permissionType
+            """)
+    void deleteBySpaceIdAndUserIdAndPermissionType(@Param("spaceId") Long spaceId,
+                                                   @Param("userId") Long userId,
+                                                   @Param("permissionType") String permissionType);
+
+    @Modifying
+    void deleteBySpaceId(Long spaceId);
 }
