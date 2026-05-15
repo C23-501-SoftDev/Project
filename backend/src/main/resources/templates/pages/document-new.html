@@ -62,11 +62,13 @@
         try {
             const response = await apiFetch('/api/documents', {
                 method: 'POST',
+                headers: {
+                    'X-XSRF-TOKEN': getCsrfToken() || '[[${_csrf.token}]]'
+                },
                 body: JSON.stringify({
                     title,
                     spaceId: parseInt(spaceId),
-                    content,
-                    status: 'Draft'
+                    content
                 })
             });
             showToast('Документ успешно создан');
