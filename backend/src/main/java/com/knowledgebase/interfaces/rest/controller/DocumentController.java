@@ -44,7 +44,7 @@ public class DocumentController {
      * Создать новый документ.
      */
     @PostMapping
-    @PreAuthorize("@permissionService.canWrite(principal.id, principal.role, #request.spaceId())")
+    @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, #request.spaceId())")
     @Operation(summary = "Создать документ", description = "Создаёт метаданные в БД и файл в Git")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Документ создан"),
@@ -70,7 +70,7 @@ public class DocumentController {
      * Получить документ с содержимым.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("@permissionService.canRead(principal.id, principal.role, @documentService.getDocumentById(#id).spaceId)")
+    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
     @Operation(summary = "Получить документ", description = "Возвращает метаданные из БД и содержимое из Git")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Документ найден"),
@@ -89,7 +89,7 @@ public class DocumentController {
      * Обновить метаданные или контент.
      */
     @PutMapping("/{id}")
-    @PreAuthorize("@permissionService.canWrite(principal.id, principal.role, @documentService.getDocumentById(#id).spaceId)")
+    @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
     @Operation(summary = "Обновить документ", description = "Обновляет метаданные в БД и создаёт новый коммит в Git")
     public ResponseEntity<DocumentResponse> updateDocument(
             @PathVariable Long id,
@@ -108,7 +108,7 @@ public class DocumentController {
      * Удалить документ (архивация).
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("@permissionService.canWrite(principal.id, principal.role, @documentService.getDocumentById(#id).spaceId)")
+    @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
     @Operation(summary = "Удалить документ", description = "Переводит в статус Deleted и перемещает файл в .archive/ в Git")
     public ResponseEntity<Void> deleteDocument(@PathVariable Long id) {
         documentService.deleteDocument(id);
@@ -120,12 +120,15 @@ public class DocumentController {
      * Список документов в пространстве.
      */
     @GetMapping
-    @PreAuthorize("@permissionService.canRead(principal.id, principal.role, #spaceId)")
+    @PreAuthorize("#spaceId != null && @permissionService.canRead(principal.id, principal.isAdmin, #spaceId)")
     @Operation(summary = "Список документов в пространстве", description = "Возвращает список метаданных всех документов в пространстве")
     public ResponseEntity<List<DocumentResponse>> getDocumentsInSpace(
-            @RequestParam Long spaceId,
+            @RequestParam(required = false) Long spaceId,
             @RequestParam(defaultValue = "false") boolean includeDeleted) {
         
+        if (spaceId == null) {
+            return ResponseEntity.badRequest().build();
+        }
         List<Document> documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
         List<DocumentResponse> response = documents.stream()
                 .map(doc -> mapper.toDocumentResponse(doc, null)) // Для списка контент не грузим

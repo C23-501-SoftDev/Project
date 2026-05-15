@@ -50,6 +50,9 @@ public class PermissionService {
         if (isAdmin) {
             return true;
         }
+        if (spaceId == null) {
+            return false;
+        }
         // EDITOR/READER/GUEST: проверяем права на пространство
         return permissionRepository.hasWriteAccess(spaceId, userId);
     }
@@ -69,6 +72,9 @@ public class PermissionService {
     public boolean canRead(Long userId, boolean isAdmin, Long spaceId) {
         if (isAdmin) {
             return true;
+        }
+        if (spaceId == null) {
+            return false;
         }
         // EDITOR и READER: нужно явное право на пространство
         return permissionRepository.hasReadAccess(spaceId, userId);
