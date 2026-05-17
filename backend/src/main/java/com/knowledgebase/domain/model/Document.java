@@ -91,6 +91,11 @@ public class Document {
     public Long getSpaceId() { return spaceId; }
     public Long getTemplateId() { return templateId; }
     public Long getParentDocumentId() { return parentDocumentId; }
+
+    public void setParentDocumentId(Long parentDocumentId) {
+        this.parentDocumentId = parentDocumentId;
+        this.updatedAt = LocalDateTime.now();
+    }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

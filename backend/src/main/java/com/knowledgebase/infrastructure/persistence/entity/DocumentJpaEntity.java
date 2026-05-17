@@ -43,6 +43,9 @@ public class DocumentJpaEntity {
     @Column(name = "parent_document_id")
     private Long parentDocumentId;
 
+    public Long getParentDocumentId() { return parentDocumentId; }
+    public void setParentDocumentId(Long parentDocumentId) { this.parentDocumentId = parentDocumentId; }
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -52,8 +55,6 @@ public class DocumentJpaEntity {
     private LocalDateTime updatedAt;
 
     public DocumentJpaEntity() {}
-
-    // Getters and Setters
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -76,12 +77,10 @@ public class DocumentJpaEntity {
     public Long getTemplateId() { return templateId; }
     public void setTemplateId(Long templateId) { this.templateId = templateId; }
 
-    public Long getParentDocumentId() { return parentDocumentId; }
-    public void setParentDocumentId(Long parentDocumentId) { this.parentDocumentId = parentDocumentId; }
-
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+

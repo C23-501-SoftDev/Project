@@ -1,6 +1,7 @@
 package com.knowledgebase.application.service;
 
 import com.knowledgebase.domain.exception.DocumentNotFoundException;
+import com.knowledgebase.domain.exception.DocumentValidationException;
 import com.knowledgebase.domain.exception.SpaceNotFoundException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.Document;
@@ -52,9 +53,23 @@ public class DocumentService {
      * @param authorId ID автора
      * @return созданный документ
      */
+    /**
+     * Создаёт новый документ.
+     * Сначала сохраняет метаданные в БД, затем контент в Git.
+     *
+     * @param title    заголовок
+     * @param content  содержимое Markdown
+     * @param spaceId  ID пространства
+     * @param parentId ID родительского документа
+     * @param authorId ID автора
+     * @return созданный документ
+     */
     @Transactional
-    public Document createDocument(String title, String content, Long spaceId, Long authorId) {
-        log.debug("Создание документа: title='{}', spaceId={}, authorId={}", title, spaceId, authorId);
+    public Document createDocument(String title, String content, Long spaceId, Long parentId, Long authorId) {
+        log.debug("Создание документа: title='{}', spaceId={}, parentId={}, authorId={}", title, spaceId, parentId, authorId);
+
+        validateHierarchy(null, parentId, spaceId);
+        validateTitleUniqueness(title, spaceId, parentId, null);
 
         if (!spaceRepository.findById(spaceId).isPresent()) {
             throw new SpaceNotFoundException(spaceId);
@@ -65,28 +80,57 @@ public class DocumentService {
 
         // 1. Сохраняем метаданные в БД с временным путем, чтобы получить ID
         Document document = Document.create(title, authorId, spaceId, "pending/" + System.nanoTime());
+        if (parentId != null) {
+            document.setParentDocumentId(parentId);
+        }
+
         Document savedDocument = documentRepository.save(document);
 
-        // 2. Формируем финальный путь и сохраняем контент в Git
+        // 2. Формируем финальный путь
         String gitPath = String.format("spaces/%d/%d.md", spaceId, savedDocument.getId());
         savedDocument.updateGitFilePath(gitPath);
         
-        contentRepository.saveContent(
-                gitPath, 
-                content != null ? content : "", 
-                "Initial commit for document: " + title,
-                author.getLogin(),
-                author.getEmail()
-        );
-
         // 3. Обновляем метаданные с корректным путем
         return documentRepository.save(savedDocument);
     }
 
-    /**
-     * Возвращает документ по ID.
-     * @throws DocumentNotFoundException если не найден
-     */
+    private void validateHierarchy(Long documentId, Long parentId, Long spaceId) {
+        if (parentId != null) {
+            Document parent = documentRepository.findById(parentId)
+                    .orElseThrow(() -> new DocumentValidationException("Родительский документ не найден"));
+
+            if (!parent.getSpaceId().equals(spaceId)) {
+                throw new DocumentValidationException("Родительский документ принадлежит другому пространству");
+            }
+
+            if (documentId != null && documentId.equals(parentId)) {
+                throw new DocumentValidationException("Документ не может быть родителем самому себе");
+            }
+
+            if (documentId != null) {
+                List<Long> ancestors = documentRepository.findAncestorIds(documentId);
+                if (ancestors.contains(parentId)) {
+                    throw new DocumentValidationException("Циклическая зависимость: выбранный родитель является дочерним элементом");
+                }
+            }
+        }
+    }
+
+    private void validateTitleUniqueness(String title, Long spaceId, Long parentId, Long currentDocumentId) {
+        boolean exists;
+        // Если parentId == 0, считаем его NULL для БД (H2/Postgres)
+        Long pid = (parentId != null && parentId > 0) ? parentId : null;
+
+        if (pid == null) {
+            exists = documentRepository.existsByTitleAndSpaceIdAndNoParent(title, spaceId);
+        } else {
+            exists = documentRepository.existsByTitleAndSpaceIdAndParentId(title, spaceId, pid);
+        }
+        
+        if (exists) {
+            throw new DocumentValidationException("Заголовок '" + title + "' уже занят на этом уровне");
+        }
+    }
     public Document getDocumentById(Long id) {
         return documentRepository.findById(id)
                 .orElseThrow(() -> new DocumentNotFoundException(id));
@@ -105,25 +149,33 @@ public class DocumentService {
      * Изменяет метаданные в БД и создаёт новый коммит в Git при изменении контента.
      */
     @Transactional
-    public Document updateDocument(Long id, String title, String content, DocumentStatus status, Long editorId) {
+    public Document updateDocument(Long id, String title, String content, DocumentStatus status, Long parentId, Long editorId) {
         Document document = getDocumentById(id);
         User editor = userRepository.findById(editorId)
                 .orElseThrow(() -> new UserNotFoundException(editorId));
 
-        log.debug("Обновление документа ID {}: title='{}', status={}", id, title, status);
+        log.debug("Обновление документа ID {}: title='{}', status={}, parentId={}", id, title, status, parentId);
+
+        validateHierarchy(id, parentId, document.getSpaceId());
+        if (title != null) {
+            validateTitleUniqueness(title, document.getSpaceId(), parentId, id);
+        }
 
         // Обновляем метаданные в БД
         document.updateMetadata(title, status);
+        if (parentId != null) {
+            document.setParentDocumentId(parentId);
+        }
         Document updatedMetadata = documentRepository.save(document);
 
-        // Обновляем контент в Git, если он передан
+        // Обновляем контент в Git, если передан
         if (content != null) {
             contentRepository.saveContent(
                     document.getGitFilePath(),
                     content,
-                    "Update document content: " + document.getTitle(),
-                    editor.getLogin(),
-                    editor.getEmail()
+                    "Update document: " + document.getTitle(),
+                    "System",
+                    "system@knowledgebase.com"
             );
         }
 

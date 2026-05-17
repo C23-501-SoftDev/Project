@@ -254,8 +254,8 @@
 |------|-----------|--------|
 | **Документы CRUD** | GET/POST/PUT/DELETE `/api/documents` | ✅ |
 | **Документы — просмотр** | GET `/api/documents/{id}` | ✅ |
-| **Документы — создание** | POST `/api/documents` + шаблоны | ✅ |
-| **Документы — редактирование** | PUT `/api/documents/{id}` | ✅ |
+| **Документы — создание** | POST `/api/documents` (400, 422) + шаблоны | ✅ |
+| **Документы — редактирование** | PUT `/api/documents/{id}` (400, 422, 404) | ✅ |
 | **Документы — удаление** | DELETE `/api/documents/{id}` (soft) | ✅ |
 | **Версии** | GET `/api/documents/{id}/versions` | ❌ |
 | **Diff версий** | GET `/api/documents/{id}/diff` | ❌ |

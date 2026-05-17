@@ -80,6 +80,14 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNAUTHORIZED, "Unauthorized", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(com.knowledgebase.domain.exception.DocumentValidationException.class)
+    public ResponseEntity<ErrorResponse> handleDocumentValidation(
+            com.knowledgebase.domain.exception.DocumentValidationException ex,
+            HttpServletRequest request) {
+        log.warn("Ошибка валидации документа: {}", ex.getMessage());
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
+    }
+
     // ── 403 Forbidden: ошибки авторизации ────────────────────────────────────
 
     /**

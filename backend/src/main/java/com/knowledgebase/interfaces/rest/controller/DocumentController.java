@@ -58,6 +58,7 @@ public class DocumentController {
                 request.title(), 
                 request.content(), 
                 request.spaceId(), 
+                request.parentId(),
                 currentUser.getId()
         );
         
@@ -97,7 +98,7 @@ public class DocumentController {
             @AuthenticationPrincipal User currentUser) {
 
         Document document = documentService.updateDocument(
-                id, request.title(), request.content(), request.status(), currentUser.getId());
+                id, request.title(), request.content(), request.status(), request.parentId(), currentUser.getId());
         
         String content = request.content() != null ? request.content() : documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));

@@ -9,14 +9,10 @@ import jakarta.validation.constraints.Size;
  */
 @Schema(description = "Запрос на обновление документа")
 public record UpdateDocumentRequest(
-
-    @Schema(description = "Новый заголовок (null = без изменений)", example = "Обновленное введение")
     @Size(max = 500, message = "Заголовок не может превышать 500 символов")
     String title,
-
-    @Schema(description = "Новое содержимое Markdown (null = без изменений)", example = "# Новый контент")
     String content,
-
-    @Schema(description = "Новый статус документа (null = без изменений)", example = "PUBLISHED")
-    DocumentStatus status
+    DocumentStatus status,
+    Long parentId
 ) {}
+

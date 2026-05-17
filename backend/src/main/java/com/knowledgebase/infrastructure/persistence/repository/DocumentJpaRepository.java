@@ -14,4 +14,21 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
     List<DocumentJpaEntity> findBySpaceIdAndStatusNot(Long spaceId, String status);
     
     List<DocumentJpaEntity> findByAuthorId(Long authorId);
+    @org.springframework.data.jpa.repository.Query(value = "SELECT count(*) FROM documents WHERE title = ?1 AND space_id = ?2 AND parent_document_id = ?3", nativeQuery = true)
+    long countByTitleAndSpaceIdAndParentId(String title, Long spaceId, Long parentId);
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT count(*) FROM documents WHERE title = ?1 AND space_id = ?2 AND parent_document_id IS NULL", nativeQuery = true)
+    long countByTitleAndSpaceIdAndNoParent(String title, Long spaceId);
+    
+    @org.springframework.data.jpa.repository.Query(value = """
+        WITH RECURSIVE Ancestors AS (
+            SELECT parent_document_id FROM documents WHERE id = :documentId
+            UNION ALL
+            SELECT d.parent_document_id FROM documents d
+            INNER JOIN Ancestors a ON d.id = a.parent_document_id
+        )
+        SELECT parent_document_id FROM Ancestors WHERE parent_document_id IS NOT NULL
+        """, nativeQuery = true)
+    List<Long> findAncestorIds(@org.springframework.data.repository.query.Param("documentId") Long documentId);
 }
+

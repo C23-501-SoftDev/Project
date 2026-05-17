@@ -57,6 +57,24 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public boolean existsByTitleAndSpaceIdAndParentId(String title, Long spaceId, Long parentId) {
+        if (parentId == null) {
+            return jpaRepository.countByTitleAndSpaceIdAndNoParent(title, spaceId) > 0;
+        }
+        return jpaRepository.countByTitleAndSpaceIdAndParentId(title, spaceId, parentId) > 0;
+    }
+
+    @Override
+    public boolean existsByTitleAndSpaceIdAndNoParent(String title, Long spaceId) {
+        return jpaRepository.countByTitleAndSpaceIdAndNoParent(title, spaceId) > 0;
+    }
+
+    @Override
+    public List<Long> findAncestorIds(Long documentId) {
+        return jpaRepository.findAncestorIds(documentId);
+    }
+
+    @Override
     public void deleteById(Long id) {
         jpaRepository.deleteById(id);
     }

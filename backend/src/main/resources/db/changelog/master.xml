@@ -39,5 +39,6 @@
     <!-- Рефактор модели ролей и soft-delete -->
     <include file="db/changelog/changes/024-refactor-role-model-and-user.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/025-fix-role-constraint.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/026-add-document-title-uniqueness-index.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
