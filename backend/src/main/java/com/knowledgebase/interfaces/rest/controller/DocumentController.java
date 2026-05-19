@@ -59,7 +59,8 @@ public class DocumentController {
                 request.content(), 
                 request.spaceId(), 
                 request.parentId(),
-                currentUser.getId()
+                currentUser.getId(),
+                request.templateId()
         );
         
         return ResponseEntity.status(HttpStatus.CREATED)

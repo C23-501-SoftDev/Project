@@ -65,8 +65,8 @@ public class DocumentService {
      * @return созданный документ
      */
     @Transactional
-    public Document createDocument(String title, String content, Long spaceId, Long parentId, Long authorId) {
-        log.debug("Создание документа: title='{}', spaceId={}, parentId={}, authorId={}", title, spaceId, parentId, authorId);
+    public Document createDocument(String title, String content, Long spaceId, Long parentId, Long authorId, Long templateId) {
+        log.debug("Создание документа: title='{}', spaceId={}, parentId={}, authorId={}, templateId={}", title, spaceId, parentId, authorId, templateId);
 
         validateHierarchy(null, parentId, spaceId);
         validateTitleUniqueness(title, spaceId, parentId, null);
@@ -77,6 +77,15 @@ public class DocumentService {
 
         User author = userRepository.findById(authorId)
                 .orElseThrow(() -> new UserNotFoundException(authorId));
+
+        String actualContent = content;
+        if (templateId != null) {
+            com.knowledgebase.domain.repository.TemplateRepository templateRepository = 
+                com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.domain.repository.TemplateRepository.class);
+            actualContent = templateRepository.findById(templateId)
+                .map(com.knowledgebase.domain.model.Template::getContent)
+                .orElse(content);
+        }
 
         // 1. Сохраняем метаданные в БД с временным путем, чтобы получить ID
         Document document = Document.create(title, authorId, spaceId, "pending/" + System.nanoTime());
@@ -91,7 +100,18 @@ public class DocumentService {
         savedDocument.updateGitFilePath(gitPath);
         
         // 3. Обновляем метаданные с корректным путем
-        return documentRepository.save(savedDocument);
+        Document updatedMetadata = documentRepository.save(savedDocument);
+
+        // 4. Сохраняем контент в Git
+        contentRepository.saveContent(
+            gitPath,
+            actualContent,
+            "Create document: " + title,
+            author.getLogin(),
+            author.getEmail()
+        );
+
+        return updatedMetadata;
     }
 
     private void validateHierarchy(Long documentId, Long parentId, Long spaceId) {
