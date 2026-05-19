@@ -11,5 +11,6 @@ public record CreateDocumentRequest(
     String title,
     String content,
     Long spaceId,
-    Long parentId
+    Long parentId,
+    Long templateId
 ) {}

@@ -17,6 +17,12 @@
                 </select>
             </div>
             <div class="form-group">
+                <label>Шаблон (опционально)</label>
+                <select id="docTemplate" style="width:100%; padding:8px; margin-bottom:16px;">
+                    <option value="">Не использовать шаблон</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>Начальный контент (Markdown)</label>
                 <textarea id="docContent" placeholder="# Новый документ" style="width:100%; height:150px; padding:8px; margin-bottom:16px;"></textarea>
             </div>
@@ -45,10 +51,34 @@
         }
     }
 
+    async function fetchTemplates() {
+        try {
+            const templates = await apiFetch('/api/templates');
+            const select = document.getElementById('docTemplate');
+            templates.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name + (t.description ? ` (${t.description})` : '');
+                select.appendChild(opt);
+            });
+            select.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    const template = templates.find(t => t.id == e.target.value);
+                    if (template) {
+                        document.getElementById('docContent').value = template.content;
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Failed to fetch templates:', e);
+        }
+    }
+
     async function createDocument(e) {
         const title = document.getElementById('docTitle').value.trim();
         const spaceId = document.getElementById('docSpace').value;
         const content = document.getElementById('docContent').value;
+        const templateId = document.getElementById('docTemplate').value;
 
         if (!title || !spaceId) {
             showToast('Заголовок и пространство обязательны', 'error');
@@ -60,17 +90,22 @@
         btn.textContent = 'Создание...';
 
         try {
+            const body = {
+                title,
+                spaceId: parseInt(spaceId),
+                content
+            };
+            if (templateId) {
+                body.templateId = parseInt(templateId);
+            }
+
             const response = await apiFetch('/api/documents', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-XSRF-TOKEN': getCsrfToken() || '[[${_csrf.token}]]'
                 },
-                body: JSON.stringify({
-                    title,
-                    spaceId: parseInt(spaceId),
-                    content
-                })
+                body: JSON.stringify(body)
             });
             showToast('Документ успешно создан');
             setTimeout(() => {
@@ -84,6 +119,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         fetchSpaces();
+        fetchTemplates();
         document.getElementById('createDocForm').addEventListener('submit', createDocument);
     });
 })();
