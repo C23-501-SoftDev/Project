@@ -63,6 +63,7 @@
             const response = await apiFetch('/api/documents', {
                 method: 'POST',
                 headers: {
+                    'Content-Type': 'application/json',
                     'X-XSRF-TOKEN': getCsrfToken() || '[[${_csrf.token}]]'
                 },
                 body: JSON.stringify({

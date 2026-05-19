@@ -140,14 +140,14 @@ public class GlobalExceptionHandler {
 
     /**
      * Перехватывает все необработанные исключения.
-     * Логирует полный стектрейс, клиенту возвращает общее сообщение.
+     * Логирует полный стектрейс, клиенту возвращает детальное сообщение об ошибке.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
             Exception ex, HttpServletRequest request) {
-        log.error("Необработанное исключение для {}: ", request.getRequestURI(), ex);
+        log.error("Полный стектрейс ошибки для {}: ", request.getRequestURI(), ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",
-                "Внутренняя ошибка сервера. Обратитесь к администратору.", request);
+                "Внутренняя ошибка сервера: " + ex.getMessage(), request);
     }
 
     // ── Вспомогательный метод ─────────────────────────────────────────────────

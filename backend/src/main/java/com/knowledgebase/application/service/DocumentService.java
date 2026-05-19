@@ -128,6 +128,25 @@ public class DocumentService {
         }
         
         if (exists) {
+            // Если документ уже существует, проверяем, не тот ли это самый документ, который мы обновляем
+            Document existingDoc;
+            try {
+                if (pid == null) {
+                    // Нам нужен метод поиска по заголовку, но его нет в интерфейсе. 
+                    // Однако, если заголовок совпадает с текущим, валидация не должна срабатывать при обновлении.
+                    Document currentDoc = documentRepository.findById(currentDocumentId).orElse(null);
+                    if (currentDoc != null && currentDoc.getTitle().equals(title) && currentDoc.getParentDocumentId() == null) {
+                        return;
+                    }
+                } else {
+                    Document currentDoc = documentRepository.findById(currentDocumentId).orElse(null);
+                    if (currentDoc != null && currentDoc.getTitle().equals(title) && pid.equals(currentDoc.getParentDocumentId())) {
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                // Игнорируем ошибки поиска
+            }
             throw new DocumentValidationException("Заголовок '" + title + "' уже занят на этом уровне");
         }
     }
