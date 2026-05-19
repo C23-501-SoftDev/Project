@@ -12,7 +12,7 @@
 - Backend: `mvn spring-boot:run` из `Project/backend`
 - DB: локальный PostgreSQL (рабочий `kb_user` / `knowledge_base`)
 - E2E workspace: `Project/tests/E2E`
-- Base URL: `http://localhost:8080`
+- Base URL: `http://localhost:8081` (переопределение: `E2E_BASE_URL=http://localhost:8081 npm test`)
 
 ## Наборы тестов
 
@@ -52,7 +52,26 @@ npm run test:strict
 Ключевой файл:
 - `tests/strict-acceptance.spec.js`
 
-### 3) Максимально полный user функционал
+### 3) Documents (страницы и API документов)
+
+Запуск:
+
+```bash
+npm run test:documents
+```
+
+Что покрывает:
+- список документов: фильтры, поиск, удаление с подтверждением;
+- создание, просмотр, редактирование (UI + Ctrl+S);
+- API CRUD, валидация, `includeDeleted`, идемпотентное удаление;
+- RBAC: READER/EDITOR, права на пространство;
+- граничные случаи: XSS в markdown, unicode, длинный контент, несуществующие ID.
+
+Ключевые файлы:
+- `tests/documents.spec.js`
+- `tests/helpers/documents.js`
+
+### 4) Максимально полный user функционал
 
 Запуск:
 
@@ -105,13 +124,17 @@ npm run test:userfull
 - U9: `/api/user/spaces` возвращает корректный JSON для авторизованного пользователя.
 - U10: `/api/user/permissions?spaceId=...` возвращает флаги `canRead/canEdit/canCreate`.
 
-### Полнота пользовательского UI (не заглушки)
+### RBAC (новое ядро)
 
-- U11: главная страница должна показывать реальный список документов.
-- U12: поиск должен показывать реальные результаты.
-- U13: просмотр документа должен показывать контент документа.
-- U14: история документа должна показывать историю версий.
-- U15: страница пространства должна показывать дерево/список документов.
+- U3: `/api/auth/me` возвращает `role` (`GUEST`/`READER`/`EDITOR`) и `isAdmin` (не роль `ADMIN`).
+- U16: создание пользователя с ролью `GUEST` через API.
+- U17: `EDITOR` без `isAdmin` не имеет доступа к admin API.
+
+### Полнота пользовательского UI
+
+- U11: главная — реальный список документов (не заглушка).
+- U12–U15: маршруты открываются; поиск, история и пространство пока с WIP-заглушками (см. D2).
+- U13: просмотр документа — динамическая загрузка контента.
 
 ## Критерии приемки
 
@@ -124,6 +147,6 @@ npm run test:userfull
 ## Последний полный прогон
 
 - Команда: `npm test`
-- Результат: **51 total / 38 passed / 13 failed**
-- Детальный анализ причин: `E2E_FAILURE_ANALYSIS.md`
+- Результат: **57 total / 53 passed / 4 skipped** (`test.fixme` для ещё не реализованных strict-сценариев)
+- WIP-страницы (поиск, история, пространство, admin settings) отмечены в `content-placeholders.spec.js` (D2) и strict `@fixme`
 

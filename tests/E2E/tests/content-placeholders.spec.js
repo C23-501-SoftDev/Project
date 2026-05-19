@@ -1,17 +1,23 @@
 const { test, expect } = require("@playwright/test");
 const { createAuthenticatedPage } = require("./helpers/session");
 
-const placeholderRoutes = [
-  ["/", "Документы"],
-  ["/documents/new", "Создание документа"],
-  ["/documents/1", "Просмотр документа"],
-  ["/documents/1/edit", "Редактирование документа"],
-  ["/documents/1/history", "История версий"],
-  ["/search?q=test", "Результаты поиска"],
-  ["/spaces/1", "Пространство"],
+const implementedRoutes = [
+  { route: "/", texts: ["Документы"] },
+  { route: "/documents/new", texts: ["Создать документ", "Название"] },
+  { route: "/documents/1", texts: ["document-view-page"] },
+  { route: "/documents/1/edit", texts: ["Редактирование"] },
 ];
 
-test("D1: content routes open with current-stage placeholders", async ({
+const wipPlaceholderRoutes = [
+  {
+    route: "/documents/1/history",
+    text: "История изменений будет отображаться здесь.",
+  },
+  { route: "/search?q=test", text: "Результаты поиска будут отображены здесь." },
+  { route: "/spaces/1", text: "Документы пространства будут отображаться здесь." },
+];
+
+test("D1: implemented content routes open with real UI", async ({
   browser,
   request,
   baseURL,
@@ -22,11 +28,38 @@ test("D1: content routes open with current-stage placeholders", async ({
     baseURL,
   });
 
-  for (const [route, expectedText] of placeholderRoutes) {
+  for (const { route, texts } of implementedRoutes) {
     await page.goto(route);
-    await expect(page.locator("main")).toContainText(expectedText);
+    const main = page.locator("main");
+    for (const text of texts) {
+      if (text.startsWith(".")) {
+        await expect(main.locator(text)).toBeVisible();
+      } else if (text.includes("-page")) {
+        await expect(page.locator(`.${text}`)).toBeVisible();
+      } else {
+        await expect(main).toContainText(text);
+      }
+    }
   }
 
   await context.close();
 });
 
+test("D2: WIP content routes still show stage placeholders", async ({
+  browser,
+  request,
+  baseURL,
+}) => {
+  const { context, page } = await createAuthenticatedPage({
+    browser,
+    request,
+    baseURL,
+  });
+
+  for (const { route, text } of wipPlaceholderRoutes) {
+    await page.goto(route);
+    await expect(page.locator("main")).toContainText(text);
+  }
+
+  await context.close();
+});

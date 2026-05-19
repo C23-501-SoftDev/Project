@@ -1,14 +1,11 @@
 const { test, expect } = require("@playwright/test");
 
-test("E1: current layout assets return server errors (known limitation)", async ({
-  request,
-  baseURL,
-}) => {
+test("E1: main layout assets are available", async ({ request, baseURL }) => {
   const cssResponse = await request.get(`${baseURL}/css/main.css`);
   const jsResponse = await request.get(`${baseURL}/js/main.js`);
 
-  expect(cssResponse.status()).toBeGreaterThanOrEqual(500);
-  expect(jsResponse.status()).toBeGreaterThanOrEqual(500);
+  expect(cssResponse.ok()).toBeTruthy();
+  expect(jsResponse.ok()).toBeTruthy();
 });
 
 test("E2: admin assets are available", async ({ request, baseURL }) => {
@@ -18,4 +15,3 @@ test("E2: admin assets are available", async ({ request, baseURL }) => {
   expect(cssResponse.ok()).toBeTruthy();
   expect(jsResponse.ok()).toBeTruthy();
 });
-

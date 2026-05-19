@@ -163,7 +163,7 @@ test("@userfull G6: duplicate permission assignment returns conflict", async ({ 
   await admin.dispose();
 });
 
-test("@userfull G7: delete user linked as space owner returns conflict", async ({ baseURL }) => {
+test("@userfull G7: delete space owner performs soft-delete (200)", async ({ baseURL }) => {
   const admin = await loginAdmin(baseURL);
   const suffix = Date.now();
   const ownerLogin = `g7_owner_${suffix}`;
@@ -174,6 +174,7 @@ test("@userfull G7: delete user linked as space owner returns conflict", async (
       email: `${ownerLogin}@local.test`,
       password: "TempPass123!",
       role: "EDITOR",
+      isAdmin: false,
     },
   });
   expect(createdUserResponse.ok()).toBeTruthy();
@@ -189,7 +190,10 @@ test("@userfull G7: delete user linked as space owner returns conflict", async (
   expect(createdSpaceResponse.ok()).toBeTruthy();
 
   const deleteOwner = await admin.delete(`${baseURL}/api/admin/users/${user.id}`);
-  expect(deleteOwner.status()).toBe(409);
+  expect(deleteOwner.ok()).toBeTruthy();
+
+  const deletedUser = await deleteOwner.json();
+  expect(deletedUser.isDeleted).toBe(true);
   await admin.dispose();
 });
 
