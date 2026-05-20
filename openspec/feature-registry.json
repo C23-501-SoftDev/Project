@@ -168,6 +168,19 @@
       "dependsOn": [
         "documents-crud"
       ]
+    },
+    {
+      "featureId": "sidebar-hierarchy",
+      "title": "UI: Hierarchical document sidebar",
+      "status": "pending",
+      "area": "frontend+backend",
+      "repo": "Project",
+      "docs": [
+        "../../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md"
+      ],
+      "dependsOn": [
+        "documents-crud"
+      ]
     }
   ]
 }

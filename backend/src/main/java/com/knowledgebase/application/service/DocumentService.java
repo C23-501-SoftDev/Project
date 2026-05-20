@@ -16,7 +16,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Сервис управления документами (Application Layer).
@@ -255,4 +258,42 @@ public class DocumentService {
         }
         return documentRepository.findBySpaceId(spaceId, includeDeleted);
     }
+
+    /**
+     * Возвращает иерархическую структуру документов в пространстве.
+     */
+    public List<DocumentTreeNode> getSpaceDocumentHierarchy(Long spaceId) {
+
+        List<Document> documents = getDocumentsInSpace(spaceId, false);
+        
+        Map<Long, List<Document>> childrenMap = documents.stream()
+                .filter(d -> d.getParentDocumentId() != null)
+                .collect(Collectors.groupingBy(Document::getParentDocumentId));
+        
+        return documents.stream()
+                .filter(d -> d.getParentDocumentId() == null)
+                .map(d -> buildNode(d, childrenMap))
+                .collect(Collectors.toList());
+    }
+
+    private DocumentTreeNode buildNode(Document doc, Map<Long, List<Document>> childrenMap) {
+        List<DocumentTreeNode> children = childrenMap.getOrDefault(doc.getId(), List.of()).stream()
+                .map(child -> buildNode(child, childrenMap))
+                .collect(Collectors.toList());
+        return new DocumentTreeNode(doc, children);
+    }
+
+    public static class DocumentTreeNode {
+        private final Document document;
+        private final List<DocumentTreeNode> children;
+
+        public DocumentTreeNode(Document document, List<DocumentTreeNode> children) {
+            this.document = document;
+            this.children = children;
+        }
+
+        public Document getDocument() { return document; }
+        public List<DocumentTreeNode> getChildren() { return children; }
+    }
+
 }

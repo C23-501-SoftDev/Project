@@ -1,6 +1,7 @@
 package com.knowledgebase.interfaces.rest.controller;
 
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.application.service.DocumentService;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -26,9 +27,19 @@ public class PageController {
     // После переработки эти комментарии удалить
 
     private final SpaceRepository spaceRepository;
+    private final DocumentService documentService;
 
-    public PageController(SpaceRepository spaceRepository) {
+    public PageController(SpaceRepository spaceRepository, DocumentService documentService) {
         this.spaceRepository = spaceRepository;
+        this.documentService = documentService;
+    }
+
+    private void addSidebarData(Long spaceId, Model model) {
+        model.addAttribute("spaces", spaceRepository.findAll(0, 100)); // Используем пагинацию
+        if (spaceId != null) {
+            model.addAttribute("currentSpace", spaceRepository.findById(spaceId).orElse(null));
+            model.addAttribute("documentTree", documentService.getSpaceDocumentHierarchy(spaceId));
+        }
     }
 
     /**
@@ -39,27 +50,24 @@ public class PageController {
     public String index(@AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Главная — База знаний");
         model.addAttribute("currentUser", user);
+        model.addAttribute("spaces", spaceRepository.findAll(0, 100)); // Добавляем список пространств
         model.addAttribute("content", "pages/document-list");
         return "layout";
     }
 
-    /**
-     * GET /documents/{id}
-     * Страница просмотра документа.
-     */
     @GetMapping("/documents/{id}")
     public String viewDocument(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Просмотр документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
+        
+        var doc = documentService.getDocumentById(id);
+        addSidebarData(doc.getSpaceId(), model);
+        
         model.addAttribute("content", "pages/document-view");
         return "layout";
     }
 
-    /**
-     * GET /documents/new
-     * Страница создания нового документа.
-     */
     @GetMapping("/documents/new")
     public String newDocument(@AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Создание документа");
@@ -68,10 +76,6 @@ public class PageController {
         return "layout";
     }
 
-    /**
-     * GET /documents/{id}/edit
-     * Страница редактирования документа.
-     */
     @GetMapping("/documents/{id}/edit")
     public String editDocument(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Редактирование документа");
@@ -81,10 +85,6 @@ public class PageController {
         return "layout";
     }
 
-    /**
-     * GET /documents/{id}/history
-     * Страница истории версий документа.
-     */
     @GetMapping("/documents/{id}/history")
     public String documentHistory(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "История версий");
@@ -94,10 +94,6 @@ public class PageController {
         return "layout";
     }
 
-    /**
-     * GET /search
-     * Страница результатов поиска.
-     */
     @GetMapping("/search")
     public String search(@RequestParam String q, @AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Поиск: " + q);
@@ -107,15 +103,14 @@ public class PageController {
         return "layout";
     }
 
-    /**
-     * GET /spaces/{id}
-     * Страница пространства.
-     */
     @GetMapping("/spaces/{id}")
     public String viewSpace(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Пространство");
         model.addAttribute("currentUser", user);
         model.addAttribute("spaceId", id);
+        
+        addSidebarData(id, model);
+        
         model.addAttribute("content", "pages/space-view");
         return "layout";
     }

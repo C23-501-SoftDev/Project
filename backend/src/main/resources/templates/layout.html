@@ -41,15 +41,18 @@
                     <li th:each="space : ${spaces}" class="space-item">
                         <a th:href="@{/spaces/{id}(id=${space.id})}" 
                            th:text="${space.name}" 
+                           class="space-button"
                            th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'">
                             Пространство
                         </a>
+                        <div th:if="${currentSpace != null && currentSpace.id == space.id && documentTree != null}">
+                            <div th:replace="~{fragments/document-tree :: documentTree(${documentTree})}"></div>
+                        </div>
                     </li>
                 </ul>
             </div>
-            <div class="sidebar-actions">
-                <a th:href="@{/documents/new}" class="btn btn-primary">Создать документ</a>
-            </div>
+            <!-- Кнопка "Создать документ" перенесена внутрь дерева, если необходимо, или удалена -->
+
         </aside>
 
         <!-- Главная область контента -->
