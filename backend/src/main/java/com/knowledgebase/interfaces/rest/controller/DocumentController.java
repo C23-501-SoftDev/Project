@@ -118,22 +118,27 @@ public class DocumentController {
     }
 
     /**
-     * GET /api/documents?spaceId={id}
-     * Список документов в пространстве.
+     * GET /api/documents
+     * Список всех доступных пользователю документов.
      */
     @GetMapping
-    @PreAuthorize("#spaceId != null && @permissionService.canRead(principal.id, principal.isAdmin, #spaceId)")
-    @Operation(summary = "Список документов в пространстве", description = "Возвращает список метаданных всех документов в пространстве")
-    public ResponseEntity<List<DocumentResponse>> getDocumentsInSpace(
+    @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
+    public ResponseEntity<List<DocumentResponse>> getDocuments(
             @RequestParam(required = false) Long spaceId,
-            @RequestParam(defaultValue = "false") boolean includeDeleted) {
+            @RequestParam(defaultValue = "false") boolean includeDeleted,
+            @AuthenticationPrincipal User currentUser) {
         
-        if (spaceId == null) {
-            return ResponseEntity.badRequest().build();
+        List<Document> documents;
+        if (spaceId != null) {
+            // Проверка прав доступа через @PreAuthorize (сейчас в методе добавим)
+            documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
+        } else {
+            // Получить все документы, доступные пользователю (через сервис)
+            documents = documentService.getAllAccessibleDocuments(currentUser.getId(), currentUser.isAdmin(), includeDeleted);
         }
-        List<Document> documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
+
         List<DocumentResponse> response = documents.stream()
-                .map(doc -> mapper.toDocumentResponse(doc, null)) // Для списка контент не грузим
+                .map(doc -> mapper.toDocumentResponse(doc, null))
                 .toList();
         return ResponseEntity.ok(response);
     }

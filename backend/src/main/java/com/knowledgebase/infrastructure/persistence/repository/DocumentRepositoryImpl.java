@@ -70,6 +70,19 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public List<Document> findAll(boolean includeDeleted) {
+        List<DocumentJpaEntity> entities = includeDeleted ? jpaRepository.findAll() : jpaRepository.findByStatusNot("Deleted");
+        return entities.stream().map(mapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted) {
+        // Заглушка: в текущей архитектуре доступ определяется через пространства
+        // В рамках текущей задачи возвращаем все документы, доступные всем
+        return findAll(includeDeleted);
+    }
+
+    @Override
     public List<Long> findAncestorIds(Long documentId) {
         return jpaRepository.findAncestorIds(documentId);
     }

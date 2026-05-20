@@ -13,5 +13,7 @@ public interface DocumentRepository {
     boolean existsByTitleAndSpaceIdAndParentId(String title, Long spaceId, Long parentId);
     boolean existsByTitleAndSpaceIdAndNoParent(String title, Long spaceId);
     List<Long> findAncestorIds(Long documentId);
+    List<Document> findAll(boolean includeDeleted);
+    List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted);
     void deleteById(Long id);
 }

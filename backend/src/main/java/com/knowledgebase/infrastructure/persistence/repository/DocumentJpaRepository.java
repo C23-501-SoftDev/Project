@@ -12,6 +12,8 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
     List<DocumentJpaEntity> findBySpaceId(Long spaceId);
     
     List<DocumentJpaEntity> findBySpaceIdAndStatusNot(Long spaceId, String status);
+
+    List<DocumentJpaEntity> findByStatusNot(String status);
     
     List<DocumentJpaEntity> findByAuthorId(Long authorId);
     @org.springframework.data.jpa.repository.Query(value = "SELECT count(*) FROM documents WHERE title = ?1 AND space_id = ?2 AND parent_document_id = ?3", nativeQuery = true)

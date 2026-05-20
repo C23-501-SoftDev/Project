@@ -250,6 +250,17 @@ public class DocumentService {
     }
 
     /**
+     * Возвращает все документы, к которым у пользователя есть доступ.
+     */
+    public List<Document> getAllAccessibleDocuments(Long userId, boolean isAdmin, boolean includeDeleted) {
+        if (isAdmin) {
+            return documentRepository.findAll(includeDeleted);
+        } else {
+            return documentRepository.findAccessibleByUserId(userId, includeDeleted);
+        }
+    }
+
+    /**
      * Возвращает список документов в пространстве.
      */
     public List<Document> getDocumentsInSpace(Long spaceId, boolean includeDeleted) {

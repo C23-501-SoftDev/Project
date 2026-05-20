@@ -1,5 +1,75 @@
-<div class="space-view-page">
-    <h1>Пространство</h1>
-    <p>Пространство #<span th:text="${spaceId}">ID</span></p>
-    <p>Документы пространства будут отображаться здесь.</p>
+<div class="space-view-page" th:data-space-id="${spaceId}">
+    <div class="header">
+        <h1 th:if="${currentSpace != null}" th:text="${currentSpace.name}">Пространство</h1>
+        <h1 th:unless="${currentSpace != null}">Пространство</h1>
+        <button class="button-primary" id="createBtn" onclick="location.href='/documents/new'">+ Создать документ</button>
+    </div>
+
+    <h2>Документы</h2>
+    <div style="overflow-x:auto;">
+        <table id="documentsTable" class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Автор</th>
+                    <th>Статус</th>
+                    <th>Обновлено</th>
+                    <th style="min-width:180px;">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="documentsTbody">
+                <tr><td colspan="6" style="text-align:center;">Загрузка...</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
+
+<script>
+window.addEventListener('DOMContentLoaded', async function() {
+    const spaceId = document.querySelector('.space-view-page').dataset.spaceId;
+    const tbody = document.getElementById('documentsTbody');
+
+    async function loadDocuments() {
+        const requestUrl = `/api/documents?spaceId=${spaceId}&includeDeleted=true`;
+        
+        try {
+            const docs = await apiFetch(requestUrl);
+            tbody.innerHTML = '';
+            
+            if (!docs || (Array.isArray(docs) && docs.length === 0)) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Документы не найдены</td></tr>';
+            } else {
+                tbody.innerHTML = docs.map(d => `
+                    <tr>
+                        <td>${d.id}</td>
+                        <td><strong>${escapeHtml(d.title)}</strong></td>
+                        <td>${d.authorId || 'Неизвестно'}</td>
+                        <td><span class="badge ${d.status ? d.status.toLowerCase() : ''}">${d.status || 'Draft'}</span></td>
+                        <td>${d.updatedAt || '-'}</td>
+                        <td class="actions" style="display: flex; align-items: center; gap: 6px;">
+                            <a href="/documents/${d.id}" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
+                            <a href="/documents/${d.id}/edit" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>
+                            <button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Ошибка загрузки: ' + e.message + '</td></tr>';
+        }
+    }
+
+    loadDocuments();
+
+    window.deleteDocument = async function(id) {
+        if (!confirm('Вы уверены, что хотите удалить документ?')) return;
+        try {
+            await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });
+            loadDocuments();
+        } catch (e) {
+            console.error('Delete failed:', e);
+        }
+    };
+});
+</script>

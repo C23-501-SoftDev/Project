@@ -86,29 +86,18 @@
         const tbody = document.getElementById('documentsTbody');
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Загрузка...</td></tr>';
 
-        // Внимание: backend controller ожидает spaceId как обязательный параметр в текущей реализации
-        // Если spaceId не выбран, нам может понадобиться другой эндпоинт или доработка бэкенда.
-        // Пока используем spaceId=1 по умолчанию для теста или фильтр.
+        // Загружаем все документы (spaceId не передаем)
         let url = `/api/documents?includeDeleted=true`;
         if (state.spaceFilter) url += `&spaceId=${state.spaceFilter}`;
-        else {
-             // Если пространства нет, пробуем получить список пространств и взять первое
-             const spaces = await apiFetch('/api/spaces');
-             if (spaces.length > 0) {
-                 url += `&spaceId=${spaces[0].id}`;
-             } else {
-                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Нет доступных пространств</td></tr>';
-                 return;
-             }
-        }
 
         try {
             const docs = await apiFetch(url);
             
-            // Фильтрация на клиенте (т.к. BACKTRACKER говорит, что фильтры еще не реализованы на бэкенде)
+            // Фильтрация на клиенте
             let filtered = docs.filter(d => {
                 if (state.searchTerm && !d.title.toLowerCase().includes(state.searchTerm.toLowerCase())) return false;
                 if (state.statusFilter && d.status !== state.statusFilter) return false;
+                if (state.spaceFilter && d.spaceId != state.spaceFilter) return false;
                 return true;
             });
 
@@ -120,13 +109,13 @@
                         <td>${d.id}</td>
                         <td><strong>${escapeHtml(d.title)}</strong></td>
                         <td>${d.spaceId}</td>
-                        <td>${d.authorId}</td>
-                        <td><span class="badge ${d.status.toLowerCase()}">${d.status}</span></td>
+                        <td>${d.authorId || 'Неизвестно'}</td>
+                        <td><span class="badge ${d.status ? d.status.toLowerCase() : ''}">${d.status || 'Draft'}</span></td>
                         <td>${d.updatedAt || '-'}</td>
-                        <td class="actions">
-                            <a href="/documents/${d.id}" class="button-secondary" style="padding:6px 12px; text-decoration:none;">Просмотр</a>
-                            <a href="/documents/${d.id}/edit" class="button-primary" style="padding:6px 12px; text-decoration:none;">Редактор</a>
-                            <button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px;">Удалить</button>
+                        <td class="actions" style="display: flex; align-items: center; gap: 6px;">
+                            <a href="/documents/${d.id}" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
+                            <a href="/documents/${d.id}/edit" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>
+                            <button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>
                         </td>
                     </tr>
                 `).join('');
