@@ -33,13 +33,16 @@ public class SpaceService {
     private final SpaceRepository spaceRepository;
     private final SpacePermissionRepository permissionRepository;
     private final UserRepository userRepository;
+    private final com.knowledgebase.domain.repository.DocumentContentRepository contentRepository;
 
     public SpaceService(SpaceRepository spaceRepository,
                         SpacePermissionRepository permissionRepository,
-                        UserRepository userRepository) {
+                        UserRepository userRepository,
+                        com.knowledgebase.domain.repository.DocumentContentRepository contentRepository) {
         this.spaceRepository = spaceRepository;
         this.permissionRepository = permissionRepository;
         this.userRepository = userRepository;
+        this.contentRepository = contentRepository;
     }
 
     /**
@@ -70,6 +73,11 @@ public class SpaceService {
         // Создаём пространство
         Space space = Space.create(name, description, ownerId);
         Space savedSpace = spaceRepository.save(space);
+        
+        // Создаём директорию для пространства в Git (например, "spaces/name")
+        // Можно использовать JGit, чтобы создать пустой .keep файл
+        String sanitizedName = name.replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+        contentRepository.saveContent("spaces/" + sanitizedName + "/.keep", "", "Create space: " + name, "System", "system@knowledgebase.com");
 
         // Автоматически назначаем право OWNER создателю
         SpacePermission ownerPermission = SpacePermission.grant(
@@ -133,6 +141,15 @@ public class SpaceService {
             SpacePermission newOwnerPermission = SpacePermission.grant(
                     spaceId, ownerId, PermissionType.OWNER);
             permissionRepository.save(newOwnerPermission);
+        }
+
+        // Если имя изменилось, переименовываем директорию в Git
+        if (!space.getName().equals(name)) {
+            String oldSanitizedName = space.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+            String newSanitizedName = name.replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+            String oldPath = "spaces/" + oldSanitizedName;
+            String newPath = "spaces/" + newSanitizedName;
+            contentRepository.moveContent(oldPath, newPath, "Rename space from " + space.getName() + " to " + name);
         }
 
         return updatedSpace;

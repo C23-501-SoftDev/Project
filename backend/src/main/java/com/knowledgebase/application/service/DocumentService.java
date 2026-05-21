@@ -99,7 +99,12 @@ public class DocumentService {
         Document savedDocument = documentRepository.save(document);
 
         // 2. Формируем финальный путь
-        String gitPath = String.format("spaces/%d/%d.md", spaceId, savedDocument.getId());
+        String sanitizedSpaceName = spaceRepository.findById(spaceId)
+            .map(s -> s.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-"))
+            .orElse(String.valueOf(spaceId));
+        String sanitizedTitle = title.replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+
+        String gitPath = String.format("spaces/%s/%s.md", sanitizedSpaceName, sanitizedTitle);
         savedDocument.updateGitFilePath(gitPath);
         
         // 3. Обновляем метаданные с корректным путем
@@ -212,8 +217,22 @@ public class DocumentService {
 
         // Обновляем контент в Git, если передан
         if (content != null) {
+            String oldPath = document.getGitFilePath();
+            String spaceName = spaceRepository.findById(document.getSpaceId())
+                .map(s -> s.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-"))
+                .orElse(String.valueOf(document.getSpaceId()));
+            String sanitizedTitle = title != null ? title.replaceAll("[\\\\/:*?\"<>|\\s]", "-") : document.getTitle().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+            
+            String newPath = String.format("spaces/%s/%s.md", spaceName, sanitizedTitle);
+            
+            if (!oldPath.equals(newPath)) {
+                contentRepository.moveContent(oldPath, newPath, "Rename document to: " + title);
+                document.updateGitFilePath(newPath);
+                documentRepository.save(document);
+            }
+
             contentRepository.saveContent(
-                    document.getGitFilePath(),
+                    newPath,
                     content,
                     "Update document: " + document.getTitle(),
                     "System",
