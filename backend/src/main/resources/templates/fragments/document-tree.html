@@ -1,7 +1,7 @@
 <!-- Фрагмент дерева документов -->
 <ul th:fragment="documentTree(nodes)" class="document-tree">
     <li th:each="node : ${nodes}" class="document-item">
-        <a th:href="@{/documents/{id}(id=${node.document.id})}" 
+        <a th:href="@{/spaces/{spaceId}/doc/{docTitle}(spaceId=${currentSpace.id}, docTitle=${node.document.title})}" 
            th:text="${node.document.title}"
            th:classappend="${documentId != null && documentId == node.document.id} ? 'active'">
            Документ

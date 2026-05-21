@@ -11,6 +11,7 @@ public interface DocumentRepository {
     List<Document> findByAuthorId(Long authorId);
     boolean existsById(Long id);
     boolean existsByTitleAndSpaceIdAndParentId(String title, Long spaceId, Long parentId);
+    Optional<Document> findBySpaceIdAndTitle(Long spaceId, String title);
     boolean existsByTitleAndSpaceIdAndNoParent(String title, Long spaceId);
     List<Long> findAncestorIds(Long documentId);
     List<Document> findAll(boolean includeDeleted);

@@ -183,6 +183,11 @@ public class DocumentService {
                 .orElseThrow(() -> new DocumentNotFoundException(id));
     }
 
+    public Document getDocumentBySpaceAndTitle(Long spaceId, String title) {
+        return documentRepository.findBySpaceIdAndTitle(spaceId, title)
+                .orElseThrow(() -> new DocumentNotFoundException(0L));
+    }
+
     /**
      * Возвращает содержимое документа из Git.
      */

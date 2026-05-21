@@ -48,8 +48,8 @@ window.addEventListener('DOMContentLoaded', async function() {
                         <td><span class="badge ${d.status ? d.status.toLowerCase() : ''}">${d.status || 'Draft'}</span></td>
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
-                            <a href="/documents/${d.id}" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
-                            <a href="/documents/${d.id}/edit" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>
+                            <a href="/spaces/${spaceId}/doc/${encodeURIComponent(d.title)}" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
+                            <a href="/spaces/${spaceId}/doc/${encodeURIComponent(d.title)}/edit" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>
                             <button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>
                         </td>
                     </tr>

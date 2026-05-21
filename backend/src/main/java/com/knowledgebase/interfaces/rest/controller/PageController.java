@@ -118,6 +118,28 @@ public class PageController {
         return "layout";
     }
 
+    @GetMapping("/spaces/{spaceId}/doc/{docTitle}")
+    public String viewDocumentInSpace(@PathVariable Long spaceId, @PathVariable String docTitle, @AuthenticationPrincipal User user, Model model) {
+        var doc = documentService.getDocumentBySpaceAndTitle(spaceId, docTitle);
+        model.addAttribute("pageTitle", "Просмотр документа");
+        model.addAttribute("currentUser", user);
+        model.addAttribute("documentId", doc.getId());
+        addSidebarData(spaceId, model, user);
+        model.addAttribute("content", "pages/document-view");
+        return "layout";
+    }
+
+    @GetMapping("/spaces/{spaceId}/doc/{docTitle}/edit")
+    public String editDocumentInSpace(@PathVariable Long spaceId, @PathVariable String docTitle, @AuthenticationPrincipal User user, Model model) {
+        var doc = documentService.getDocumentBySpaceAndTitle(spaceId, docTitle);
+        model.addAttribute("pageTitle", "Редактирование документа");
+        model.addAttribute("currentUser", user);
+        model.addAttribute("documentId", doc.getId());
+        addSidebarData(spaceId, model, user);
+        model.addAttribute("content", "pages/document-edit");
+        return "layout";
+    }
+
     /**
      * GET /admin/users
      * Панель администратора — управление пользователями.

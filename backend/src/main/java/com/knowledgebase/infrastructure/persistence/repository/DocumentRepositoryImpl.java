@@ -70,6 +70,11 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public Optional<Document> findBySpaceIdAndTitle(Long spaceId, String title) {
+        return jpaRepository.findBySpaceIdAndTitle(spaceId, title).map(mapper::toDomain);
+    }
+
+    @Override
     public List<Document> findAll(boolean includeDeleted) {
         List<DocumentJpaEntity> entities = includeDeleted ? jpaRepository.findAll() : jpaRepository.findByStatusNot("Deleted");
         return entities.stream().map(mapper::toDomain).collect(Collectors.toList());
