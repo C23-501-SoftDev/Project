@@ -23,6 +23,12 @@
                 </select>
             </div>
             <div class="form-group">
+                <label>Родительский документ (опционально)</label>
+                <select id="docParent" style="width:100%; padding:8px; margin-bottom:16px;">
+                    <option value="">Без родителя (корневой)</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>Начальный контент (Markdown)</label>
                 <textarea id="docContent" placeholder="# Новый документ" style="width:100%; height:150px; padding:8px; margin-bottom:16px;"></textarea>
             </div>
@@ -74,11 +80,28 @@
         }
     }
 
+    async function fetchParentDocuments(spaceId) {
+        try {
+            const documents = await apiFetch(`/api/documents?spaceId=${spaceId}`);
+            const select = document.getElementById('docParent');
+            select.innerHTML = '<option value="">Без родителя (корневой)</option>';
+            documents.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = d.title;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to fetch parent documents:', e);
+        }
+    }
+
     async function createDocument(e) {
         const title = document.getElementById('docTitle').value.trim();
         const spaceId = document.getElementById('docSpace').value;
         const content = document.getElementById('docContent').value;
         const templateId = document.getElementById('docTemplate').value;
+        const parentId = document.getElementById('docParent').value;
 
         if (!title || !spaceId) {
             showToast('Заголовок и пространство обязательны', 'error');
@@ -98,12 +121,14 @@
             if (templateId) {
                 body.templateId = parseInt(templateId);
             }
+            if (parentId) {
+                body.parentId = parseInt(parentId);
+            }
 
             const response = await apiFetch('/api/documents', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-XSRF-TOKEN': getCsrfToken() || '[[${_csrf.token}]]'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(body)
             });
@@ -118,8 +143,23 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        fetchSpaces();
+        fetchSpaces().then(() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const spaceId = urlParams.get('spaceId');
+            if (spaceId) {
+                const spaceSelect = document.getElementById('docSpace');
+                spaceSelect.value = spaceId;
+                fetchParentDocuments(spaceId);
+            }
+        });
         fetchTemplates();
+        document.getElementById('docSpace').addEventListener('change', (e) => {
+            if (e.target.value) {
+                fetchParentDocuments(e.target.value);
+            } else {
+                document.getElementById('docParent').innerHTML = '<option value="">Без родителя (корневой)</option>';
+            }
+        });
         document.getElementById('createDocForm').addEventListener('submit', createDocument);
     });
 })();

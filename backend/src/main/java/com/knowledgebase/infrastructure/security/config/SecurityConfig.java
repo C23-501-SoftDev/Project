@@ -105,7 +105,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                     // Операции над документами (создание/редактирование) — минимум EDITOR или ADMIN
-                    .requestMatchers(HttpMethod.POST, "/api/documents/**").hasAnyRole("ADMIN", "EDITOR")
+                    .requestMatchers(HttpMethod.POST, "/api/documents").hasAnyRole("ADMIN", "EDITOR")
                     .requestMatchers(HttpMethod.PUT, "/api/documents/**").hasAnyRole("ADMIN", "EDITOR")
                     .requestMatchers(HttpMethod.DELETE, "/api/documents/**").hasAnyRole("ADMIN", "EDITOR")
 

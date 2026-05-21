@@ -2,7 +2,7 @@
     <div class="header">
         <h1 th:if="${currentSpace != null}" th:text="${currentSpace.name}">Пространство</h1>
         <h1 th:unless="${currentSpace != null}">Пространство</h1>
-        <button class="button-primary" id="createBtn" onclick="location.href='/documents/new'">+ Создать документ</button>
+        <button class="button-primary" id="createBtn" th:onclick="|location.href='/documents/new?spaceId=${spaceId}'|">+ Создать документ</button>
     </div>
 
     <h2>Документы</h2>
