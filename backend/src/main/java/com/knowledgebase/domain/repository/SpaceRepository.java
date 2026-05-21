@@ -4,6 +4,7 @@ import com.knowledgebase.domain.model.Space;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Интерфейс репозитория пространств (Domain Layer).
@@ -23,6 +24,11 @@ public interface SpaceRepository {
      * Находит пространство по ID.
      */
     Optional<Space> findById(Long id);
+
+    /**
+     * Находит пространства по списку ID.
+     */
+    List<Space> findAllByIdIn(Set<Long> ids);
 
     /**
      * Находит пространство по уникальному имени.

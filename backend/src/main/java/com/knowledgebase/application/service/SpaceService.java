@@ -221,10 +221,7 @@ public class SpaceService {
                 .toList();
 
         // Возвращаем пространства по ID
-        return spaceIds.stream()
-                .map(spaceId -> spaceRepository.findById(spaceId).orElse(null))
-                .filter(space -> space != null)
-                .toList();
+        return spaceRepository.findAllByIdIn(new java.util.HashSet<>(spaceIds));
     }
 
     /**

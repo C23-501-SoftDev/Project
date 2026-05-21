@@ -2,6 +2,7 @@ package com.knowledgebase.interfaces.rest.controller;
 
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.application.service.DocumentService;
+import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -27,15 +28,17 @@ public class PageController {
     // После переработки эти комментарии удалить
 
     private final SpaceRepository spaceRepository;
+    private final SpaceService spaceService;
     private final DocumentService documentService;
 
-    public PageController(SpaceRepository spaceRepository, DocumentService documentService) {
+    public PageController(SpaceRepository spaceRepository, SpaceService spaceService, DocumentService documentService) {
         this.spaceRepository = spaceRepository;
+        this.spaceService = spaceService;
         this.documentService = documentService;
     }
 
-    private void addSidebarData(Long spaceId, Model model) {
-        model.addAttribute("spaces", spaceRepository.findAll(0, 100)); // Используем пагинацию
+    private void addSidebarData(Long spaceId, Model model, User user) {
+        model.addAttribute("spaces", spaceService.getSpacesForUser(user.getId(), user.isAdmin(), 0, 100));
         if (spaceId != null) {
             model.addAttribute("currentSpace", spaceRepository.findById(spaceId).orElse(null));
             model.addAttribute("documentTree", documentService.getSpaceDocumentHierarchy(spaceId));
@@ -50,7 +53,7 @@ public class PageController {
     public String index(@AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Главная — База знаний");
         model.addAttribute("currentUser", user);
-        model.addAttribute("spaces", spaceRepository.findAll(0, 100)); // Добавляем список пространств
+        model.addAttribute("spaces", spaceService.getSpacesForUser(user.getId(), user.isAdmin(), 0, 100));
         model.addAttribute("content", "pages/document-list");
         return "layout";
     }
@@ -62,7 +65,7 @@ public class PageController {
         model.addAttribute("documentId", id);
         
         var doc = documentService.getDocumentById(id);
-        addSidebarData(doc.getSpaceId(), model);
+        addSidebarData(doc.getSpaceId(), model, user);
         
         model.addAttribute("content", "pages/document-view");
         return "layout";
@@ -109,7 +112,7 @@ public class PageController {
         model.addAttribute("currentUser", user);
         model.addAttribute("spaceId", id);
         
-        addSidebarData(id, model);
+        addSidebarData(id, model, user);
         
         model.addAttribute("content", "pages/space-view");
         return "layout";

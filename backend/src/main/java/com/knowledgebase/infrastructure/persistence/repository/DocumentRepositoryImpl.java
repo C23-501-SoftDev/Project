@@ -77,9 +77,27 @@ public class DocumentRepositoryImpl implements DocumentRepository {
 
     @Override
     public List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted) {
-        // Заглушка: в текущей архитектуре доступ определяется через пространства
-        // В рамках текущей задачи возвращаем все документы, доступные всем
-        return findAll(includeDeleted);
+        // Получаем ID пространств, доступных пользователю
+        List<com.knowledgebase.domain.model.SpacePermission> permissions = 
+            com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.domain.repository.SpacePermissionRepository.class)
+            .findByUserId(userId);
+        
+        java.util.Set<Long> accessibleSpaceIds = permissions.stream()
+                .map(com.knowledgebase.domain.model.SpacePermission::getSpaceId)
+                .collect(java.util.stream.Collectors.toSet());
+
+        if (accessibleSpaceIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        List<DocumentJpaEntity> entities;
+        if (includeDeleted) {
+            entities = jpaRepository.findAllBySpaceIdIn(accessibleSpaceIds);
+        } else {
+            entities = jpaRepository.findAllBySpaceIdInAndStatusNot(accessibleSpaceIds, "Deleted");
+        }
+        
+        return entities.stream().map(mapper::toDomain).collect(Collectors.toList());
     }
 
     @Override

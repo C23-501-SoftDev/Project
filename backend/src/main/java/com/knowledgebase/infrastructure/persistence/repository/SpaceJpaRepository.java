@@ -5,7 +5,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Spring Data JPA репозиторий для SpaceJpaEntity.
@@ -20,4 +22,6 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
     boolean existsByNameAndIdNot(String name, Long id);
 
     Page<SpaceJpaEntity> findByOwnerId(Long ownerId, Pageable pageable);
+
+    List<SpaceJpaEntity> findAllByIdIn(Set<Long> ids);
 }

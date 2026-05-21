@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -44,6 +45,14 @@ public class SpaceRepositoryImpl implements SpaceRepository {
     public Optional<Space> findByName(String name) {
         return jpaRepository.findByName(name)
                 .map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Space> findAllByIdIn(Set<Long> ids) {
+        return jpaRepository.findAllByIdIn(ids)
+                .stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
     }
 
     @Override

@@ -122,6 +122,7 @@ public class DocumentController {
      * Список всех доступных пользователю документов.
      */
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
     public ResponseEntity<List<DocumentResponse>> getDocuments(
             @RequestParam(required = false) Long spaceId,
@@ -130,12 +131,17 @@ public class DocumentController {
         
         List<Document> documents;
         if (spaceId != null) {
-            // Проверка прав доступа через @PreAuthorize (сейчас в методе добавим)
+            // Для конкретного пространства проверяем доступ
+            if (!currentUser.isAdmin() && !com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.application.service.PermissionService.class).canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+            }
             documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
         } else {
             // Получить все документы, доступные пользователю (через сервис)
             documents = documentService.getAllAccessibleDocuments(currentUser.getId(), currentUser.isAdmin(), includeDeleted);
         }
+
+
 
         List<DocumentResponse> response = documents.stream()
                 .map(doc -> mapper.toDocumentResponse(doc, null))
