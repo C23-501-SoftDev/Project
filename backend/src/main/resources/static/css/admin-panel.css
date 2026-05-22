@@ -82,3 +82,52 @@ body {
 .states { margin-top: 12px; }
 .wip-message { text-align: center; padding: 40px; font-size: 18px; color: #6B7280; }
 
+/* Admin Header Actions */
+.admin-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-header-actions .user-name {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.button-home {
+    background: #2563EB;
+    color: #FFF;
+    border-radius: 8px;
+    padding: 8px 16px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+}
+.button-home:hover {
+    background: #1D4ED8;
+}
+
+.button-logout {
+    background: #DC2626;
+    color: #FFF;
+    border-radius: 8px;
+    padding: 8px 16px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+}
+.button-logout:hover {
+    background: #B91C1C;
+}
+

@@ -10,7 +10,7 @@
 <body>
 <div class="admin-layout">
     <aside class="sidebar">
-        <h2>Панель администрирования</h2>
+        <h2>Панель админа</h2>
         <ul>
             <li>
                 <a th:href="@{/admin/users}"
@@ -32,15 +32,11 @@
 
     <div class="content">
         <div class="header" id="pageHeader">
-            <div class="breadcrumbs">
-                <a th:href="@{/}">Главная</a> &gt;
-                <span>Администрирование</span>
-                <span th:if="${pageTitle != null}"> &gt; <span th:text="${pageTitle}"></span></span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 16px;">
-                <span th:text="${currentUser != null ? currentUser.login : 'Пользователь'}" style="font-weight: 500;"></span>
+            <div class="admin-header-actions">
+                <span class="user-name" th:text="${currentUser != null ? currentUser.login : 'Пользователь'}"></span>
+                <a th:href="@{/}" class="button-home">На главную</a>
                 <form th:action="@{/logout}" method="post" style="margin: 0;">
-                    <button type="submit" class="button-secondary" style="min-width: auto; padding: 6px 12px;">Выйти</button>
+                    <button type="submit" class="button-logout">Выйти</button>
                 </form>
             </div>
         </div>
