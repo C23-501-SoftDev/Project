@@ -3,7 +3,6 @@
 * { box-sizing: border-box; }
 
 body {
-    font-family: Inter, Arial, sans-serif;
     background: #F9FAFB;
     margin: 0;
     color: #111827;
@@ -82,3 +81,4 @@ body {
 /* Utility */
 .states { margin-top: 12px; }
 .wip-message { text-align: center; padding: 40px; font-size: 18px; color: #6B7280; }
+

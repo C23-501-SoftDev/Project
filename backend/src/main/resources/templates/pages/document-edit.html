@@ -15,43 +15,43 @@
     </div>
 
     <div class="editor-metadata" style="padding: 12px 24px; border-bottom: 1px solid var(--border-color); background: #F9FAFB; display: flex; gap: 16px; align-items: center;">
-        <div class="field" style="display:flex; align-items:center; gap:6px;">
-            <label style="font-size:12px; font-weight:600; color:#6B7280; text-transform:uppercase;">Title</label>
-            <input type="text" id="docTitleField" style="padding:4px 8px; font-size:13px; border:1px solid var(--border-color); border-radius:4px; min-width:250px;">
+            <div class="field" style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; font-weight:600; color:#6B7280; text-transform:uppercase;">Название</label>
+                <input type="text" id="docTitleField" style="padding:4px 8px; font-size:13px; border:1px solid var(--border-color); border-radius:4px; min-width:250px;">
+            </div>
+            <div class="field" style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; font-weight:600; color:#6B7280; text-transform:uppercase;">Статус</label>
+                <select id="docStatusField" style="padding:4px 8px; font-size:13px; border:1px solid var(--border-color); border-radius:4px;">
+                    <option value="DRAFT">Черновик</option>
+                    <option value="PUBLISHED">Опубликовано</option>
+                    <option value="DELETED">Удалено</option>
+                </select>
+            </div>
+            <div class="field" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6B7280;">
+                <span>Автор: <span id="authorName">...</span></span>
+            </div>
         </div>
-        <div class="field" style="display:flex; align-items:center; gap:6px;">
-            <label style="font-size:12px; font-weight:600; color:#6B7280; text-transform:uppercase;">Status</label>
-            <select id="docStatusField" style="padding:4px 8px; font-size:13px; border:1px solid var(--border-color); border-radius:4px;">
-                <option value="DRAFT">Draft</option>
-                <option value="PUBLISHED">Published</option>
-                <option value="DELETED">Deleted</option>
-            </select>
-        </div>
-        <div class="field" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6B7280;">
-            <span>Автор: <span id="authorName">...</span></span>
-        </div>
-    </div>
 
     <div class="editor-layout">
         <div class="editor-pane">
-            <div class="pane-header">
-                <span class="pane-label">Wiki Markup</span>
-                <span class="pane-hint">Ctrl+S to save</span>
+                        <div class="pane-header">
+                <span class="pane-label">Разметка Wiki</span>
+                <span class="pane-hint">Ctrl+S — сохранить</span>
             </div>
             <div class="editor-toolbar">
-                <button class="toolbar-btn" onclick="wrapText('**','**')" title="Bold"><strong>B</strong></button>
-                <button class="toolbar-btn" onclick="wrapText('_','_')" title="Italic"><em>I</em></button>
-                <button class="toolbar-btn" onclick="insertAtCursor('\n- ')" title="Bullet list">• List</button>
-                <button class="toolbar-btn" onclick="insertAtCursor('\n1. ')" title="Numbered list">1. List</button>
-                <button class="toolbar-btn" onclick="insertAtCursor('\n```\n')" title="Code block">&lt;/&gt;</button>
-                <button class="toolbar-btn" onclick="insertAtCursor('## ')" title="Heading H2">H2</button>
+                <button class="toolbar-btn" onclick="wrapText('**','**')" title="Полужирный"><strong>B</strong></button>
+                <button class="toolbar-btn" onclick="wrapText('_','_')" title="Курсив"><em>I</em></button>
+                <button class="toolbar-btn" onclick="insertAtCursor('\n- ')" title="Маркированный список">• Список</button>
+                <button class="toolbar-btn" onclick="insertAtCursor('\n1. ')" title="Нумерованный список">1. Список</button>
+                <button class="toolbar-btn" onclick="insertAtCursor('\n```\n')" title="Блок кода">&lt;/&gt;</button>
+                <button class="toolbar-btn" onclick="insertAtCursor('## ')" title="Заголовок H2">H2</button>
             </div>
             <textarea id="editorTextarea" class="editor-textarea" placeholder="Введите текст в формате Markdown..."></textarea>
         </div>
         <div class="preview-pane">
             <div class="pane-header">
                 <span class="pane-label">Предпросмотр</span>
-                <span class="pane-hint">Updates in real time</span>
+                <span class="pane-hint">Обновляется в реальном времени</span>
             </div>
             <div id="previewContent" class="preview-content">
                 <!-- Отрендеренный HTML -->

@@ -37,7 +37,7 @@
     </div>
 </div>
 
-<!-- Space Modal -->
+<!-- Модальное окно пространства -->
 <div class="modal" id="spaceModal">
     <div class="modal-content">
         <h3 id="spaceModalTitle">Создать пространство</h3>
@@ -59,8 +59,8 @@
             <div class="form-group">
                 <label>Статус</label>
                 <select id="spaceStatus">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
+                    <option value="Active">Активно</option>
+                    <option value="Inactive">Неактивно</option>
                 </select>
             </div>
             <div style="display:flex; gap:12px; justify-content:flex-end;">
@@ -71,7 +71,7 @@
     </div>
 </div>
 
-<!-- Permissions Modal -->
+<!-- Модальное окно прав доступа -->
 <div class="modal" id="permissionsModal">
     <div class="modal-content">
         <h3>Управление правами доступа</h3>
@@ -84,9 +84,9 @@
         <div class="form-group">
             <label>Тип доступа</label>
             <select id="permType">
-                <option value="READ">Read</option>
-                <option value="WRITE">Write</option>
-                <option value="ADMIN">Admin</option>
+                <option value="READ">Чтение</option>
+                <option value="WRITE">Запись</option>
+                <option value="ADMIN">Администрирование</option>
             </select>
         </div>
         <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:16px;">
@@ -133,7 +133,7 @@
                         <td>${escapeHtml(s.name || '')}</td>
                         <td>${escapeHtml(s.description || '')}</td>
                         <td>${escapeHtml(s.ownerLogin || '')}</td>
-                        <td><span class="badge ${(s.status || 'Active') === 'Active' ? 'active' : 'inactive'}">${escapeHtml(s.status || 'Active')}</span></td>
+                        <td><span class="badge ${(s.status || 'Active') === 'Active' ? 'active' : 'inactive'}">${escapeHtml(s.status === 'Active' ? 'Активно' : 'Неактивно')}</span></td>
                         <td class="actions">
                             <button class="button-secondary" onclick="window.managePermissions(${s.id})">Права</button>
                             <button class="button-secondary" onclick="window.editSpaceStub(${s.id})">Редактировать</button>
@@ -229,7 +229,7 @@
             } else {
                 document.getElementById('permissionsList').innerHTML = perms.map(p => `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #E5E7EB;">
-                        <span>${escapeHtml(p.userLogin || p.userName || 'User')} — <strong>${escapeHtml(p.permissionType || p.type || 'READ')}</strong></span>
+                        <span>${escapeHtml(p.userLogin || p.userName || 'Пользователь')} — <strong>${escapeHtml(p.permissionType === 'READ' ? 'Чтение' : p.permissionType === 'WRITE' ? 'Запись' : p.permissionType === 'ADMIN' ? 'Администрирование' : (p.permissionType || p.type || 'READ'))}</strong></span>
                         <button class="button-danger" style="padding:4px 8px; font-size:12px;" onclick="window.revokePermissionStub(${p.id})">Отозвать</button>
                     </div>
                 `).join('');
@@ -299,3 +299,4 @@
     });
 })();
 </script>
+
