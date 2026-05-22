@@ -217,4 +217,124 @@ body {
 .document-item a:hover { background:#F3F4F6; }
 .document-item a.active { background:#E0E7FF; color:#1D4ED8; font-weight:500; }
 
+/* Login Page */
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: var(--bg-color);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.login-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-card h1 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.login-card .subtitle {
+    font-size: 14px;
+    color: var(--secondary-color);
+    margin: 0 0 28px;
+}
+
+.login-card .error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.login-card .form-group {
+    margin-bottom: 18px;
+}
+
+.login-card .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--secondary-color);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.login-card .form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--text-color);
+    background: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+
+.login-card .form-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+
+.login-card .button-primary {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    border-radius: 8px;
+    margin-top: 4px;
+}
+
+.login-card .api-test {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.login-card .api-test h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--secondary-color);
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.login-card .api-test p {
+    font-size: 13px;
+    color: var(--secondary-color);
+    margin: 4px 0;
+}
+
+.login-card .api-test code {
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #dc2626;
+}
+
+.login-card .api-test a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.login-card .api-test a:hover {
+    text-decoration: underline;
+}
 
