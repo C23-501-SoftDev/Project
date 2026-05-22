@@ -243,7 +243,7 @@ public class SpaceService {
         }
 
         // Проверяем существование пользователя
-        if (!userRepository.findById(userId).isPresent()) {
+        if (!userRepository.findByIdIncludingDeleted(userId).isPresent()) {
             throw new UserNotFoundException(userId);
         }
 
