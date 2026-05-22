@@ -14,7 +14,6 @@ const wipPlaceholderRoutes = [
     text: "История изменений будет отображаться здесь.",
   },
   { route: "/search?q=test", text: "Результаты поиска будут отображены здесь." },
-  { route: "/spaces/1", text: "Документы пространства будут отображаться здесь." },
 ];
 
 test("D1: implemented content routes open with real UI", async ({

@@ -260,10 +260,8 @@ test("@userfull U15: space page loads (WIP: documents tree/list)", async ({
   await apiLogin(api, baseURL, "admin", "admin123");
   const { context, page } = await newBrowserPageFromApiState(browser, api);
   await page.goto("/spaces/1");
-  await expect(page.locator("main")).toContainText("Пространство");
-  await expect(page.locator("main")).toContainText(
-    "Документы пространства будут отображаться здесь."
-  );
+  await expect(page.locator("main")).toContainText("Документы");
+  await expect(page.locator("main")).toContainText("Создать документ");
   await context.close();
   await api.dispose();
 });
