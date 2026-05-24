@@ -601,6 +601,17 @@ body {
 .space-list { list-style: none; padding: 0; margin: 0; }
 .space-item { margin-bottom: 8px; list-style: none; }
 
+.document-tree {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nested-document-list {
+    list-style: none;
+    margin: 0;
+}
+
 .document-item {
     font-size: 13px;
     color: var(--text-secondary);
@@ -618,8 +629,42 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 13px;
-    margin-left: 8px;
     border-left: 2px solid transparent;
+}
+
+.nested-document-list {
+    padding-left: 10px;
+    position: relative;
+}
+
+.nested-document-list::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 0;
+    bottom: 10px;
+    width: 1px;
+    background-color: var(--secondary-color);
+    opacity: 0.5;
+}
+
+.document-item {
+    font-size: 13px;
+    color: var(--text-secondary);
+    list-style: none;
+    position: relative;
+}
+
+.nested-document-list .nested-document-list {
+    padding-left: 8px;
+}
+
+.nested-document-list .nested-document-list .nested-document-list {
+    padding-left: 6px;
+}
+
+.nested-document-list .nested-document-list .nested-document-list .nested-document-list {
+    padding-left: 4px;
 }
 
 .document-item a:hover {

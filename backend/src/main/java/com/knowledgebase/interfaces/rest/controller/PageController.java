@@ -86,6 +86,7 @@ public class PageController {
     public String newDocument(@AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Создание документа");
         model.addAttribute("currentUser", user);
+        addAllSpacesTrees(model, user);
         model.addAttribute("content", "pages/document-new");
         return "layout";
     }

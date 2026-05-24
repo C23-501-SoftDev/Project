@@ -6,8 +6,10 @@
            th:classappend="${documentId != null && documentId == node.document.id} ? 'active'">
            Документ
         </a>
-        <ul th:if="${!node.children.isEmpty()}">
+        <ul th:if="${!node.children.isEmpty()}" class="nested-document-list">
             <li th:replace="~{::documentTree(${node.children})}"></li>
         </ul>
+    </li>
+</ul>
     </li>
 </ul>
