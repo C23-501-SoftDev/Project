@@ -31,7 +31,7 @@
 
     <!-- Основной контент -->
     <div class="container">
-        <!-- Боковая панель (только для авторизованных) -->
+        <!-- Боковая панель -->
         <aside class="sidebar" th:if="${currentUser != null}">
             <div class="sidebar-header">
                 <h3>Пространства</h3>
@@ -39,20 +39,23 @@
             <div class="space-tree" th:if="${spaces != null}">
                 <ul class="space-list">
                     <li th:each="space : ${spaces}" class="space-item">
-                        <a th:href="@{/spaces/{id}(id=${space.id})}" 
-                           th:text="${space.name}" 
-                           class="space-button"
-                           th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'">
+                        <button type="button" 
+                                class="space-button"
+                                th:onclick="'toggleSpaceTree(' + ${space.id} + ')'"
+                                th:text="${space.name}"
+                                th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'">
                             Пространство
-                        </a>
-                        <div th:if="${currentSpace != null && currentSpace.id == space.id && documentTree != null}">
-                            <div th:replace="~{fragments/document-tree :: documentTree(${documentTree})}"></div>
+                        </button>
+                        <!-- Дерево отображается, если оно было загружено, скрытие/раскрытие через JS -->
+                        <div th:id="'tree-' + ${space.id}" 
+                             th:style="${currentSpace != null && currentSpace.id == space.id} ? 'display:block' : 'display:none'">
+                            <div th:if="${spaceTrees != null && spaceTrees.get(space.id) != null}">
+                                <div th:replace="~{fragments/document-tree :: documentTree(${spaceTrees.get(space.id)})}"></div>
+                            </div>
                         </div>
                     </li>
                 </ul>
             </div>
-            <!-- Кнопка "Создать документ" перенесена внутрь дерева, если необходимо, или удалена -->
-
         </aside>
 
         <!-- Главная область контента -->

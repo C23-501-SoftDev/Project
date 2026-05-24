@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import java.util.stream.Collectors;
 
 /**
  * MVC контроллер для SSR страниц (Thymeleaf).
@@ -37,11 +38,21 @@ public class PageController {
         this.documentService = documentService;
     }
 
+    private void addAllSpacesTrees(Model model, User user) {
+        var spaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), 0, 100);
+        model.addAttribute("spaces", spaces);
+        var trees = spaces.stream()
+            .collect(Collectors.toMap(
+                space -> space.getId(),
+                space -> documentService.getSpaceDocumentHierarchy(space.getId())
+            ));
+        model.addAttribute("spaceTrees", trees);
+    }
+
     private void addSidebarData(Long spaceId, Model model, User user) {
-        model.addAttribute("spaces", spaceService.getSpacesForUser(user.getId(), user.isAdmin(), 0, 100));
+        addAllSpacesTrees(model, user);
         if (spaceId != null) {
             model.addAttribute("currentSpace", spaceRepository.findById(spaceId).orElse(null));
-            model.addAttribute("documentTree", documentService.getSpaceDocumentHierarchy(spaceId));
         }
     }
 
@@ -53,7 +64,7 @@ public class PageController {
     public String index(@AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Главная — База знаний");
         model.addAttribute("currentUser", user);
-        model.addAttribute("spaces", spaceService.getSpacesForUser(user.getId(), user.isAdmin(), 0, 100));
+        addAllSpacesTrees(model, user);
         model.addAttribute("content", "pages/document-list");
         return "layout";
     }
@@ -84,6 +95,10 @@ public class PageController {
         model.addAttribute("pageTitle", "Редактирование документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
+        
+        var doc = documentService.getDocumentById(id);
+        addSidebarData(doc.getSpaceId(), model, user);
+        
         model.addAttribute("content", "pages/document-edit");
         return "layout";
     }
@@ -120,7 +135,9 @@ public class PageController {
 
     @GetMapping("/spaces/{spaceId}/doc/{docTitle}")
     public String viewDocumentInSpace(@PathVariable Long spaceId, @PathVariable String docTitle, @AuthenticationPrincipal User user, Model model) {
-        var doc = documentService.getDocumentBySpaceAndTitle(spaceId, docTitle);
+        // Декодируем docTitle, так как он может приходить в URL с закодированными символами
+        String decodedTitle = java.net.URLDecoder.decode(docTitle, java.nio.charset.StandardCharsets.UTF_8);
+        var doc = documentService.getDocumentBySpaceAndTitle(spaceId, decodedTitle);
         model.addAttribute("pageTitle", "Просмотр документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", doc.getId());
@@ -131,7 +148,8 @@ public class PageController {
 
     @GetMapping("/spaces/{spaceId}/doc/{docTitle}/edit")
     public String editDocumentInSpace(@PathVariable Long spaceId, @PathVariable String docTitle, @AuthenticationPrincipal User user, Model model) {
-        var doc = documentService.getDocumentBySpaceAndTitle(spaceId, docTitle);
+        String decodedTitle = java.net.URLDecoder.decode(docTitle, java.nio.charset.StandardCharsets.UTF_8);
+        var doc = documentService.getDocumentBySpaceAndTitle(spaceId, decodedTitle);
         model.addAttribute("pageTitle", "Редактирование документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", doc.getId());
