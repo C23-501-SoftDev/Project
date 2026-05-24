@@ -3,29 +3,33 @@
         <h1>Документы</h1>
     </div>
 
-    <div class="filter-bar">
-        <div class="filter-group" style="flex:1; min-width:200px;">
-            <label>Поиск</label>
-            <input type="text" id="searchInput" placeholder="Поиск по названию...">
-        </div>
+    <div class="filter-bar" style="display: flex; align-items: flex-end; gap: 10px;">
         <div class="filter-group" style="min-width:140px;">
         <label>Статус</label>
-        <select id="statusFilter">
-            <option value="">Все</option>
-            <option value="Draft">Черновик</option>
-            <option value="Published">Опубликовано</option>
-            <option value="Deleted">Удалено</option>
-        </select>
+        <div class="custom-select" id="statusFilter-wrapper" data-target="statusFilter">
+            <div class="select-styled">Все</div>
+                <div class="select-options">
+                    <div class="select-option" data-value="">Все</div>
+                    <div class="select-option" data-value="Draft">Черновик</div>
+                    <div class="select-option" data-value="Published">Опубликовано</div>
+                    <div class="select-option" data-value="Deleted">Удалено</div>
+                </div>
+
+            <input type="hidden" id="statusFilter" value="">
         </div>
-        <div class="filter-group" style="min-width:160px;">
+        </div>
+        <div class="filter-group" style="flex: 1; min-width: 160px;">
             <label>Пространство</label>
-            <select id="spaceFilter">
-                <option value="">Все пространства</option>
-                <!-- Будет заполнено динамически -->
-            </select>
+            <div class="custom-select" id="spaceFilter-wrapper" data-target="spaceFilter">
+                <div class="select-styled">Все пространства</div>
+                <div class="select-options">
+                    <div class="select-option" data-value="">Все пространства</div>
+                </div>
+                <input type="hidden" id="spaceFilter" value="">
+            </div>
         </div>
-        <button class="button-primary" id="applyFiltersBtn" style="margin-top:22px;">Применить</button>
-        <button class="button-secondary" id="clearFiltersBtn" style="margin-top:22px;">Сбросить</button>
+        <button class="button-primary" id="applyFiltersBtn">Применить</button>
+        <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
     </div>
 
     <div class="create-actions" style="margin-top: 5px; margin-bottom: 5px;">
@@ -73,13 +77,15 @@
     async function fetchSpaces() {
         try {
             const spaces = await apiFetch('/api/spaces');
-            const select = document.getElementById('spaceFilter');
+            const optionsContainer = document.querySelector('#spaceFilter-wrapper .select-options');
             spaces.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = s.name;
-                select.appendChild(opt);
+                const div = document.createElement('div');
+                div.className = 'select-option';
+                div.setAttribute('data-value', s.id);
+                div.textContent = s.name;
+                optionsContainer.appendChild(div);
             });
+            initCustomSelects();
         } catch (e) {
             console.error('Failed to fetch spaces:', e);
         }
@@ -98,7 +104,6 @@
             
             // Фильтрация на клиенте
             let filtered = docs.filter(d => {
-                if (state.searchTerm && !d.title.toLowerCase().includes(state.searchTerm.toLowerCase())) return false;
                 if (state.statusFilter && d.status !== state.statusFilter) return false;
                 if (state.spaceFilter && d.spaceId != state.spaceFilter) return false;
                 return true;
@@ -144,16 +149,21 @@
         fetchDocuments();
 
         document.getElementById('applyFiltersBtn').addEventListener('click', () => {
-            state.searchTerm = document.getElementById('searchInput').value.trim();
             state.statusFilter = document.getElementById('statusFilter').value;
             state.spaceFilter = document.getElementById('spaceFilter').value;
             fetchDocuments();
         });
 
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
-            document.getElementById('searchInput').value = '';
+            const statusWrapper = document.getElementById('statusFilter-wrapper');
+            const spaceWrapper = document.getElementById('spaceFilter-wrapper');
+            
             document.getElementById('statusFilter').value = '';
+            statusWrapper.querySelector('.select-styled').textContent = 'Все';
+            
             document.getElementById('spaceFilter').value = '';
+            spaceWrapper.querySelector('.select-styled').textContent = 'Все пространства';
+
             state.searchTerm = '';
             state.statusFilter = '';
             state.spaceFilter = '';

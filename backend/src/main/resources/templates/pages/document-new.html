@@ -1,38 +1,49 @@
-<div class="document-new-page">
-    <div class="header">
-        <h1>Создать документ</h1>
+<div class="document-new-page" style="padding: 32px 40px;">
+    <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h1 style="font-size: 24px; font-weight: 700; margin: 0;">Создать документ</h1>
         <a href="/" class="button-secondary" style="text-decoration:none;">&larr; К списку</a>
     </div>
 
-    <div class="form-container" style="max-width:600px; margin-top:24px; background:#fff; padding:24px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+    <div class="form-container" style="max-width:600px; background:#fff; padding:24px; border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); border: 1px solid var(--border-color);">
         <form id="createDocForm" onsubmit="return false;">
-            <div class="form-group">
-                <label>Название *</label>
-                <input type="text" id="docTitle" placeholder="Введите название документа" required style="width:100%; padding:8px; margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; margin-bottom:6px;">Название *</label>
+                <input type="text" id="docTitle" class="form-input" placeholder="Введите название документа" required>
             </div>
-            <div class="form-group">
-                <label>Пространство *</label>
-                <select id="docSpace" required style="width:100%; padding:8px; margin-bottom:16px;">
-                    <option value="">Выберите пространство...</option>
-                </select>
+            
+            <div class="form-group" style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; margin-bottom:6px;">Пространство *</label>
+                <div class="custom-select" id="docSpaceWrapper" data-name="docSpace">
+                    <div class="select-styled">Выберите пространство...</div>
+                    <div class="select-options"></div>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Шаблон (опционально)</label>
-                <select id="docTemplate" style="width:100%; padding:8px; margin-bottom:16px;">
-                    <option value="">Не использовать шаблон</option>
-                </select>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; margin-bottom:6px;">Шаблон (опционально)</label>
+                <div class="custom-select" id="docTemplateWrapper" data-name="docTemplate">
+                    <div class="select-styled">Не использовать шаблон</div>
+                    <div class="select-options"></div>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Родительский документ (опционально)</label>
-                <select id="docParent" style="width:100%; padding:8px; margin-bottom:16px;">
-                    <option value="">Без родителя (корневой)</option>
-                </select>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; margin-bottom:6px;">Родительский документ (опционально)</label>
+                <div class="custom-select" id="docParentWrapper" data-name="docParent">
+                    <div class="select-styled">Без родителя (корневой)</div>
+                    <div class="select-options"></div>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Начальный контент (Markdown)</label>
-                <textarea id="docContent" placeholder="# Новый документ" style="width:100%; height:150px; padding:8px; margin-bottom:16px;"></textarea>
+            
+            <input type="hidden" id="docSpace">
+            <input type="hidden" id="docTemplate">
+            <input type="hidden" id="docParent">
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; margin-bottom:6px;">Начальный контент (Markdown)</label>
+                <textarea id="docContent" class="form-input" placeholder="# Новый документ" style="height:150px; resize:vertical; font-family:monospace;"></textarea>
             </div>
-            <div style="display:flex; gap:12px; justify-content:flex-end;">
+            <div style="display:flex; gap:12px; justify-content:flex-end; margin-top: 24px;">
                 <button type="button" class="button-secondary" onclick="location.href='/'">Отмена</button>
                 <button type="submit" class="button-primary" id="submitBtn">Создать и перейти к редактору</button>
             </div>
@@ -41,62 +52,78 @@
 </div>
 
 <script>
+
 (function() {
+    // Custom Select Logic
+    document.querySelectorAll('.custom-select').forEach(wrapper => {
+        const styled = wrapper.querySelector('.select-styled');
+        const optionsDiv = wrapper.querySelector('.select-options');
+        const hiddenInput = document.getElementById(wrapper.dataset.name);
+
+        styled.addEventListener('click', () => {
+            document.querySelectorAll('.select-options').forEach(el => { if(el !== optionsDiv) el.style.display = 'none'; });
+            document.querySelectorAll('.select-styled').forEach(el => { if(el !== styled) el.classList.remove('active'); });
+            optionsDiv.style.display = optionsDiv.style.display === 'block' ? 'none' : 'block';
+            styled.classList.toggle('active');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (!wrapper.contains(e.target)) {
+                optionsDiv.style.display = 'none';
+                styled.classList.remove('active');
+            }
+        });
+    });
+
+    function addOption(wrapperId, value, text, onSelect) {
+        const wrapper = document.getElementById(wrapperId);
+        const optionsDiv = wrapper.querySelector('.select-options');
+        const option = document.createElement('div');
+        option.className = 'select-option';
+        option.textContent = text;
+        option.dataset.value = value;
+        option.addEventListener('click', () => {
+            wrapper.querySelector('.select-styled').textContent = text;
+            wrapper.querySelector('.select-styled').style.color = 'var(--text-color)';
+            document.getElementById(wrapper.dataset.name).value = value;
+            optionsDiv.style.display = 'none';
+            if (onSelect) onSelect(value);
+        });
+        optionsDiv.appendChild(option);
+    }
+
     async function fetchSpaces() {
         try {
             const spaces = await apiFetch('/api/spaces');
-            const select = document.getElementById('docSpace');
-            spaces.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = s.name;
-                select.appendChild(opt);
-            });
-        } catch (e) {
-            console.error('Failed to fetch spaces:', e);
-        }
+            spaces.forEach(s => addOption('docSpaceWrapper', s.id, s.name, (id) => {
+                fetchParentDocuments(id);
+            }));
+        } catch (e) { console.error(e); }
     }
 
     async function fetchTemplates() {
         try {
             const templates = await apiFetch('/api/templates');
-            const select = document.getElementById('docTemplate');
-            templates.forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = t.id;
-                opt.textContent = t.name + (t.description ? ` (${t.description})` : '');
-                select.appendChild(opt);
-            });
-            select.addEventListener('change', (e) => {
-                if (e.target.value) {
-                    const template = templates.find(t => t.id == e.target.value);
-                    if (template) {
-                        document.getElementById('docContent').value = template.content;
-                    }
-                }
-            });
-        } catch (e) {
-            console.error('Failed to fetch templates:', e);
-        }
+            templates.forEach(t => addOption('docTemplateWrapper', t.id, t.name, (id) => {
+                const template = templates.find(temp => temp.id == id);
+                if (template) document.getElementById('docContent').value = template.content;
+            }));
+        } catch (e) { console.error(e); }
     }
 
     async function fetchParentDocuments(spaceId) {
         try {
             const documents = await apiFetch(`/api/documents?spaceId=${spaceId}`);
-            const select = document.getElementById('docParent');
-            select.innerHTML = '<option value="">Без родителя (корневой)</option>';
-            documents.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.id;
-                opt.textContent = d.title;
-                select.appendChild(opt);
-            });
-        } catch (e) {
-            console.error('Failed to fetch parent documents:', e);
-        }
+            const parentWrapper = document.getElementById('docParentWrapper');
+            parentWrapper.querySelector('.select-options').innerHTML = '';
+            addOption('docParentWrapper', '', 'Без родителя (корневой)');
+            documents.forEach(d => addOption('docParentWrapper', d.id, d.title));
+            document.getElementById('docParent').value = '';
+            parentWrapper.querySelector('.select-styled').textContent = 'Без родителя (корневой)';
+        } catch (e) { console.error(e); }
     }
 
-    async function createDocument(e) {
+    async function createDocument() {
         const title = document.getElementById('docTitle').value.trim();
         const spaceId = document.getElementById('docSpace').value;
         const content = document.getElementById('docContent').value;
@@ -113,29 +140,17 @@
         btn.textContent = 'Создание...';
 
         try {
-            const body = {
-                title,
-                spaceId: parseInt(spaceId),
-                content
-            };
-            if (templateId) {
-                body.templateId = parseInt(templateId);
-            }
-            if (parentId) {
-                body.parentId = parseInt(parentId);
-            }
+            const body = { title, spaceId: parseInt(spaceId), content };
+            if (templateId) body.templateId = parseInt(templateId);
+            if (parentId) body.parentId = parseInt(parentId);
 
             const response = await apiFetch('/api/documents', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
             showToast('Документ успешно создан');
-            setTimeout(() => {
-                location.href = `/documents/${response.id}/edit`;
-            }, 500);
+            setTimeout(() => { location.href = `/documents/${response.id}/edit`; }, 500);
         } catch (e) {
             btn.disabled = false;
             btn.textContent = 'Создать и перейти к редактору';
@@ -143,23 +158,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        fetchSpaces().then(() => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const spaceId = urlParams.get('spaceId');
-            if (spaceId) {
-                const spaceSelect = document.getElementById('docSpace');
-                spaceSelect.value = spaceId;
-                fetchParentDocuments(spaceId);
-            }
-        });
+        fetchSpaces();
         fetchTemplates();
-        document.getElementById('docSpace').addEventListener('change', (e) => {
-            if (e.target.value) {
-                fetchParentDocuments(e.target.value);
-            } else {
-                document.getElementById('docParent').innerHTML = '<option value="">Без родителя (корневой)</option>';
-            }
-        });
+        addOption('docParentWrapper', '', 'Без родителя (корневой)');
         document.getElementById('createDocForm').addEventListener('submit', createDocument);
     });
 })();

@@ -21,11 +21,11 @@
             </div>
             <div class="field" style="display:flex; align-items:center; gap:6px;">
                 <label style="font-size:12px; font-weight:600; color:#6B7280; text-transform:uppercase;">Статус</label>
-                <select id="docStatusField" style="padding:4px 8px; font-size:13px; border:1px solid var(--border-color); border-radius:4px;">
-                    <option value="DRAFT">Черновик</option>
-                    <option value="PUBLISHED">Опубликовано</option>
-                    <option value="DELETED">Удалено</option>
-                </select>
+                <div class="custom-select" id="docStatusWrapper" data-name="docStatusField">
+                    <div class="select-styled" style="min-width: 150px; padding: 4px 8px; font-size: 13px;">...</div>
+                    <div class="select-options"></div>
+                </div>
+                <input type="hidden" id="docStatusField">
             </div>
             <div class="field" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6B7280;">
                 <span>Автор: <span id="authorName">...</span></span>
@@ -84,7 +84,16 @@
         try {
             currentDoc = await apiFetch(`/api/documents/${docId}`);
             document.getElementById('docTitleField').value = currentDoc.title;
+            
+            // Set status in custom select
             document.getElementById('docStatusField').value = currentDoc.status;
+            const statusLabel = {
+                'DRAFT': 'Черновик',
+                'PUBLISHED': 'Опубликовано',
+                'DELETED': 'Удалено'
+            }[currentDoc.status] || currentDoc.status;
+            document.querySelector('#docStatusWrapper .select-styled').textContent = statusLabel;
+
             document.getElementById('authorName').textContent = currentDoc.authorId;
             document.getElementById('headerTitle').textContent = currentDoc.title;
             textarea.value = currentDoc.content || '';
@@ -95,79 +104,15 @@
         }
     }
 
-    function renderPreview() {
-        preview.innerHTML = marked.parse(textarea.value);
-    }
-
-    function wrapText(before, after) {
-        const start = textarea.selectionStart, end = textarea.selectionEnd;
-        const selected = textarea.value.substring(start, end);
-        textarea.setRangeText(before + selected + after);
-        textarea.focus();
-        textarea.selectionStart = start + before.length;
-        textarea.selectionEnd = start + before.length + selected.length;
-        renderPreview();
-    }
-
-    function insertAtCursor(text) {
-        const start = textarea.selectionStart;
-        textarea.setRangeText(text);
-        textarea.focus();
-        textarea.selectionStart = textarea.selectionEnd = start + text.length;
-        renderPreview();
-    }
-
-    async function saveDocument() {
-        console.log("Save button clicked, docId:", docId);
-        const title = document.getElementById('docTitleField').value.trim();
-        const status = document.getElementById('docStatusField').value;
-        const content = textarea.value;
-        console.log("Data to save:", {title, status, content});
-
-        if (!title) {
-            showToast('Заголовок не может быть пустым', 'error');
-            return;
-        }
-
-        const btn = document.getElementById('saveBtn');
-        btn.disabled = true;
-        btn.textContent = 'Сохранение...';
-
-        try {
-            console.log("Sending PUT request to:", `/api/documents/${docId}`);
-            const result = await apiFetch(`/api/documents/${docId}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    title,
-                    status,
-                    content
-                })
+    // Initialize custom select
+    document.addEventListener('DOMContentLoaded', () => {
+        window.initCustomSelects();
+        ['DRAFT', 'PUBLISHED', 'DELETED'].forEach(val => {
+            const label = { 'DRAFT': 'Черновик', 'PUBLISHED': 'Опубликовано', 'DELETED': 'Удалено' }[val];
+            window.populateCustomSelect('docStatusWrapper', val, label, () => {
+                updateStatusBadge();
             });
-            console.log("Save successful, response:", result);
-            currentDoc = result;
-            document.getElementById('headerTitle').textContent = title;
-            updateStatusBadge();
-            showToast('Сохранено');
-        } catch (e) {
-            console.error('Save failed:', e);
-            showToast('Ошибка сохранения: ' + e.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Сохранить (Ctrl+S)';
-        }
-    }
-
-    textarea.addEventListener('input', renderPreview);
-    document.getElementById('docStatusField').addEventListener('change', updateStatusBadge);
-    document.getElementById('saveBtn').addEventListener('click', saveDocument);
-
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            saveDocument();
-        }
+        });
+        loadDocument();
     });
-
-    document.addEventListener('DOMContentLoaded', loadDocument);
-})();
 </script>

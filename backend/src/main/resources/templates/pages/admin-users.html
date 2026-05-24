@@ -9,11 +9,15 @@
     <div class="filter-bar">
         <div class="filter-group">
             <label>Статус:</label>
-            <select id="statusFilter">
-                <option value="active">Активные</option>
-                <option value="deleted">Удалённые</option>
-                <option value="all">Все</option>
-            </select>
+            <div class="custom-select" id="statusFilter-wrapper" data-target="statusFilter">
+                <div class="select-styled">Активные</div>
+                <div class="select-options">
+                    <div data-value="active">Активные</div>
+                    <div data-value="deleted">Удалённые</div>
+                    <div data-value="all">Все</div>
+                </div>
+                <input type="hidden" id="statusFilter" value="active">
+            </div>
         </div>
         <div class="filter-group">
             <label>Роли:</label>
@@ -53,13 +57,17 @@
 
         <div class="pagination" id="usersPagination">
             <button class="button-secondary" id="usersPrevBtn" disabled>Назад</button>
-            <span id="usersPageInfo">Страница 1 из 1</span>
-            <select id="usersPerPageSelect">
-                <option value="5">5 на странице</option>
-                <option value="20" selected>20 на странице</option>
-                <option value="50">50 на странице</option>
-            </select>
-            <button class="button-secondary" id="usersNextBtn" disabled>Вперед</button>
+        <span id="usersPageInfo">Страница 1 из 1</span>
+        <div class="custom-select" id="usersPerPageSelect-wrapper" data-target="usersPerPageSelect">
+            <div class="select-styled">20 на странице</div>
+            <div class="select-options">
+                <div data-value="5">5 на странице</div>
+                <div data-value="20">20 на странице</div>
+                <div data-value="50">50 на странице</div>
+            </div>
+            <input type="hidden" id="usersPerPageSelect" value="20">
+        </div>
+        <button class="button-secondary" id="usersNextBtn" disabled>Вперед</button>
         </div>
         <div class="states">
             <p id="usersEmptyMsg" style="display:none; text-align:center;">Пользователи не найдены</p>
@@ -81,11 +89,15 @@
             </div>
             <div class="form-group">
                 <label>Роль</label>
-                <select id="userRole">
-                    <option value="GUEST">Гость</option>
-                    <option value="READER">Читатель</option>
-                    <option value="EDITOR">Редактор</option>
-                </select>
+                <div class="custom-select" id="userRole-wrapper" data-target="userRole">
+                    <div class="select-styled">Гость</div>
+                    <div class="select-options">
+                        <div data-value="GUEST">Гость</div>
+                        <div data-value="READER">Читатель</div>
+                        <div data-value="EDITOR">Редактор</div>
+                    </div>
+                    <input type="hidden" id="userRole" value="GUEST">
+                </div>
             </div>
             <div class="form-group">
                 <label>
@@ -230,7 +242,10 @@
         document.getElementById('userModalTitle').textContent = 'Создать пользователя';
         document.getElementById('userLogin').value = '';
         document.getElementById('userEmail').value = '';
+        
         document.getElementById('userRole').value = 'GUEST';
+        document.querySelector('#userRole-wrapper .select-styled').textContent = 'Гость';
+        
         document.getElementById('userIsAdmin').checked = false;
         document.getElementById('userPassword').value = '';
         openModal('userModal');
@@ -241,7 +256,10 @@
         document.getElementById('userModalTitle').textContent = 'Редактировать пользователя';
         document.getElementById('userLogin').value = '';
         document.getElementById('userEmail').value = '';
+        
         document.getElementById('userRole').value = 'GUEST';
+        document.querySelector('#userRole-wrapper .select-styled').textContent = 'Гость';
+        
         document.getElementById('userIsAdmin').checked = false;
         document.getElementById('userIsAdmin').disabled = false;
         document.getElementById('userPassword').value = '';
@@ -250,7 +268,11 @@
             const user = await adminFetch(`/api/admin/users/${id}`);
             document.getElementById('userLogin').value = user.login || '';
             document.getElementById('userEmail').value = user.email || '';
+            
             document.getElementById('userRole').value = user.role || 'GUEST';
+            const roleOption = document.querySelector(`#userRole-wrapper .select-options div[data-value="${user.role || 'GUEST'}"]`);
+            if(roleOption) document.querySelector('#userRole-wrapper .select-styled').textContent = roleOption.textContent;
+
             document.getElementById('userIsAdmin').checked = user.isAdmin || false;
             
             // Запрещаем администратору изменять свой собственный статус админа
@@ -362,6 +384,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         fetchUsers();
+        initCustomSelects();
 
         document.querySelectorAll('#usersTable th[data-sort]').forEach(th => {
             th.addEventListener('click', () => {
@@ -383,6 +406,7 @@
         document.getElementById('usersNextBtn').addEventListener('click', () => {
             if (state.page < state.totalPages - 1) { state.page++; fetchUsers(); }
         });
+        
         document.getElementById('usersPerPageSelect').addEventListener('change', (e) => {
             state.size = parseInt(e.target.value);
             state.page = 0;

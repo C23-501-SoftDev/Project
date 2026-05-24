@@ -28,11 +28,15 @@
     <div class="pagination" id="spacesPagination">
         <button class="button-secondary" id="spacesPrevBtn" disabled>Назад</button>
         <span id="spacesPageInfo">Страница 1 из 1</span>
-        <select id="spacesPerPageSelect">
-            <option value="5">5 на странице</option>
-            <option value="20" selected>20 на странице</option>
-            <option value="50">50 на странице</option>
-        </select>
+        <div class="custom-select" id="spacesPerPageSelect-wrapper" data-target="spacesPerPageSelect">
+            <div class="select-styled">20 на странице</div>
+            <div class="select-options">
+                <div data-value="5">5 на странице</div>
+                <div data-value="20">20 на странице</div>
+                <div data-value="50">50 на странице</div>
+            </div>
+            <input type="hidden" id="spacesPerPageSelect" value="20">
+        </div>
         <button class="button-secondary" id="spacesNextBtn" disabled>Вперед</button>
     </div>
     <div class="states">
@@ -55,16 +59,24 @@
             </div>
             <div class="form-group">
                 <label>Владелец (пользователь)</label>
-                <select id="spaceOwner">
-                    <option value="">-- Выберите владельца --</option>
-                </select>
+                <div class="custom-select" id="spaceOwner-wrapper" data-target="spaceOwner">
+                    <div class="select-styled">-- Выберите владельца --</div>
+                    <div class="select-options">
+                        <div data-value="">-- Выберите владельца --</div>
+                    </div>
+                    <input type="hidden" id="spaceOwner" value="">
+                </div>
             </div>
             <div class="form-group">
                 <label>Статус</label>
-                <select id="spaceStatus">
-                    <option value="Active">Активно</option>
-                    <option value="Inactive">Неактивно</option>
-                </select>
+                <div class="custom-select" id="spaceStatus-wrapper" data-target="spaceStatus">
+                    <div class="select-styled">Активно</div>
+                    <div class="select-options">
+                        <div data-value="Active">Активно</div>
+                        <div data-value="Inactive">Неактивно</div>
+                    </div>
+                    <input type="hidden" id="spaceStatus" value="Active">
+                </div>
             </div>
             <div style="display:flex; gap:12px; justify-content:flex-end;">
                 <button class="button-primary" id="saveSpaceBtn">Сохранить</button>
@@ -80,17 +92,25 @@
         <h3>Управление правами доступа</h3>
         <div class="form-group">
             <label>Пользователь</label>
-            <select id="permUser">
-                <option value="">-- Выберите пользователя --</option>
-            </select>
+            <div class="custom-select" id="permUser-wrapper" data-target="permUser">
+                <div class="select-styled">-- Выберите пользователя --</div>
+                <div class="select-options">
+                    <div data-value="">-- Выберите пользователя --</div>
+                </div>
+                <input type="hidden" id="permUser" value="">
+            </div>
         </div>
         <div class="form-group">
             <label>Тип доступа</label>
-            <select id="permType">
-                <option value="READ">Чтение</option>
-                <option value="WRITE">Запись</option>
-                <option value="ADMIN">Администрирование</option>
-            </select>
+            <div class="custom-select" id="permType-wrapper" data-target="permType">
+                <div class="select-styled">Чтение</div>
+                <div class="select-options">
+                    <div data-value="READ">Чтение</div>
+                    <div data-value="WRITE">Запись</div>
+                    <div data-value="ADMIN">Администрирование</div>
+                </div>
+                <input type="hidden" id="permType" value="READ">
+            </div>
         </div>
         <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:16px;">
             <button class="button-primary" id="grantPermBtn">Добавить право</button>
@@ -164,15 +184,18 @@
         try {
             const data = await adminFetch('/api/admin/users?page=0&size=1000');
             usersList = data.content || data.users || [];
-            const ownerSelect = document.getElementById('spaceOwner');
-            const permUserSelect = document.getElementById('permUser');
-
+            
+            const ownerOptionsContainer = document.querySelector('#spaceOwner-wrapper .select-options');
+            const permOptionsContainer = document.querySelector('#permUser-wrapper .select-options');
+            
             const optionsHtml = usersList.map(u =>
-                `<option value="${escapeHtml(u.id)}">${escapeHtml(u.login || u.username || '')} (${escapeHtml(u.email || '')})</option>`
+                `<div data-value="${escapeHtml(u.id)}">${escapeHtml(u.login || u.username || '')} (${escapeHtml(u.email || '')})</div>`
             ).join('');
 
-            ownerSelect.innerHTML = '<option value="">-- Выберите владельца --</option>' + optionsHtml;
-            permUserSelect.innerHTML = '<option value="">-- Выберите пользователя --</option>' + optionsHtml;
+            ownerOptionsContainer.innerHTML = '<div data-value="">-- Выберите владельца --</div>' + optionsHtml;
+            permOptionsContainer.innerHTML = '<div data-value="">-- Выберите пользователя --</div>' + optionsHtml;
+            
+            initCustomSelects();
         } catch (e) {
             console.error('Failed to load users:', e);
         }
@@ -282,6 +305,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         fetchSpaces();
+        initCustomSelects();
 
         document.getElementById('spacesPrevBtn').addEventListener('click', () => {
             if (state.page > 0) { state.page--; fetchSpaces(); }
@@ -289,6 +313,7 @@
         document.getElementById('spacesNextBtn').addEventListener('click', () => {
             if (state.page < state.totalPages - 1) { state.page++; fetchSpaces(); }
         });
+        
         document.getElementById('spacesPerPageSelect').addEventListener('change', (e) => {
             state.size = parseInt(e.target.value);
             state.page = 0;
