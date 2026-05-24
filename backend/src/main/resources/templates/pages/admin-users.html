@@ -4,30 +4,33 @@
     
     <div class="header">
         <h1>Пользователи</h1>
-        <button class="button-primary" id="createBtn" onclick="openCreateModal()">+ Создать пользователя</button>
     </div>
 
     <div class="filter-bar">
-            <div class="filter-group">
-                <label>Статус:</label>
-                <select id="statusFilter">
-                    <option value="active">Активные</option>
-                    <option value="deleted">Удалённые</option>
-                    <option value="all">Все</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Роли:</label>
-                <div class="role-filters">
-                    <label><input type="checkbox" value="Guest" class="roleFilter">Гость</label>
-                    <label><input type="checkbox" value="Reader" class="roleFilter">Читатель</label>
-                    <label><input type="checkbox" value="Editor" class="roleFilter">Редактор</label>
-                </div>
-            </div>
-            <input type="text" id="searchInput" placeholder="Поиск по логину/email">
-            <button class="button-primary" id="applyFiltersBtn">Применить</button>
-            <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
+        <div class="filter-group">
+            <label>Статус:</label>
+            <select id="statusFilter">
+                <option value="active">Активные</option>
+                <option value="deleted">Удалённые</option>
+                <option value="all">Все</option>
+            </select>
         </div>
+        <div class="filter-group">
+            <label>Роли:</label>
+            <div class="role-filters">
+                <label><input type="checkbox" value="Guest" class="roleFilter">Гость</label>
+                <label><input type="checkbox" value="Reader" class="roleFilter">Читатель</label>
+                <label><input type="checkbox" value="Editor" class="roleFilter">Редактор</label>
+            </div>
+        </div>
+        <input type="text" id="searchInput" placeholder="Поиск по логину/email">
+        <button class="button-primary" id="applyFiltersBtn">Применить</button>
+        <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
+    </div>
+
+    <div class="create-actions" style="margin-bottom: 20px;">
+        <button class="button-primary" id="createBtn" onclick="openCreateModal()">+ Создать пользователя</button>
+    </div>
 
         <div style="overflow-x:auto;">
             <table id="usersTable" class="data-table">

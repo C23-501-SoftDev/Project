@@ -2,10 +2,13 @@
     <div class="header">
         <h1 th:if="${currentSpace != null}" th:text="${currentSpace.name}">Пространство</h1>
         <h1 th:unless="${currentSpace != null}">Пространство</h1>
-        <button class="button-primary" id="createBtn" th:onclick="|location.href='/documents/new?spaceId=${spaceId}'|">+ Создать документ</button>
     </div>
 
     <h2>Документы</h2>
+    <div class="create-actions" style="margin-bottom: 5px;">
+        <button class="button-primary" id="createBtn" th:onclick="|location.href='/documents/new?spaceId=${spaceId}'|">+ Создать документ</button>
+    </div>
+
     <div style="overflow-x:auto;">
         <table id="documentsTable" class="data-table">
             <thead>
