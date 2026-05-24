@@ -19,12 +19,12 @@
             <div class="filter-group">
                 <label>Роли:</label>
                 <div class="role-filters">
-                    <label><input type="checkbox" value="Guest" class="roleFilter"> Гость</label>
-                    <label><input type="checkbox" value="Reader" class="roleFilter"> Читатель</label>
-                    <label><input type="checkbox" value="Editor" class="roleFilter"> Редактор</label>
+                    <label><input type="checkbox" value="Guest" class="roleFilter">Гость</label>
+                    <label><input type="checkbox" value="Reader" class="roleFilter">Читатель</label>
+                    <label><input type="checkbox" value="Editor" class="roleFilter">Редактор</label>
                 </div>
             </div>
-            <input type="text" id="searchInput" placeholder="Поиск по логину/email" style="flex:1; max-width:260px;">
+            <input type="text" id="searchInput" placeholder="Поиск по логину/email">
             <button class="button-primary" id="applyFiltersBtn">Применить</button>
             <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
         </div>
@@ -130,9 +130,11 @@
     let editingUserId = null;
     let pendingDeleteUserId = null;
 
-    function renderBadge(role) {
+        function renderBadge(role) {
         if (!role) return '-';
-        return `<span class="badge ${escapeHtml(role)}">${escapeHtml(role)}</span>`;
+        const roleLower = role.toLowerCase();
+        const roleCapitalized = roleLower.charAt(0).toUpperCase() + roleLower.slice(1);
+        return `<span class="badge ${escapeHtml(role.toUpperCase())}">${escapeHtml(roleCapitalized)}</span>`;
     }
 
     function renderAdminBadge(isAdmin) {
@@ -163,7 +165,8 @@
 
             let filteredUsers = users;
             if (state.roleFilters.length > 0) {
-                filteredUsers = users.filter(u => state.roleFilters.includes(u.role));
+                const roleFiltersUpper = state.roleFilters.map(r => r.toUpperCase());
+                filteredUsers = users.filter(u => roleFiltersUpper.includes((u.role || '').toUpperCase()));
             }
             if (state.statusFilter === 'active') {
                 filteredUsers = users.filter(u => !u.isDeleted);
