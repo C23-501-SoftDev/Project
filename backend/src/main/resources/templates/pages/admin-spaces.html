@@ -60,7 +60,7 @@
                     <div class="select-options"></div>
                 </div>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="display:none;">
                 <label>Статус</label>
                 <input type="hidden" id="spaceStatus" value="Active">
                 <div class="custom-select" id="spaceStatusWrapper" data-target="spaceStatus">
@@ -383,7 +383,27 @@
                     loadUsersList();
                     openModal('spaceModal');
                     initLocalSelects();
+<<<<<<< Updated upstream
                 } catch (e) { showToast('Не удалось загрузить данные пространства', 'error'); }
+=======
+                } catch (e) { showToast('Ошибка загрузки', 'error'); }
+            }
+
+            async function saveSpace() {
+                const name = document.getElementById('spaceName').value.trim();
+                const description = document.getElementById('spaceDesc').value.trim();
+                const ownerId = document.getElementById('spaceOwner').value;
+                if (!name || !ownerId) { showToast('Заполните обязательные поля', 'error'); return; }
+
+                try {
+                    const method = editingSpaceId ? 'PUT' : 'POST';
+                    const url = editingSpaceId ? `/api/admin/spaces/${editingSpaceId}` : '/api/admin/spaces';
+                    await adminFetch(url, { method, body: JSON.stringify({ name, description, ownerId, status: 'Active' }) });
+                    showToast('Успешно сохранено');
+                    closeModal('spaceModal');
+                    fetchSpaces();
+                } catch (e) { showToast('Ошибка сохранения', 'error'); }
+>>>>>>> Stashed changes
             }
 
             async function deleteSpace(id) {
