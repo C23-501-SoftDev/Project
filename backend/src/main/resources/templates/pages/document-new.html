@@ -150,7 +150,7 @@
                 body: JSON.stringify(body)
             });
             showToast('Документ успешно создан');
-            setTimeout(() => { location.href = `/documents/${response.id}/edit`; }, 500);
+            setTimeout(() => { location.href = '/'; }, 1000);
         } catch (e) {
             btn.disabled = false;
             btn.textContent = 'Создать и перейти к редактору';
