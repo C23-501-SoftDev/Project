@@ -5,7 +5,7 @@ const implementedRoutes = [
   { route: "/", texts: ["Документы"] },
   { route: "/documents/new", texts: ["Создать документ", "Название"] },
   { route: "/documents/1", texts: ["document-view-page"] },
-  { route: "/documents/1/edit", texts: ["Редактирование"] },
+  { route: "/documents/1/edit", texts: ["Сохранить", "Название"] },
 ];
 
 const wipPlaceholderRoutes = [

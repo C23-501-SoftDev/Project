@@ -54,7 +54,7 @@ test("@strict document create page must contain working form fields", async ({
   await page.goto("/documents/new");
   await expect(page.locator("#createDocForm")).toBeVisible();
   await expect(page.locator("#docTitle")).toBeVisible();
-  await expect(page.locator("#docSpace")).toBeVisible();
+  await expect(page.locator("#docSpaceWrapper")).toBeVisible();
 
   await context.close();
 });

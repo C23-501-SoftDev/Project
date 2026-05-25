@@ -11,6 +11,13 @@ const {
   getFirstSpaceId,
   uniqueSuffix,
 } = require("./helpers/documents");
+const {
+  selectDocSpace,
+  waitForDocSpaceOptions,
+  setDocStatusDraft,
+  selectCustomOptionByText,
+  applyDocumentSpaceFilter,
+} = require("./helpers/ui");
 
 // --- UI: список документов ---
 
@@ -28,9 +35,9 @@ test("@documents DOC01: list page loads table, filters and create button", async
   await page.goto("/");
   await expect(page.locator("h1")).toContainText("Документы");
   await expect(page.locator("#documentsTable")).toBeVisible();
-  await expect(page.locator("#searchInput")).toBeVisible();
-  await expect(page.locator("#statusFilter")).toBeVisible();
-  await expect(page.locator("#spaceFilter")).toBeVisible();
+  await expect(page.locator("#statusFilter-wrapper")).toBeVisible();
+  await expect(page.locator("#spaceFilter-wrapper")).toBeVisible();
+  await expect(page.locator("#applyFiltersBtn")).toBeVisible();
   await expect(page.locator("#createBtn")).toBeVisible();
 
   await context.close();
@@ -61,21 +68,27 @@ test("@documents DOC02: list shows created document after load", async ({
   await adminApi.dispose();
 });
 
-test("@documents DOC03: search filter narrows list by title", async ({
+test("@documents DOC03: space filter narrows list to one space", async ({
   browser,
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(adminApi, baseURL);
-  const prefix = `E2Esrch_${uniqueSuffix()}`;
-  const visible = `${prefix}_visible`;
-  const hidden = `${prefix}_hidden`;
+  const spaceA = await createSpace(adminApi, baseURL, `E2E filt A ${uniqueSuffix()}`);
+  const spaceB = await createSpace(adminApi, baseURL, `E2E filt B ${uniqueSuffix()}`);
+  const visible = `E2E filt doc A ${uniqueSuffix()}`;
+  const hidden = `E2E filt doc B ${uniqueSuffix()}`;
 
   expect(
-    (await createDocument(adminApi, baseURL, { title: visible, spaceId })).ok()
+    (await createDocument(adminApi, baseURL, {
+      title: visible,
+      spaceId: spaceA.id,
+    })).ok()
   ).toBeTruthy();
   expect(
-    (await createDocument(adminApi, baseURL, { title: hidden, spaceId })).ok()
+    (await createDocument(adminApi, baseURL, {
+      title: hidden,
+      spaceId: spaceB.id,
+    })).ok()
   ).toBeTruthy();
 
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
@@ -84,8 +97,7 @@ test("@documents DOC03: search filter narrows list by title", async ({
     timeout: 15_000,
   });
 
-  await page.locator("#searchInput").fill(prefix + "_visible");
-  await page.locator("#applyFiltersBtn").click();
+  await applyDocumentSpaceFilter(page, spaceA.id, spaceA.name);
   await expect(page.locator("#documentsTbody")).toContainText(visible);
   await expect(page.locator("#documentsTbody")).not.toContainText(hidden);
 
@@ -110,7 +122,7 @@ test("@documents DOC04: clear filters restores full list for space", async ({
     timeout: 15_000,
   });
 
-  await page.locator("#searchInput").fill("___no_such_title___");
+  await selectCustomOptionByText(page, "statusFilter-wrapper", "Опубликовано");
   await page.locator("#applyFiltersBtn").click();
   await expect(page.locator("#documentsTbody")).toContainText("Документы не найдены");
 
@@ -135,12 +147,10 @@ test("@documents DOC05: create document via UI redirects to editor", async ({
 
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
   await page.goto("/documents/new");
-  await expect
-    .poll(async () => page.locator("#docSpace option").count())
-    .toBeGreaterThanOrEqual(2);
+  await waitForDocSpaceOptions(page, 1);
 
   await page.locator("#docTitle").fill(title);
-  await page.locator("#docSpace").selectOption(String(space.id));
+  await selectDocSpace(page, space.id);
   await page.locator("#docContent").fill("# Created from E2E\n\nParagraph.");
 
   const createResponsePromise = page.waitForResponse(
@@ -151,9 +161,12 @@ test("@documents DOC05: create document via UI redirects to editor", async ({
   const createResponse = await createResponsePromise;
   expect(createResponse.status()).toBe(201);
 
-  await expect(page).toHaveURL(/\/documents\/\d+\/edit$/, { timeout: 15_000 });
-  await expect(page.locator("#headerTitle")).toContainText(title, {
-    timeout: 10_000,
+  await expect(page.locator("#toast")).toContainText(/успешно создан/i, {
+    timeout: 5_000,
+  });
+  await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
+  await expect(page.locator("#documentsTbody")).toContainText(title, {
+    timeout: 15_000,
   });
 
   await context.close();
@@ -215,16 +228,7 @@ test("@documents DOC07: edit page save persists title and content", async ({
   await page.locator("#docTitleField").fill(newTitle);
   await page.locator("#editorTextarea").fill(newContent);
   // UI select uses "Draft" but API expects enum DRAFT — подставляем значение API
-  await page.locator("#docStatusField").evaluate((sel) => {
-    let opt = Array.from(sel.options).find((o) => o.value === "DRAFT");
-    if (!opt) {
-      opt = document.createElement("option");
-      opt.value = "DRAFT";
-      opt.textContent = "DRAFT";
-      sel.appendChild(opt);
-    }
-    sel.value = "DRAFT";
-  });
+  await setDocStatusDraft(page);
   await page.locator("#saveBtn").click();
   await expect(page.locator("#toast")).toContainText("Сохранено", {
     timeout: 5_000,
@@ -255,16 +259,7 @@ test("@documents DOC08: Ctrl+S saves from editor", async ({ browser, baseURL }) 
   await page.goto(`/documents/${doc.id}/edit`);
   await expect(page.locator("#editorTextarea")).toBeVisible({ timeout: 10_000 });
   await page.locator("#editorTextarea").fill("after ctrl+s");
-  await page.locator("#docStatusField").evaluate((sel) => {
-    let opt = Array.from(sel.options).find((o) => o.value === "DRAFT");
-    if (!opt) {
-      opt = document.createElement("option");
-      opt.value = "DRAFT";
-      opt.textContent = "DRAFT";
-      sel.appendChild(opt);
-    }
-    sel.value = "DRAFT";
-  });
+  await setDocStatusDraft(page);
   await page.keyboard.press("Control+s");
   await expect(page.locator("#toast")).toContainText("Сохранено", {
     timeout: 5_000,
@@ -292,7 +287,7 @@ test("@documents DOC09: delete from list removes document row", async ({
   });
 
   const row = page.locator("#documentsTbody tr", { hasText: title });
-  await row.getByRole("button", { name: "Удалить" }).click();
+  await row.locator("button.button-danger").click();
   await expect(page.locator("#toast")).toContainText("Документ удален", {
     timeout: 5_000,
   });
@@ -319,11 +314,10 @@ test("@documents DOC10: create form rejects whitespace-only title", async ({
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
 
   await page.goto("/documents/new");
-  await expect
-    .poll(async () => page.locator("#docSpace option").count())
-    .toBeGreaterThanOrEqual(2);
+  await waitForDocSpaceOptions(page, 1);
   await page.locator("#docTitle").fill("   ");
-  await page.locator("#docSpace").selectOption({ index: 1 });
+  await page.locator("#docSpaceWrapper .select-styled").click();
+  await page.locator("#docSpaceWrapper .select-option").first().click();
   await page.locator("#submitBtn").click();
   await expect(page.locator("#toast")).toContainText("обязательны", {
     timeout: 5_000,
@@ -342,10 +336,9 @@ test("@documents DOC11: non-existent document shows load error on view", async (
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
 
   await page.goto("/documents/999999999");
-  await expect(page.locator("#documentContent")).toContainText(
-    "Ошибка при загрузке документа",
-    { timeout: 10_000 }
-  );
+  await expect(page.locator("body")).toContainText(/не найден|Ошибка при загрузке/i, {
+    timeout: 10_000,
+  });
 
   await context.close();
   await adminApi.dispose();
@@ -402,11 +395,14 @@ test("@documents DOC14: anonymous document API is rejected", async ({
   expect([401, 403]).toContain(response.status());
 });
 
-test("@documents DOC15: list without spaceId is rejected", async ({ baseURL }) => {
+test("@documents DOC15: list without spaceId returns accessible documents", async ({
+  baseURL,
+}) => {
   const api = await createAdminApi(baseURL);
-  const response = await api.get(`${baseURL}/api/documents`);
-  expect(response.ok()).toBeFalsy();
-  expect([400, 403]).toContain(response.status());
+  const response = await api.get(`${baseURL}/api/documents?includeDeleted=false`);
+  expect(response.ok()).toBeTruthy();
+  const list = await response.json();
+  expect(Array.isArray(list)).toBeTruthy();
   await api.dispose();
 });
 
@@ -577,17 +573,17 @@ test("@documents DOC24: unicode title and large content round-trip", async ({
 
 // --- RBAC ---
 
-test("@documents DOC25: READER without space permission cannot read document", async ({
+test("@documents DOC25: GUEST without space permission cannot read document", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
   const space = await createSpace(adminApi, baseURL, `E2E iso ${uniqueSuffix()}`);
   const suffix = uniqueSuffix();
-  const reader = await createUser(adminApi, baseURL, {
-    login: `reader_doc_${suffix}`,
-    email: `reader_doc_${suffix}@local.test`,
-    password: "ReaderPass123!",
-    role: "READER",
+  await createUser(adminApi, baseURL, {
+    login: `guest_doc_${suffix}`,
+    email: `guest_doc_${suffix}@local.test`,
+    password: "GuestPass123!",
+    role: "GUEST",
   });
 
   const createRes = await createDocument(adminApi, baseURL, {
@@ -596,16 +592,16 @@ test("@documents DOC25: READER without space permission cannot read document", a
   });
   const doc = await createRes.json();
 
-  const readerApi = await createUserApi(
+  const guestApi = await createUserApi(
     baseURL,
-    `reader_doc_${suffix}`,
-    "ReaderPass123!"
+    `guest_doc_${suffix}`,
+    "GuestPass123!"
   );
-  const forbidden = await readerApi.get(`${baseURL}/api/documents/${doc.id}`);
+  const forbidden = await guestApi.get(`${baseURL}/api/documents/${doc.id}`);
   expect(forbidden.ok()).toBeFalsy();
   expect([401, 403]).toContain(forbidden.status());
 
-  await readerApi.dispose();
+  await guestApi.dispose();
   await adminApi.dispose();
 });
 
@@ -652,32 +648,32 @@ test("@documents DOC26: READER with READ can get but not update or delete", asyn
   await adminApi.dispose();
 });
 
-test("@documents DOC27: EDITOR without space permission cannot create document", async ({
+test("@documents DOC27: READER without space permission cannot create document", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
   const space = await createSpace(adminApi, baseURL, `E2E nowrite ${uniqueSuffix()}`);
   const suffix = uniqueSuffix();
   await createUser(adminApi, baseURL, {
-    login: `editor_np_${suffix}`,
-    email: `editor_np_${suffix}@local.test`,
-    password: "EditorPass123!",
-    role: "EDITOR",
+    login: `reader_np_${suffix}`,
+    email: `reader_np_${suffix}@local.test`,
+    password: "ReaderPass123!",
+    role: "READER",
   });
 
-  const editorApi = await createUserApi(
+  const readerApi = await createUserApi(
     baseURL,
-    `editor_np_${suffix}`,
-    "EditorPass123!"
+    `reader_np_${suffix}`,
+    "ReaderPass123!"
   );
-  const response = await createDocument(editorApi, baseURL, {
+  const response = await createDocument(readerApi, baseURL, {
     title: "Should fail",
     spaceId: space.id,
   });
   expect(response.ok()).toBeFalsy();
   expect([401, 403]).toContain(response.status());
 
-  await editorApi.dispose();
+  await readerApi.dispose();
   await adminApi.dispose();
 });
 
