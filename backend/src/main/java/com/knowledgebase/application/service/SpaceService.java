@@ -34,15 +34,18 @@ public class SpaceService {
     private final SpacePermissionRepository permissionRepository;
     private final UserRepository userRepository;
     private final com.knowledgebase.domain.repository.DocumentContentRepository contentRepository;
+    private final DocumentService documentService;
 
     public SpaceService(SpaceRepository spaceRepository,
                         SpacePermissionRepository permissionRepository,
                         UserRepository userRepository,
-                        com.knowledgebase.domain.repository.DocumentContentRepository contentRepository) {
+                        com.knowledgebase.domain.repository.DocumentContentRepository contentRepository,
+                        DocumentService documentService) {
         this.spaceRepository = spaceRepository;
         this.permissionRepository = permissionRepository;
         this.userRepository = userRepository;
         this.contentRepository = contentRepository;
+        this.documentService = documentService;
     }
 
     /**
@@ -170,6 +173,12 @@ public class SpaceService {
         // Устанавливаем флаг удаления
         space.softDelete();
         spaceRepository.save(space);
+
+        // Мягко удаляем все документы в пространстве
+        List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, false);
+        for (com.knowledgebase.domain.model.Document doc : documents) {
+            documentService.deleteDocument(doc.getId());
+        }
     }
 
     /**

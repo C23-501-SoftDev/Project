@@ -315,16 +315,17 @@
                     if (options) {
                         options.innerHTML = '';
                         usersList.forEach(u => {
-                            if ((u.roleName || u.role) !== 'EDITOR') {
-                                populateLocalSelect('permUserWrapper', u.id, `${u.login} (${u.email})`);
-                            }
+                                if ((u.roleName || u.role) !== 'EDITOR') {
+                                    window.populateCustomSelect('permUserWrapper', u.id, `${u.login} (${u.email})`);
+                                }
+
                         });
                     }
                 }
                 document.getElementById('permUser').value = '';
                 document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Загрузка...</p>';
                 openModal('permissionsModal');
-                initLocalSelects();
+                window.initCustomSelects();
 
                 try {
                     const perms = await adminFetch(`/api/admin/spaces/${spaceId}/permissions`);
@@ -359,18 +360,20 @@
                 document.getElementById('spaceOwner').value = '';
                 
                 const ownerWrapper = document.getElementById('spaceOwnerWrapper');
-                ownerWrapper.querySelector('.select-styled').textContent = '-- Выберите владельца --';
+                const styled = ownerWrapper.querySelector('.select-styled');
+                styled.textContent = '-- Выберите владельца --';
+                styled.style.color = '';
                 ownerWrapper.querySelector('.select-options').innerHTML = '';
                 
                 // Для владельца показываем только АДМИНОВ
                 usersList.forEach(u => {
                     if (u.admin === true || u.isAdmin === true) {
-                        populateLocalSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
+                        window.populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
                     }
                 });
 
                 openModal('spaceModal');
-                initLocalSelects();
+                window.initCustomSelects();
             }
 
             async function editSpace(id) {
@@ -383,18 +386,21 @@
                     document.getElementById('spaceOwner').value = space.ownerId;
                     
                     const user = usersList.find(u => u.id == space.ownerId);
-                    document.getElementById('spaceOwnerWrapper').querySelector('.select-styled').textContent = user ? user.login : 'Выбрать...';
-                    document.getElementById('spaceOwnerWrapper').querySelector('.select-options').innerHTML = '';
+                    const ownerWrapper = document.getElementById('spaceOwnerWrapper');
+                    const styled = ownerWrapper.querySelector('.select-styled');
+                    styled.textContent = user ? user.login : 'Выбрать...';
+                    styled.style.color = user ? 'var(--text-color)' : '';
+                    ownerWrapper.querySelector('.select-options').innerHTML = '';
                     
                     // Для владельца показываем только АДМИНОВ
                     usersList.forEach(u => {
                         if (u.admin === true || u.isAdmin === true) {
-                            populateLocalSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
+                            window.populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
                         }
                     });
 
                     openModal('spaceModal');
-                    initLocalSelects();
+                    window.initCustomSelects();
                 } catch (e) { showToast('Ошибка загрузки', 'error'); }
             }
 
