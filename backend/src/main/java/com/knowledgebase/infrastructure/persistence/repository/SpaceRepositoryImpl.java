@@ -58,10 +58,38 @@ public class SpaceRepositoryImpl implements SpaceRepository {
     @Override
     public List<Space> findAll(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return jpaRepository.findByIsDeletedFalse(pageable)
-                .stream()
+        List<SpaceJpaEntity> entities = jpaRepository.findByIsDeletedFalse(pageable).getContent();
+        return entities.stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Space> findAllIncludeDeleted(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        List<SpaceJpaEntity> entities = jpaRepository.findAll(pageable).getContent();
+        return entities.stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Space> findDeleted(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        List<SpaceJpaEntity> entities = jpaRepository.findByIsDeletedTrue(pageable).getContent();
+        return entities.stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countDeleted() {
+        return jpaRepository.countByIsDeletedTrue();
+    }
+
+    @Override
+    public long countAllIncludeDeleted() {
+        return jpaRepository.count();
     }
 
     @Override

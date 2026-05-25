@@ -173,27 +173,53 @@ public class SpaceService {
     }
 
     /**
-     * Возвращает все пространства (для ADMIN).
-     * Доступ проверяется в контроллере через @PreAuthorize.
+     * Восстанавливает пространство (отменяет soft-delete).
      *
-     * @param page номер страницы
-     * @param size размер страницы
+     * @param spaceId ID пространства
      */
-    public List<Space> getAllSpaces(int page, int size) {
+    @Transactional
+    public void restoreSpace(Long spaceId) {
+        log.info("Восстановление пространства: id={}", spaceId);
+        
+        Space space = spaceRepository.findById(spaceId)
+                .orElseThrow(() -> new SpaceNotFoundException(spaceId));
+
+        space.restore(); 
+        spaceRepository.save(space);
+    }
+
+
+
+    /**
+     * Возвращает пространства по фильтру статуса (для ADMIN).
+     */
+    public List<Space> getSpacesByStatus(String status, int page, int size) {
+        if ("deleted".equals(status)) {
+            return spaceRepository.findDeleted(page, size);
+        } else if ("all".equals(status)) {
+            return spaceRepository.findAllIncludeDeleted(page, size);
+        }
         return spaceRepository.findAll(page, size);
     }
 
     /**
-     * Возвращает общее количество пространств.
+     * Возвращает количество пространств по фильтру статуса.
      */
-    public long countAllSpaces() {
+    public long countSpacesByStatus(String status) {
+        if ("deleted".equals(status)) {
+            return spaceRepository.countDeleted();
+        } else if ("all".equals(status)) {
+            return spaceRepository.countAllIncludeDeleted();
+        }
         return spaceRepository.count();
     }
+
+
 
     /**
      * Возвращает пространства, доступные пользователю.
      *
-     * - ADMIN, READER, EDITOR видят все пространства.
+     * - ADMIN, READER, EDITOR видят все пространства (не удаленные).
      * - GUEST видит только те, где есть явное право в space_permissions.
      *
      * @param userId    ID текущего пользователя

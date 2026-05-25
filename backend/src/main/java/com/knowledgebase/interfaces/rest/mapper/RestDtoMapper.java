@@ -60,7 +60,9 @@ public class RestDtoMapper {
                 space.getOwnerId(),
                 ownerLogin,
                 space.getCreatedAt(),
-                space.getUpdatedAt()
+                space.getUpdatedAt(),
+                space.isDeleted() ? "Deleted" : "Active",
+                space.isDeleted()
         );
     }
 

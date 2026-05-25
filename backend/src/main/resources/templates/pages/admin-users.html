@@ -196,11 +196,11 @@
                         <td>${renderAdminBadge(u.isAdmin)}</td>
                         <td>${renderStatus(u.isDeleted)}</td>
                         <td class="actions">
-                            <button class="button-secondary" onclick="window.editUser(${u.id})">Редактировать</button>
                             ${u.isDeleted
                             ? `<button class="button-primary" onclick="window.restoreUser(${u.id})">Восстановить</button>`
-                            : `<button class="button-danger" onclick="window.deleteUserPrompt(${u.id})">Удалить</button>`
-                        }
+                            : `<button class="button-secondary" onclick="window.editUser(${u.id})">Редактировать</button>
+                               <button class="button-danger" onclick="window.deleteUserPrompt(${u.id})">Удалить</button>`
+                            }
                         </td>
                     </tr>
                 `).join('');
