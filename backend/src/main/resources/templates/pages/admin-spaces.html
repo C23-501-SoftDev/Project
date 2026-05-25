@@ -133,18 +133,28 @@
             
             function initLocalSelects() {
                 document.querySelectorAll('.custom-select').forEach(wrapper => {
+                    if (wrapper.dataset.initialized) return;
+                    wrapper.dataset.initialized = 'true';
+                    
                     const styled = wrapper.querySelector('.select-styled');
                     const optionsDiv = wrapper.querySelector('.select-options');
                     
                     styled.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        document.querySelectorAll('.select-options').forEach(el => { if(el !== optionsDiv) el.style.display = 'none'; });
-                        document.querySelectorAll('.select-styled').forEach(el => { if(el !== styled) el.classList.remove('active'); });
-                        optionsDiv.style.display = optionsDiv.style.display === 'block' ? 'none' : 'block';
-                        styled.classList.toggle('active');
+                        // Close other selects
+                        document.querySelectorAll('.select-options').forEach(el => { 
+                            if(el !== optionsDiv) el.style.display = 'none'; 
+                        });
+                        document.querySelectorAll('.select-styled').forEach(el => { 
+                            if(el !== styled) el.classList.remove('active'); 
+                        });
+                        
+                        const isOpen = optionsDiv.style.display === 'block';
+                        optionsDiv.style.display = isOpen ? 'none' : 'block';
+                        styled.classList.toggle('active', !isOpen);
                     });
                     
-                    // Initialize static options manually if they have data-value
+                    // Initialize existing static options
                     optionsDiv.querySelectorAll('.select-option').forEach(option => {
                         option.addEventListener('click', (e) => {
                             e.stopPropagation();
@@ -153,17 +163,21 @@
                             styled.textContent = text;
                             styled.style.color = 'var(--text-color)';
                             const targetId = wrapper.dataset.target;
-                            document.getElementById(targetId).value = value;
+                            const targetInput = document.getElementById(targetId);
+                            if (targetInput) targetInput.value = value;
                             optionsDiv.style.display = 'none';
                             styled.classList.remove('active');
                         });
                     });
                 });
 
-                window.addEventListener('click', () => {
-                    document.querySelectorAll('.select-options').forEach(el => el.style.display = 'none');
-                    document.querySelectorAll('.select-styled').forEach(el => el.classList.remove('active'));
-                });
+                if (!window.selectCloseListenerAdded) {
+                    window.addEventListener('click', () => {
+                        document.querySelectorAll('.select-options').forEach(el => el.style.display = 'none');
+                        document.querySelectorAll('.select-styled').forEach(el => el.classList.remove('active'));
+                    });
+                    window.selectCloseListenerAdded = true;
+                }
             }
 
         function populateLocalSelect(wrapperId, value, text, onSelect) {
@@ -301,7 +315,6 @@
                         populateLocalSelect('spaceOwnerWrapper', u.id, label);
                         populateLocalSelect('permUserWrapper', u.id, label);
                     });
-                    initLocalSelects();
                 } catch (e) {
                     console.error('Failed to load users:', e);
                 }
@@ -317,6 +330,7 @@
                 const ownerWrapper = document.getElementById('spaceOwnerWrapper');
                 ownerWrapper.querySelector('.select-styled').textContent = '-- Выберите владельца --';
                 ownerWrapper.querySelector('.select-styled').style.color = '';
+                ownerWrapper.querySelector('.select-options').innerHTML = ''; // Clear options before reload
 
                 document.getElementById('spaceStatus').value = 'Active';
                 document.getElementById('spaceStatusWrapper').querySelector('.select-styled').textContent = 'Active';
@@ -324,6 +338,7 @@
 
                 loadUsersList();
                 openModal('spaceModal');
+                initLocalSelects(); // Re-init to ensure event listeners are attached
             }
 
             async function saveSpace() {
@@ -364,8 +379,10 @@
                     document.getElementById('spaceStatus').value = space.status || 'Active';
                     document.getElementById('spaceStatusWrapper').querySelector('.select-styled').textContent = space.status || 'Active';
                     
+                    document.getElementById('spaceOwnerWrapper').querySelector('.select-options').innerHTML = ''; // Clear options
                     loadUsersList();
                     openModal('spaceModal');
+                    initLocalSelects();
                 } catch (e) { showToast('Не удалось загрузить данные пространства', 'error'); }
             }
 
