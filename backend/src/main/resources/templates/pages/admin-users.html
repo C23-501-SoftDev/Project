@@ -40,12 +40,12 @@
         <table id="usersTable" class="data-table">
             <thead>
                 <tr>
-                    <th data-sort="id">ID</th>
-                    <th data-sort="login">Логин</th>
-                    <th data-sort="email">Email</th>
-                    <th data-sort="role">Роль</th>
-                    <th data-sort="isAdmin">Админ</th>
-                    <th data-sort="status">Статус</th>
+                    <th>ID</th>
+                    <th>Логин</th>
+                    <th>Email</th>
+                    <th>Роль</th>
+                    <th>Админ</th>
+                    <th>Статус</th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -216,7 +216,6 @@
                 }
 
                 updatePagination();
-                updateSortIndicators();
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
                 console.error('Failed to fetch users:', e);
@@ -228,15 +227,6 @@
             document.getElementById('usersPageInfo').textContent = `Страница ${currentPage} из ${state.totalPages || 1}`;
             document.getElementById('usersPrevBtn').disabled = state.page <= 0;
             document.getElementById('usersNextBtn').disabled = state.page >= state.totalPages - 1;
-        }
-
-        function updateSortIndicators() {
-            document.querySelectorAll('#usersTable th[data-sort]').forEach(th => {
-                th.classList.remove('sort-asc', 'sort-desc');
-                if (th.dataset.sort === state.sortBy) {
-                    th.classList.add(`sort-${state.sortDir}`);
-                }
-            });
         }
 
         function openCreateModal() {
@@ -446,20 +436,6 @@
             document.addEventListener('click', () => {
                 document.querySelectorAll('.select-styled').forEach(s => s.classList.remove('active'));
                 document.querySelectorAll('.select-options').forEach(o => o.style.display = 'none');
-            });
-
-            document.querySelectorAll('#usersTable th[data-sort]').forEach(th => {
-                th.addEventListener('click', () => {
-                    const key = th.dataset.sort;
-                    if (state.sortBy === key) {
-                        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
-                    } else {
-                        state.sortBy = key;
-                        state.sortDir = 'asc';
-                    }
-                    state.page = 0;
-                    fetchUsers();
-                });
             });
 
             document.getElementById('usersPrevBtn').addEventListener('click', () => {
