@@ -1,13 +1,15 @@
 <!-- Фрагмент дерева документов -->
 <ul th:fragment="documentTree(nodes)" class="document-tree">
     <li th:each="node : ${nodes}" class="document-item">
-        <a th:href="@{/spaces/{spaceId}/doc/{docTitle}(spaceId=${currentSpace.id}, docTitle=${node.document.title})}" 
+        <a th:href="@{/spaces/{spaceId}/doc/{docTitle}(spaceId=${space.id}, docTitle=${node.document.title})}" 
            th:text="${node.document.title}"
            th:classappend="${documentId != null && documentId == node.document.id} ? 'active'">
            Документ
         </a>
-        <ul th:if="${!node.children.isEmpty()}">
+        <ul th:if="${!node.children.isEmpty()}" class="nested-document-list">
             <li th:replace="~{::documentTree(${node.children})}"></li>
         </ul>
+    </li>
+</ul>
     </li>
 </ul>

@@ -339,10 +339,15 @@ body {
     align-items: center;
     z-index: 1000;
     backdrop-filter: blur(4px);
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    opacity: 0;
+    visibility: hidden;
 }
 
 .modal.show {
     display: flex;
+    opacity: 1;
+    visibility: visible;
 }
 
 .modal-content {

@@ -1,6 +1,27 @@
-/**
- * Common Utilities for Client-Side JS
- */
+function toggleSpaceTree(spaceId) {
+    const treeElement = document.getElementById('tree-' + spaceId);
+    if (treeElement) {
+        const isVisible = treeElement.style.display !== 'none';
+        treeElement.style.display = isVisible ? 'none' : 'block';
+        
+        // Save state to localStorage to persist across navigation
+        localStorage.setItem('space-tree-' + spaceId, isVisible ? 'hidden' : 'visible');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Restore state from localStorage
+    const allTrees = document.querySelectorAll('[id^="tree-"]');
+    allTrees.forEach(tree => {
+        const spaceId = tree.id.replace('tree-', '');
+        const state = localStorage.getItem('space-tree-' + spaceId);
+        if (state === 'visible') {
+            tree.style.display = 'block';
+        } else if (state === 'hidden') {
+            tree.style.display = 'none';
+        }
+    });
+});
 
 function getCsrfToken() {
     const name = 'XSRF-TOKEN=';

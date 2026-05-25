@@ -101,7 +101,11 @@ function closeModal(id) {
     const modal = document.getElementById(id);
     if (modal) {
         modal.classList.remove('show');
-        modal.style.display = 'none';
+        setTimeout(() => {
+            if (!modal.classList.contains('show')) {
+                modal.style.display = 'none';
+            }
+        }, 200);
     }
 }
 

@@ -1,56 +1,67 @@
 <div class="document-edit-page" style="height: calc(100vh - 64px); display: flex; flex-direction: column;">
     <input type="hidden" id="documentId" th:value="${documentId}">
-    
+
     <div class="editor-header">
         <div style="display:flex; align-items:center; gap:12px;">
-            <a href="/" class="button-secondary" style="min-width:auto; padding:6px 12px; text-decoration:none;">&larr; Назад</a>
+            <a href="/" class="button-secondary" style="min-width:auto; padding:6px 12px; text-decoration:none;">&larr;
+                Назад</a>
             <h2 style="margin:0; font-size:18px;" id="headerTitle">Редактирование</h2>
         </div>
-        <div class="editor-actions">
-            <div class="editor-actions">
-                <span class="editor-status" id="statusBadge">Draft</span>
-                <button class="button-primary" id="saveBtn">Сохранить (Ctrl+S)</button>
+        <div class="editor-actions" style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span>Статус:</span>
+                <span id="statusBadge" class="badge">Draft</span>
             </div>
+            <button class="button-primary" id="saveBtn">Сохранить (Ctrl+S)</button>
         </div>
     </div>
 
-    <div class="editor-metadata" style="padding: 12px 24px; border-bottom: 1px solid var(--border-color); background: #F9FAFB; display: flex; gap: 16px; align-items: center;">
-            <div class="field" style="display:flex; align-items:center; gap:6px;">
-                <label style="font-size:12px; font-weight:600; color:#6B7280; text-transform:uppercase;">Название</label>
-                <input type="text" id="docTitleField" style="padding:4px 8px; font-size:13px; border:1px solid var(--border-color); border-radius:4px; min-width:250px;">
-            </div>
-            <div class="field" style="display:flex; align-items:center; gap:6px;">
-                <label style="font-size:12px; font-weight:600; color:#6B7280; text-transform:uppercase;">Статус</label>
-                <select id="docStatusField" style="padding:4px 8px; font-size:13px; border:1px solid var(--border-color); border-radius:4px;">
-                    <option value="DRAFT">Черновик</option>
-                    <option value="PUBLISHED">Опубликовано</option>
-                    <option value="DELETED">Удалено</option>
-                </select>
-            </div>
-            <div class="field" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6B7280;">
-                <span>Автор: <span id="authorName">...</span></span>
-            </div>
+    <div class="editor-metadata"
+        style="padding: 12px 24px; border-bottom: 1px solid var(--border-color); background: #F9FAFB; display: flex; gap: 16px; align-items: center;">
+        <div class="field" style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Название</label>
+            <input type="text" id="docTitleField"
+                style="height: 40px; padding: 9px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 14px; background: #fff; color: var(--text-secondary); transition: var(--transition); outline: none; min-width: 280px;">
         </div>
+        <div class="field" style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Статус</label>
+            <div class="custom-select" id="docStatusWrapper" style="width: 180px;">
+                <div class="select-styled" id="statusStyled">Черновик</div>
+                <div class="select-options">
+                    <div class="select-option" data-value="DRAFT">Черновик</div>
+                    <div class="select-option" data-value="PUBLISHED">Опубликовано</div>
+                    <div class="select-option" data-value="DELETED">Удалено</div>
+                </div>
+            </div>
+            <input type="hidden" id="docStatusField" value="DRAFT">
+        </div>
+        <div class="field" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6B7280;">
+            <span>Автор: <span id="authorName">...</span></span>
+        </div>
+    </div>
 
     <div class="editor-layout">
         <div class="editor-pane">
-                        <div class="pane-header">
-                <span class="pane-label">Разметка Wiki</span>
+            <div class="pane-header" style="padding-left: 24px;">
+                <span class="pane-label" style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Разметка Wiki</span>
                 <span class="pane-hint">Ctrl+S — сохранить</span>
             </div>
             <div class="editor-toolbar">
                 <button class="toolbar-btn" onclick="wrapText('**','**')" title="Полужирный"><strong>B</strong></button>
                 <button class="toolbar-btn" onclick="wrapText('_','_')" title="Курсив"><em>I</em></button>
-                <button class="toolbar-btn" onclick="insertAtCursor('\n- ')" title="Маркированный список">• Список</button>
-                <button class="toolbar-btn" onclick="insertAtCursor('\n1. ')" title="Нумерованный список">1. Список</button>
+                <button class="toolbar-btn" onclick="insertAtCursor('\n- ')" title="Маркированный список">•
+                    Список</button>
+                <button class="toolbar-btn" onclick="insertAtCursor('\n1. ')" title="Нумерованный список">1.
+                    Список</button>
                 <button class="toolbar-btn" onclick="insertAtCursor('\n```\n')" title="Блок кода">&lt;/&gt;</button>
                 <button class="toolbar-btn" onclick="insertAtCursor('## ')" title="Заголовок H2">H2</button>
             </div>
-            <textarea id="editorTextarea" class="editor-textarea" placeholder="Введите текст в формате Markdown..."></textarea>
+            <textarea id="editorTextarea" class="editor-textarea"
+                placeholder="Введите текст в формате Markdown..."></textarea>
         </div>
         <div class="preview-pane">
             <div class="pane-header">
-                <span class="pane-label">Предпросмотр</span>
+                <span class="pane-label" style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Предпросмотр</span>
                 <span class="pane-hint">Обновляется в реальном времени</span>
             </div>
             <div id="previewContent" class="preview-content">
@@ -65,109 +76,161 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 <script>
-(function() {
-    const docId = document.getElementById('documentId').value;
-    const textarea = document.getElementById('editorTextarea');
-    const preview = document.getElementById('previewContent');
-    let currentDoc = null;
+    (function () {
+        const docId = document.getElementById('documentId').value;
+        const textarea = document.getElementById('editorTextarea');
+        const preview = document.getElementById('previewContent');
+        let currentDoc = null;
 
-    function updateStatusBadge() {
-        const status = document.getElementById('docStatusField').value;
-        const badge = document.getElementById('statusBadge');
-        badge.textContent = status;
-        badge.className = 'editor-status';
-        badge.style.background = (status === 'Draft' || status === 'DRAFT') ? '#FEF3C7' : (status === 'Published' || status === 'PUBLISHED') ? '#DCFCE7' : '#FEE2E2';
-        badge.style.color = (status === 'Draft' || status === 'DRAFT') ? '#92400E' : (status === 'Published' || status === 'PUBLISHED') ? '#166534' : '#991B1B';
-    }
-
-    async function loadDocument() {
-        try {
-            currentDoc = await apiFetch(`/api/documents/${docId}`);
-            document.getElementById('docTitleField').value = currentDoc.title;
-            document.getElementById('docStatusField').value = currentDoc.status;
-            document.getElementById('authorName').textContent = currentDoc.authorId;
-            document.getElementById('headerTitle').textContent = currentDoc.title;
-            textarea.value = currentDoc.content || '';
-            updateStatusBadge();
-            renderPreview();
-        } catch (e) {
-            showToast('Ошибка загрузки документа', 'error');
-        }
-    }
-
-    function renderPreview() {
-        preview.innerHTML = marked.parse(textarea.value);
-    }
-
-    function wrapText(before, after) {
-        const start = textarea.selectionStart, end = textarea.selectionEnd;
-        const selected = textarea.value.substring(start, end);
-        textarea.setRangeText(before + selected + after);
-        textarea.focus();
-        textarea.selectionStart = start + before.length;
-        textarea.selectionEnd = start + before.length + selected.length;
-        renderPreview();
-    }
-
-    function insertAtCursor(text) {
-        const start = textarea.selectionStart;
-        textarea.setRangeText(text);
-        textarea.focus();
-        textarea.selectionStart = textarea.selectionEnd = start + text.length;
-        renderPreview();
-    }
-
-    async function saveDocument() {
-        console.log("Save button clicked, docId:", docId);
-        const title = document.getElementById('docTitleField').value.trim();
-        const status = document.getElementById('docStatusField').value;
-        const content = textarea.value;
-        console.log("Data to save:", {title, status, content});
-
-        if (!title) {
-            showToast('Заголовок не может быть пустым', 'error');
-            return;
+        function updateStatusBadge() {
+            const status = document.getElementById('docStatusField').value;
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+            badge.className = 'badge ' + status.toLowerCase();
+            badge.style = '';
         }
 
-        const btn = document.getElementById('saveBtn');
-        btn.disabled = true;
-        btn.textContent = 'Сохранение...';
-
-        try {
-            console.log("Sending PUT request to:", `/api/documents/${docId}`);
-            const result = await apiFetch(`/api/documents/${docId}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    title,
-                    status,
-                    content
-                })
+        // Logic for custom select
+        document.querySelectorAll('#docStatusWrapper .select-option').forEach(option => {
+            option.addEventListener('click', () => {
+                const value = option.getAttribute('data-value');
+                document.getElementById('docStatusField').value = value;
+                document.getElementById('statusStyled').textContent = option.textContent;
+                document.getElementById('docStatusWrapper').querySelector('.select-styled').classList.remove('active');
+                document.getElementById('docStatusWrapper').querySelector('.select-options').style.display = 'none';
+                updateStatusBadge();
             });
-            console.log("Save successful, response:", result);
-            currentDoc = result;
-            document.getElementById('headerTitle').textContent = title;
-            updateStatusBadge();
-            showToast('Сохранено');
-        } catch (e) {
-            console.error('Save failed:', e);
-            showToast('Ошибка сохранения: ' + e.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Сохранить (Ctrl+S)';
+        });
+
+        // Initialize custom select toggling
+        document.getElementById('docStatusWrapper').addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.querySelector('.select-styled').classList.toggle('active');
+            this.querySelector('.select-options').style.display = 
+                this.querySelector('.select-options').style.display === 'block' ? 'none' : 'block';
+        });
+
+        // Close select when clicking outside
+        document.addEventListener('click', () => {
+            const wrapper = document.getElementById('docStatusWrapper');
+            if (wrapper) {
+                wrapper.querySelector('.select-styled').classList.remove('active');
+                wrapper.querySelector('.select-options').style.display = 'none';
+            }
+        });
+
+        function renderPreview() {
+            preview.innerHTML = marked.parse(textarea.value);
         }
-    }
 
-    textarea.addEventListener('input', renderPreview);
-    document.getElementById('docStatusField').addEventListener('change', updateStatusBadge);
-    document.getElementById('saveBtn').addEventListener('click', saveDocument);
-
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            saveDocument();
+        function wrapText(before, after) {
+            const start = textarea.selectionStart, end = textarea.selectionEnd;
+            const selected = textarea.value.substring(start, end);
+            textarea.setRangeText(before + selected + after);
+            textarea.focus();
+            textarea.selectionStart = start + before.length;
+            textarea.selectionEnd = start + before.length + selected.length;
+            renderPreview();
         }
-    });
 
-    document.addEventListener('DOMContentLoaded', loadDocument);
-})();
+        function insertAtCursor(text) {
+            const start = textarea.selectionStart;
+            textarea.setRangeText(text);
+            textarea.focus();
+            textarea.selectionStart = textarea.selectionEnd = start + text.length;
+            renderPreview();
+        }
+
+        async function saveDocument() {
+            console.log("Save button clicked, docId:", docId);
+            const title = document.getElementById('docTitleField').value.trim();
+            const status = document.getElementById('docStatusField').value;
+            const content = textarea.value;
+            console.log("Data to save:", { title, status, content });
+
+            if (!title) {
+                showToast('Заголовок не может быть пустым', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.textContent = 'Сохранение...';
+
+            try {
+                console.log("Sending PUT request to:", `/api/documents/${docId}`);
+                const result = await apiFetch(`/api/documents/${docId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        title,
+                        status,
+                        content
+                    })
+                });
+                console.log("Save successful, response:", result);
+                currentDoc = result;
+                document.getElementById('headerTitle').textContent = title;
+                updateStatusBadge();
+                showToast('Сохранено');
+            } catch (e) {
+                console.error('Save failed:', e);
+                showToast('Ошибка сохранения: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Сохранить (Ctrl+S)';
+            }
+        }
+
+        async function loadDocument() {
+            if (!docId) return;
+
+            try {
+                const response = await fetch(`/api/documents/${docId}`);
+                if (!response.ok) throw new Error('Ошибка загрузки документа');
+                
+                const doc = await response.json();
+                currentDoc = doc;
+                
+                document.getElementById('docTitleField').value = doc.title || '';
+                document.getElementById('headerTitle').textContent = doc.title || 'Без названия';
+                textarea.value = doc.content || '';
+                
+                const statusField = document.getElementById('docStatusField');
+                statusField.value = doc.status || 'DRAFT';
+                
+                const statusStyled = document.getElementById('statusStyled');
+                const option = document.querySelector(`#docStatusWrapper .select-option[data-value="${statusField.value}"]`);
+                if (option) {
+                    statusStyled.textContent = option.textContent;
+                }
+                
+                document.getElementById('authorName').textContent = doc.authorName || 'Неизвестен';
+                
+                updateStatusBadge();
+                renderPreview();
+            } catch (e) {
+                console.error('Failed to load document:', e);
+                // showToast assumes a global function exists, which it might given the context of other templates
+                if (typeof showToast === 'function') {
+                    showToast('Ошибка при загрузке документа', 'error');
+                }
+            }
+        }
+
+        textarea.addEventListener('input', renderPreview);
+        document.getElementById('docStatusField').addEventListener('change', updateStatusBadge);
+        document.getElementById('saveBtn').addEventListener('click', saveDocument);
+
+        window.wrapText = wrapText;
+        window.insertAtCursor = insertAtCursor;
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveDocument();
+            }
+        });
+
+        loadDocument();
+    })();
 </script>
