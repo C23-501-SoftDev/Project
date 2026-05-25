@@ -156,23 +156,20 @@ public class SpaceService {
     }
 
     /**
-     * Удаляет пространство.
+     * Удаляет пространство (soft-delete).
      *
      * @param spaceId ID пространства
      */
     @Transactional
     public void deleteSpace(Long spaceId) {
-        log.info("Удаление пространства: id={}", spaceId);
+        log.info("Мягкое удаление пространства: id={}", spaceId);
         
-        if (!spaceRepository.findById(spaceId).isPresent()) {
-            throw new SpaceNotFoundException(spaceId);
-        }
+        Space space = spaceRepository.findById(spaceId)
+                .orElseThrow(() -> new SpaceNotFoundException(spaceId));
 
-        // Удаляем все права доступа к этому пространству
-        permissionRepository.deleteBySpaceId(spaceId);
-        
-        // Удаляем само пространство
-        spaceRepository.deleteById(spaceId);
+        // Устанавливаем флаг удаления
+        space.softDelete();
+        spaceRepository.save(space);
     }
 
     /**
@@ -196,8 +193,8 @@ public class SpaceService {
     /**
      * Возвращает пространства, доступные пользователю.
      *
-     * Для ADMIN — все пространства.
-     * Для EDITOR/READER — только те, где есть запись в space_permissions.
+     * - ADMIN, READER, EDITOR видят все пространства.
+     * - GUEST видит только те, где есть явное право в space_permissions.
      *
      * @param userId    ID текущего пользователя
      * @param isAdmin   true если пользователь ADMIN
@@ -207,20 +204,30 @@ public class SpaceService {
      */
     public List<Space> getSpacesForUser(Long userId, boolean isAdmin, int page, int size) {
         if (isAdmin) {
-            // ADMIN видит все пространства
             return spaceRepository.findAll(page, size);
         }
 
-        // Получаем все права пользователя
-        List<SpacePermission> permissions = permissionRepository.findByUserId(userId);
+        // Проверяем роль пользователя
+        com.knowledgebase.domain.model.GlobalRole role = userRepository.findById(userId)
+                .map(com.knowledgebase.domain.model.User::getRole)
+                .orElse(com.knowledgebase.domain.model.GlobalRole.GUEST);
 
-        // Из прав получаем ID пространств
+        // READER и EDITOR видят все пространства сразу
+        if (role == com.knowledgebase.domain.model.GlobalRole.READER || role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
+            return spaceRepository.findAll(page, size);
+        }
+
+        // GUEST: только пространства с явными правами
+        List<SpacePermission> permissions = permissionRepository.findByUserId(userId);
         List<Long> spaceIds = permissions.stream()
                 .map(SpacePermission::getSpaceId)
                 .distinct()
                 .toList();
 
-        // Возвращаем пространства по ID
+        if (spaceIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
         return spaceRepository.findAllByIdIn(new java.util.HashSet<>(spaceIds));
     }
 

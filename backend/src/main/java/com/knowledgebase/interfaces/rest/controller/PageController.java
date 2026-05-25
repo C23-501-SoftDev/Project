@@ -31,11 +31,13 @@ public class PageController {
     private final SpaceRepository spaceRepository;
     private final SpaceService spaceService;
     private final DocumentService documentService;
+    private final com.knowledgebase.application.service.PermissionService permissionService;
 
-    public PageController(SpaceRepository spaceRepository, SpaceService spaceService, DocumentService documentService) {
+    public PageController(SpaceRepository spaceRepository, SpaceService spaceService, DocumentService documentService, com.knowledgebase.application.service.PermissionService permissionService) {
         this.spaceRepository = spaceRepository;
         this.spaceService = spaceService;
         this.documentService = documentService;
+        this.permissionService = permissionService;
     }
 
     private void addAllSpacesTrees(Model model, User user) {
@@ -83,7 +85,25 @@ public class PageController {
     }
 
     @GetMapping("/documents/new")
-    public String newDocument(@AuthenticationPrincipal User user, Model model) {
+    public String newDocument(@RequestParam(required = false) Long spaceId, @AuthenticationPrincipal User user, Model model) {
+        // Если spaceId передан, проверяем права на запись в это пространство
+        if (spaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
+            return "redirect:/spaces/" + spaceId;
+        }
+        
+        // Если spaceId не передан, то на странице создания нужно будет его выбрать.
+        // Мы могли бы здесь запретить доступ совсем для READER/GUEST, если у них нет прав НИ В ОДНОМ пространстве.
+        // Но пока просто проверим, является ли пользователь хотя бы WRITER или ADMIN в системе.
+        // Согласно новым требованиям: READER не может создавать, WRITER может.
+        
+        if (!user.isAdmin() && user.getRole() == com.knowledgebase.domain.model.GlobalRole.READER) {
+            return "redirect:/";
+        }
+        // GUEST тоже не может создавать
+        if (!user.isAdmin() && user.getRole() == com.knowledgebase.domain.model.GlobalRole.GUEST) {
+             return "redirect:/";
+        }
+
         model.addAttribute("pageTitle", "Создание документа");
         model.addAttribute("currentUser", user);
         addAllSpacesTrees(model, user);
@@ -93,11 +113,17 @@ public class PageController {
 
     @GetMapping("/documents/{id}/edit")
     public String editDocument(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
+        var doc = documentService.getDocumentById(id);
+        
+        // Проверка прав на редактирование
+        if (!permissionService.canWrite(user.getId(), user.isAdmin(), doc.getSpaceId())) {
+            return "redirect:/documents/" + id;
+        }
+
         model.addAttribute("pageTitle", "Редактирование документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
         
-        var doc = documentService.getDocumentById(id);
         addSidebarData(doc.getSpaceId(), model, user);
         
         model.addAttribute("content", "pages/document-edit");
@@ -151,6 +177,12 @@ public class PageController {
     public String editDocumentInSpace(@PathVariable Long spaceId, @PathVariable String docTitle, @AuthenticationPrincipal User user, Model model) {
         String decodedTitle = java.net.URLDecoder.decode(docTitle, java.nio.charset.StandardCharsets.UTF_8);
         var doc = documentService.getDocumentBySpaceAndTitle(spaceId, decodedTitle);
+        
+        // Проверка прав на редактирование
+        if (!permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
+            return "redirect:/spaces/" + spaceId + "/doc/" + docTitle;
+        }
+
         model.addAttribute("pageTitle", "Редактирование документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", doc.getId());

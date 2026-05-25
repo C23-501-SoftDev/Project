@@ -25,6 +25,9 @@ public class Space {
     /** ID пользователя-владельца */
     private Long ownerId;
 
+    /** Флаг soft-удаления */
+    private boolean isDeleted;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -43,6 +46,7 @@ public class Space {
         space.name = name;
         space.description = description;
         space.ownerId = ownerId;
+        space.isDeleted = false;
         space.createdAt = LocalDateTime.now();
         space.updatedAt = LocalDateTime.now();
         return space;
@@ -52,15 +56,28 @@ public class Space {
      * Фабричный метод для восстановления пространства из хранилища.
      */
     public static Space restore(Long id, String name, String description, Long ownerId,
+                                boolean isDeleted,
                                 LocalDateTime createdAt, LocalDateTime updatedAt) {
         Space space = new Space();
         space.id = id;
         space.name = name;
         space.description = description;
         space.ownerId = ownerId;
+        space.isDeleted = isDeleted;
         space.createdAt = createdAt;
         space.updatedAt = updatedAt;
         return space;
+    }
+
+    /** Мягкое удаление пространства */
+    public void softDelete() {
+        this.isDeleted = true;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /** Проверяет, удалено ли пространство */
+    public boolean isDeleted() {
+        return isDeleted;
     }
 
     /** Обновляет информацию о пространстве */

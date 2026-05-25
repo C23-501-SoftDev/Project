@@ -5,7 +5,7 @@
     </div>
 
     <h2>Документы</h2>
-    <div class="create-actions" style="margin-bottom: 5px;">
+    <div class="create-actions" style="margin-bottom: 5px;" th:if="${currentUser.admin || currentUser.role.name() == 'EDITOR'}">
         <button class="button-primary" id="createBtn" th:onclick="|location.href='/documents/new?spaceId=${spaceId}'|">+ Создать документ</button>
     </div>
 
@@ -38,6 +38,7 @@ window.addEventListener('DOMContentLoaded', async function() {
         
         try {
             const docs = await apiFetch(requestUrl);
+            const perms = await apiFetch(`/api/user/permissions?spaceId=${spaceId}`);
             tbody.innerHTML = '';
             
             if (!docs || (Array.isArray(docs) && docs.length === 0)) {
@@ -52,8 +53,8 @@ window.addEventListener('DOMContentLoaded', async function() {
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="/spaces/${spaceId}/doc/${encodeURIComponent(d.title)}" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
-                            <a href="/spaces/${spaceId}/doc/${encodeURIComponent(d.title)}/edit" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>
-                            <button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>
+                            ${perms.canEdit ? `<a href="/spaces/${spaceId}/doc/${encodeURIComponent(d.title)}/edit" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
+                            ${perms.canEdit ? `<button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>` : ''}
                         </td>
                     </tr>
                 `).join('');

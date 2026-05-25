@@ -6,6 +6,7 @@ import com.knowledgebase.domain.exception.SpaceNotFoundException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
+import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
@@ -275,13 +276,26 @@ public class DocumentService {
 
     /**
      * Возвращает все документы, к которым у пользователя есть доступ.
+     * 
+     * - ADMIN, READER, EDITOR видят все документы во всех пространствах.
+     * - GUEST видит только документы в разрешенных пространствах.
      */
     public List<Document> getAllAccessibleDocuments(Long userId, boolean isAdmin, boolean includeDeleted) {
         if (isAdmin) {
             return documentRepository.findAll(includeDeleted);
-        } else {
-            return documentRepository.findAccessibleByUserId(userId, includeDeleted);
         }
+
+        // Проверяем роль пользователя
+        GlobalRole role = userRepository.findById(userId)
+                .map(User::getRole)
+                .orElse(GlobalRole.GUEST);
+
+        if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
+            return documentRepository.findAll(includeDeleted);
+        }
+
+        // GUEST: только разрешенные
+        return documentRepository.findAccessibleByUserId(userId, includeDeleted);
     }
 
     /**

@@ -43,13 +43,13 @@ public class SpaceRepositoryImpl implements SpaceRepository {
 
     @Override
     public Optional<Space> findByName(String name) {
-        return jpaRepository.findByName(name)
+        return jpaRepository.findByNameAndIsDeletedFalse(name)
                 .map(mapper::toDomain);
     }
 
     @Override
     public List<Space> findAllByIdIn(Set<Long> ids) {
-        return jpaRepository.findAllByIdIn(ids)
+        return jpaRepository.findAllByIdInAndIsDeletedFalse(ids)
                 .stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
@@ -58,7 +58,7 @@ public class SpaceRepositoryImpl implements SpaceRepository {
     @Override
     public List<Space> findAll(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return jpaRepository.findAll(pageable)
+        return jpaRepository.findByIsDeletedFalse(pageable)
                 .stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
@@ -67,7 +67,7 @@ public class SpaceRepositoryImpl implements SpaceRepository {
     @Override
     public List<Space> findByOwnerId(Long ownerId) {
         Pageable pageable = PageRequest.of(0, Integer.MAX_VALUE);
-        return jpaRepository.findByOwnerId(ownerId, pageable)
+        return jpaRepository.findByOwnerIdAndIsDeletedFalse(ownerId, pageable)
                 .stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
@@ -75,21 +75,26 @@ public class SpaceRepositoryImpl implements SpaceRepository {
 
     @Override
     public void deleteById(Long id) {
-        jpaRepository.deleteById(id);
+        // We will use SpaceService for soft delete, but keeping this for hard delete if ever needed
+        // though typically we should replace this with soft delete logic if we want consistency
+        jpaRepository.findById(id).ifPresent(entity -> {
+            entity.setDeleted(true);
+            jpaRepository.save(entity);
+        });
     }
 
     @Override
     public boolean existsByName(String name) {
-        return jpaRepository.existsByName(name);
+        return jpaRepository.existsByNameAndIsDeletedFalse(name);
     }
 
     @Override
     public boolean existsByNameAndIdNot(String name, Long id) {
-        return jpaRepository.existsByNameAndIdNot(name, id);
+        return jpaRepository.existsByNameAndIdNotAndIsDeletedFalse(name, id);
     }
 
     @Override
     public long count() {
-        return jpaRepository.count();
+        return jpaRepository.countByIsDeletedFalse();
     }
 }

@@ -18,6 +18,7 @@ public class SpaceJpaMapper {
         entity.setName(space.getName());
         entity.setDescription(space.getDescription());
         entity.setOwnerId(space.getOwnerId());
+        entity.setDeleted(space.isDeleted());
         entity.setCreatedAt(space.getCreatedAt());
         entity.setUpdatedAt(space.getUpdatedAt());
         return entity;
@@ -31,6 +32,7 @@ public class SpaceJpaMapper {
                 entity.getName(),
                 entity.getDescription(),
                 entity.getOwnerId(),
+                entity.isDeleted(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

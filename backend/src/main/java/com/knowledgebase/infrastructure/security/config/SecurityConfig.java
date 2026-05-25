@@ -104,10 +104,11 @@ public class SecurityConfig {
                     // Административные API эндпоинты — только ADMIN
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                    // Операции над документами (создание/редактирование) — минимум EDITOR или ADMIN
-                    .requestMatchers(HttpMethod.POST, "/api/documents").hasAnyRole("ADMIN", "EDITOR")
-                    .requestMatchers(HttpMethod.PUT, "/api/documents/**").hasAnyRole("ADMIN", "EDITOR")
-                    .requestMatchers(HttpMethod.DELETE, "/api/documents/**").hasAnyRole("ADMIN", "EDITOR")
+                    // Операции над документами (создание/редактирование)
+                    // Оставляем проверку ролей базовой, детальная проверка прав — в контроллерах через @PreAuthorize
+                    .requestMatchers(HttpMethod.POST, "/api/documents").hasAnyRole("ADMIN", "EDITOR", "READER")
+                    .requestMatchers(HttpMethod.PUT, "/api/documents/**").hasAnyRole("ADMIN", "EDITOR", "READER")
+                    .requestMatchers(HttpMethod.DELETE, "/api/documents/**").hasAnyRole("ADMIN", "EDITOR", "READER")
 
                     // Все остальные запросы — требуют аутентификации
                     .anyRequest().authenticated()

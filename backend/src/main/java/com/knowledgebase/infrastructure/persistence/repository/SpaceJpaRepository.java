@@ -15,13 +15,17 @@ import java.util.Set;
  */
 public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> {
 
-    Optional<SpaceJpaEntity> findByName(String name);
+    Optional<SpaceJpaEntity> findByNameAndIsDeletedFalse(String name);
 
-    boolean existsByName(String name);
+    boolean existsByNameAndIsDeletedFalse(String name);
 
-    boolean existsByNameAndIdNot(String name, Long id);
+    boolean existsByNameAndIdNotAndIsDeletedFalse(String name, Long id);
 
-    Page<SpaceJpaEntity> findByOwnerId(Long ownerId, Pageable pageable);
+    Page<SpaceJpaEntity> findByOwnerIdAndIsDeletedFalse(Long ownerId, Pageable pageable);
 
-    List<SpaceJpaEntity> findAllByIdIn(Set<Long> ids);
+    Page<SpaceJpaEntity> findByIsDeletedFalse(Pageable pageable);
+
+    List<SpaceJpaEntity> findAllByIdInAndIsDeletedFalse(Set<Long> ids);
+
+    long countByIsDeletedFalse();
 }

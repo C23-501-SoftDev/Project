@@ -32,7 +32,7 @@
         <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
     </div>
 
-    <div class="create-actions" style="margin-top: 5px; margin-bottom: 5px;">
+    <div class="create-actions" style="margin-top: 5px; margin-bottom: 5px;" th:if="${currentUser.admin || currentUser.role.name() == 'EDITOR'}">
         <button class="button-primary" id="createBtn" onclick="location.href='/documents/new'">+ Создать документ</button>
     </div>
 
@@ -112,7 +112,23 @@
             if (filtered.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Документы не найдены</td></tr>';
             } else {
-                tbody.innerHTML = filtered.map(d => `
+                // Получаем уникальные spaceId
+                const spaceIds = [...new Set(filtered.map(d => d.spaceId))];
+                
+                // Загружаем права для всех пространств в списке
+                const permsMap = {};
+                await Promise.all(spaceIds.map(async (sid) => {
+                    try {
+                        const p = await apiFetch(`/api/user/permissions?spaceId=${sid}`);
+                        permsMap[sid] = p;
+                    } catch (e) {
+                        permsMap[sid] = { canEdit: false };
+                    }
+                }));
+
+                tbody.innerHTML = filtered.map(d => {
+                    const canEdit = permsMap[d.spaceId]?.canEdit || false;
+                    return `
                     <tr>
                         <td>${d.id}</td>
                         <td><strong>${escapeHtml(d.title)}</strong></td>
@@ -122,11 +138,11 @@
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}')" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
-                            <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>
-                            <button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>
+                            ${canEdit ? `<a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
+                            ${canEdit ? `<button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>` : ''}
                         </td>
                     </tr>
-                `).join('');
+                `;}).join('');
             }
         } catch (e) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Ошибка загрузки</td></tr>';

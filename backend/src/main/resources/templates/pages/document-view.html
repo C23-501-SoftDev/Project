@@ -14,7 +14,7 @@
             </div>
         </div>
         <div class="view-actions" style="display:flex; gap:12px;">
-            <a id="editLink" href="#" class="button-primary" style="text-decoration:none;">Редактировать</a>
+            <a id="editLink" href="#" class="button-primary" style="text-decoration:none; display:none;">Редактировать</a>
             <a href="/" class="button-secondary" style="text-decoration:none;">Назад к списку</a>
         </div>
     </div>
@@ -42,6 +42,16 @@
             statusBadge.className = 'badge ' + doc.status.toLowerCase();
 
             document.getElementById('editLink').href = `/documents/${docId}/edit`;
+            
+            // Проверка прав на отображение кнопки редактирования
+            try {
+                const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
+                if (perms.canEdit) {
+                    document.getElementById('editLink').style.display = 'inline-block';
+                }
+            } catch (e) {
+                console.error('Failed to load permissions:', e);
+            }
             
             document.getElementById('documentContent').innerHTML = marked.parse(doc.content || '');
         } catch (e) {
