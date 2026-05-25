@@ -7,6 +7,7 @@ import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
 import com.knowledgebase.domain.model.GlobalRole;
+import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
@@ -254,6 +255,9 @@ public class DocumentService {
      */
     @Transactional
     public void deleteDocument(Long id) {
+        if (documentRepository.hasChildren(id)) {
+            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
+        }
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
@@ -275,6 +279,25 @@ public class DocumentService {
     }
 
     /**
+     * Удаляет документ навсегда (hard-delete).
+     */
+    @Transactional
+    public void hardDeleteDocument(Long id) {
+        if (documentRepository.hasChildren(id)) {
+            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
+        }
+        Document document = getDocumentById(id);
+        log.info("Полное удаление документа ID {}: title='{}'", id, document.getTitle());
+
+        // 1. Удаляем из БД
+        documentRepository.deleteById(id);
+
+        // 2. Удаляем файл из Git
+        contentRepository.deleteContent(document.getGitFilePath(), "Hard delete document: " + document.getTitle());
+    }
+
+
+    /**
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
      */
     @Transactional
@@ -284,6 +307,15 @@ public class DocumentService {
         if (document.getStatus() != DocumentStatus.DELETED) {
             log.info("Документ ID {} не находится в архиве", id);
             return;
+        }
+
+        // Проверяем статус пространства
+        Space space = spaceRepository.findById(document.getSpaceId())
+                .orElseThrow(() -> new SpaceNotFoundException(document.getSpaceId()));
+        
+        if (space.isDeleted()) {
+            throw new com.knowledgebase.domain.exception.ConflictException(
+                "Нельзя восстановить документ в удаленном (неактивном) пространстве");
         }
 
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());

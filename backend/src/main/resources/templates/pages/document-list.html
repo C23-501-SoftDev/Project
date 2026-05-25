@@ -176,7 +176,6 @@
                 };
 
                 window.deleteDocument = async function(id) {
-        if (!confirm('Вы уверены, что хотите удалить документ?')) return;
         try {
             await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });
             showToast('Документ удален');

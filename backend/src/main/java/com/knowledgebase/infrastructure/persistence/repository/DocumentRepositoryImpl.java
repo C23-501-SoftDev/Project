@@ -114,4 +114,9 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     public void deleteById(Long id) {
         jpaRepository.deleteById(id);
     }
+
+    @Override
+    public boolean hasChildren(Long id) {
+        return jpaRepository.existsByParentDocumentId(id);
+    }
 }

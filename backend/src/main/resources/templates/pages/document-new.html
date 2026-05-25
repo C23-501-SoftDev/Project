@@ -111,9 +111,11 @@
         } catch (e) { console.error(e); }
     }
 
-    async function fetchParentDocuments(spaceId) {
+            async function fetchParentDocuments(spaceId) {
         try {
-            const documents = await apiFetch(`/api/documents?spaceId=${spaceId}`);
+            const data = await apiFetch(`/api/documents?spaceId=${spaceId}`);
+            // Обработка возможного объекта ответа с полем content, если пагинация активна
+            const documents = Array.isArray(data) ? data : (data.content || []);
             const parentWrapper = document.getElementById('docParentWrapper');
             parentWrapper.querySelector('.select-options').innerHTML = '';
             addOption('docParentWrapper', '', 'Без родителя (корневой)');

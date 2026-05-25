@@ -160,8 +160,7 @@ public class SpaceService {
 
     /**
      * Удаляет пространство (soft-delete).
-     *
-     * @param spaceId ID пространства
+     * Документы внутри становятся недоступными для восстановления при восстановлении пространства.
      */
     @Transactional
     public void deleteSpace(Long spaceId) {
@@ -182,6 +181,33 @@ public class SpaceService {
     }
 
     /**
+     * Удаляет пространство и все его документы навсегда (hard-delete).
+     */
+    @Transactional
+    public void hardDeleteSpace(Long spaceId) {
+        log.info("Полное удаление пространства: id={}", spaceId);
+        
+        Space space = spaceRepository.findById(spaceId)
+                .orElseThrow(() -> new SpaceNotFoundException(spaceId));
+
+        // Сначала удаляем документы
+        List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, true);
+        for (com.knowledgebase.domain.model.Document doc : documents) {
+            documentService.hardDeleteDocument(doc.getId());
+        }
+
+        // Удаляем права доступа
+        permissionRepository.deleteBySpaceId(spaceId);
+
+        // Удаляем само пространство
+        spaceRepository.deleteById(spaceId);
+
+        // Удаляем директорию в Git
+        String sanitizedName = space.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+        contentRepository.deleteContent("spaces/" + sanitizedName, "Hard delete space: " + space.getName());
+    }
+
+    /**
      * Восстанавливает пространство (отменяет soft-delete).
      *
      * @param spaceId ID пространства
@@ -193,9 +219,21 @@ public class SpaceService {
         Space space = spaceRepository.findById(spaceId)
                 .orElseThrow(() -> new SpaceNotFoundException(spaceId));
 
+        // Восстанавливаем пространство
         space.restore(); 
         spaceRepository.save(space);
+
+        // Восстанавливаем документы в пространстве
+        List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, true);
+        for (com.knowledgebase.domain.model.Document doc : documents) {
+            // Восстанавливаем документ только если он был удален вместе с пространством
+            // (в этой реализации: проверяем, что статус DELETED)
+            if (doc.getStatus() == com.knowledgebase.domain.model.DocumentStatus.DELETED) {
+                documentService.restoreDocument(doc.getId());
+            }
+        }
     }
+
 
 
 
