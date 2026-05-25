@@ -30,5 +30,8 @@ public record SpacePermissionResponse(
     PermissionType permissionType,
 
     @Schema(description = "Дата выдачи права")
-    LocalDateTime grantedAt
+    LocalDateTime grantedAt,
+
+    @Schema(description = "Флаг удаления пользователя", example = "false")
+    boolean isDeleted
 ) {}

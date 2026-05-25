@@ -135,7 +135,9 @@
                 if (!perms || perms.length === 0) {
                     document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Нет прав доступа</p>';
                 } else {
-                    document.getElementById('permissionsList').innerHTML = perms.map(p => `
+                    document.getElementById('permissionsList').innerHTML = perms
+                        .filter(p => !p.isDeleted)
+                        .map(p => `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #E5E7EB;">
                         <span>${escapeHtml(p.userLogin || p.userName || 'User')} — <strong>${escapeHtml(p.permissionType || p.type || 'READ')}</strong></span>
                         <button class="button-danger" style="padding:4px 8px; font-size:12px;" onclick="window.revokePermission(${p.id})">Отозвать</button>
@@ -196,7 +198,7 @@
 
         async function loadUsersList() {
             try {
-                const data = await adminFetch('/api/admin/users?page=0&size=1000');
+                const data = await adminFetch('/api/admin/users?page=0&size=1000&includeDeleted=false');
                 usersList = data.content || data.users || [];
                 const ownerSelect = document.getElementById('spaceOwner');
                 const permUserSelect = document.getElementById('permUser');

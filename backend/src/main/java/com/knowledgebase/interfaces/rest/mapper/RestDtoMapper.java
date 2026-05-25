@@ -76,10 +76,12 @@ public class RestDtoMapper {
         if (permission == null) return null;
         String login = null;
         String email = null;
-        Optional<User> user = userRepository.findById(permission.getUserId());
+        boolean isDeleted = false;
+        Optional<User> user = userRepository.findByIdIncludingDeleted(permission.getUserId());
         if (user.isPresent()) {
             login = user.get().getLogin();
             email = user.get().getEmail();
+            isDeleted = user.get().getIsDeleted();
         }
         return new SpacePermissionResponse(
                 permission.getId(),
@@ -88,7 +90,8 @@ public class RestDtoMapper {
                 login,
                 email,
                 permission.getPermissionType(),
-                permission.getGrantedAt()
+                permission.getGrantedAt(),
+                isDeleted
         );
     }
 
