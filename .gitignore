@@ -11,3 +11,4 @@ tests/E2E/test-results
 .vscode/
 .kilo/
 .kilocode/rules
+spaces/
