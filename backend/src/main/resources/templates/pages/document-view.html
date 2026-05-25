@@ -4,10 +4,13 @@
     <div class="view-header" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #eee; padding-bottom:16px;">
         <div>
             <h1 id="docTitle" style="margin:0 0 8px 0;">Загрузка...</h1>
-            <div style="font-size:14px; color:#666;">
-                <span>Статус: <span id="docStatus" class="badge">...</span></span>
-                <span style="margin-left:16px;">Автор ID: <span id="docAuthor">...</span></span>
-                <span style="margin-left:16px;">Обновлено: <span id="docDate">...</span></span>
+            <div style="font-size:14px; color:#666; display: flex; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span>Статус:</span>
+                    <span id="docStatus" class="badge">...</span>
+                </div>
+                <span>Автор ID: <span id="docAuthor">...</span></span>
+                <span>Обновлено: <span id="docDate">...</span></span>
             </div>
         </div>
         <div class="view-actions" style="display:flex; gap:12px;">
