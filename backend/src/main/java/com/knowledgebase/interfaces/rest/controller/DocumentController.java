@@ -106,6 +106,18 @@ public class DocumentController {
     }
 
     /**
+     * POST /api/documents/{id}/restore
+     * Восстановить документ из архива.
+     */
+    @PostMapping("/{id}/restore")
+    @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @Operation(summary = "Восстановить документ", description = "Переводит в статус Published/Draft и перемещает файл из .archive/ в Git")
+    public ResponseEntity<Void> restoreDocument(@PathVariable Long id) {
+        documentService.restoreDocument(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * DELETE /api/documents/{id}
      * Удалить документ (архивация).
      */

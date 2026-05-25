@@ -81,6 +81,12 @@ public class Document {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void restore(String originalGitPath) {
+        this.status = DocumentStatus.DRAFT;
+        this.gitFilePath = originalGitPath;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getters
 
     public Long getId() { return id; }

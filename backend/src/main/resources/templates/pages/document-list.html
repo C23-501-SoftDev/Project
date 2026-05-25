@@ -134,6 +134,7 @@
 
                 tbody.innerHTML = itemsToDisplay.map(d => {
                     const canEdit = permsMap[d.spaceId]?.canEdit || false;
+                    const isDeleted = d.status === 'DELETED';
                     return `
                     <tr>
                         <td>${d.id}</td>
@@ -144,8 +145,8 @@
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}')" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
-                            ${canEdit ? `<a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
-                            ${canEdit ? `<button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>` : ''}
+                            ${canEdit && !isDeleted ? `<a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
+                            ${canEdit ? (isDeleted ? `<a href="#" onclick="restoreDocument(${d.id}); return false;" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Восстановить</a>` : `<button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>`) : ''}
                         </td>
                     </tr>
                 `;}).join('');
@@ -164,7 +165,17 @@
         document.getElementById('documentsNextBtn').disabled = state.page >= state.totalPages - 1;
     }
 
-    window.deleteDocument = async function(id) {
+                window.restoreDocument = async function(id) {
+                    try {
+                        await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
+                        showToast('Документ восстановлен');
+                        fetchDocuments();
+                    } catch (e) {
+                        console.error('Restore failed:', e);
+                    }
+                };
+
+                window.deleteDocument = async function(id) {
         if (!confirm('Вы уверены, что хотите удалить документ?')) return;
         try {
             await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });

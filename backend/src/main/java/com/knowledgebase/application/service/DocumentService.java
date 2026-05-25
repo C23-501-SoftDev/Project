@@ -275,10 +275,32 @@ public class DocumentService {
     }
 
     /**
+     * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
+     */
+    @Transactional
+    public void restoreDocument(Long id) {
+        Document document = getDocumentById(id);
+        
+        if (document.getStatus() != DocumentStatus.DELETED) {
+            log.info("Документ ID {} не находится в архиве", id);
+            return;
+        }
+
+        log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
+
+        String archivedPath = document.getGitFilePath();
+        String originalPath = archivedPath.replace(".archive/", "");
+
+        // 1. Перемещаем файл в Git
+        contentRepository.moveContent(archivedPath, originalPath, "Restore document: " + document.getTitle());
+
+        // 2. Обновляем метаданные в БД
+        document.restore(originalPath);
+        documentRepository.save(document);
+    }
+
+    /**
      * Возвращает все документы, к которым у пользователя есть доступ.
-     * 
-     * - ADMIN, READER, EDITOR видят все документы во всех пространствах.
-     * - GUEST видит только документы в разрешенных пространствах.
      */
     public List<Document> getAllAccessibleDocuments(Long userId, boolean isAdmin, boolean includeDeleted) {
         if (isAdmin) {
