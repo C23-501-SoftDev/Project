@@ -1,9 +1,14 @@
 package com.knowledgebase.interfaces.rest.controller;
 
+import com.knowledgebase.domain.repository.SpacePermissionRepository;
+import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.interfaces.rest.advice.ErrorResponse;
 import com.knowledgebase.interfaces.rest.dto.request.CreateSpaceRequest;
 import com.knowledgebase.interfaces.rest.dto.request.GrantPermissionRequest;
@@ -28,6 +33,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+
 /**
  * Контроллер управления пространствами.
  *
@@ -45,10 +51,12 @@ public class SpaceController {
 
     private final SpaceService spaceService;
     private final RestDtoMapper mapper;
+    private final SpacePermissionRepository permissionRepository;
 
-    public SpaceController(SpaceService spaceService, RestDtoMapper mapper) {
+    public SpaceController(SpaceService spaceService, RestDtoMapper mapper, SpacePermissionRepository permissionRepository) {
         this.spaceService = spaceService;
         this.mapper = mapper;
+        this.permissionRepository = permissionRepository;
     }
 
     // ── Административные эндпоинты ─────────────────────────────────────────
@@ -216,6 +224,22 @@ public class SpaceController {
                 .map(mapper::toSpacePermissionResponse)
                 .toList();
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * DELETE /api/admin/permissions/{permId}
+     * Отзыв права доступа (только ADMIN).
+     */
+    @DeleteMapping("/api/admin/permissions/{permId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Отозвать право доступа", description = "Удаляет право доступа по его ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Право отозвано"),
+        @ApiResponse(responseCode = "404", description = "Право не найдено")
+    })
+    public ResponseEntity<Void> revokePermission(@PathVariable Long permId) {
+        permissionRepository.deleteById(permId);
+        return ResponseEntity.noContent().build();
     }
 
     // ── Пользовательские эндпоинты ─────────────────────────────────────────
