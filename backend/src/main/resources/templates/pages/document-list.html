@@ -55,10 +55,10 @@
         </table>
     </div>
 
-    <div class="pagination" id="documentsPagination">
-        <button class="button-secondary" id="documentsPrevBtn" disabled>Назад</button>
-        <span id="documentsPageInfo">Страница 1 из 1</span>
-        <button class="button-secondary" id="documentsNextBtn" disabled>Вперед</button>
+    <div class="pagination" id="documentsPagination" style="margin-top: 20px;">
+        <button class="button-secondary" id="documentsPrevBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Назад</button>
+        <span id="documentsPageInfo" style="margin: 0 10px;">Страница 1 из 1</span>
+        <button class="button-secondary" id="documentsNextBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
     </div>
 </div>
 
@@ -66,7 +66,7 @@
 (function() {
     let state = {
         page: 0,
-        size: 10,
+        size: 20,
         searchTerm: '',
         statusFilter: '',
         spaceFilter: '',
@@ -95,25 +95,31 @@
         const tbody = document.getElementById('documentsTbody');
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Загрузка...</td></tr>';
 
-        // Загружаем все документы (spaceId не передаем)
-        let url = `/api/documents?includeDeleted=true`;
+        // Загружаем документы с поддержкой пагинации
+        let url = `/api/documents?includeDeleted=true&page=${state.page}&size=${state.size}`;
         if (state.spaceFilter) url += `&spaceId=${state.spaceFilter}`;
 
         try {
-            const docs = await apiFetch(url);
+            const data = await apiFetch(url);
+            const docs = data.content || [];
+            state.totalElements = data.totalElements || docs.length;
+            state.totalPages = data.totalPages || 1;
             
-            // Фильтрация на клиенте
-            let filtered = docs.filter(d => {
-                if (state.statusFilter && d.status !== state.statusFilter) return false;
-                if (state.spaceFilter && d.spaceId != state.spaceFilter) return false;
-                return true;
-            });
-
-            if (filtered.length === 0) {
+            // При отображении используем уже полученные с сервера данные
+            let itemsToDisplay = docs;
+            
+            // Если API возвращает только страницу, фильтровать на клиенте не нужно, 
+            // так как API уже вернул отфильтрованные данные (если фильтры были переданы на сервер).
+            // Если API возвращает все данные, то оставляем фильтрацию здесь.
+            
+            if (itemsToDisplay.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Документы не найдены</td></tr>';
+                document.getElementById('documentsPageInfo').textContent = `Страница 1 из 1`;
+                document.getElementById('documentsPrevBtn').disabled = true;
+                document.getElementById('documentsNextBtn').disabled = true;
             } else {
                 // Получаем уникальные spaceId
-                const spaceIds = [...new Set(filtered.map(d => d.spaceId))];
+                const spaceIds = [...new Set(itemsToDisplay.map(d => d.spaceId))];
                 
                 // Загружаем права для всех пространств в списке
                 const permsMap = {};
@@ -126,7 +132,7 @@
                     }
                 }));
 
-                tbody.innerHTML = filtered.map(d => {
+                tbody.innerHTML = itemsToDisplay.map(d => {
                     const canEdit = permsMap[d.spaceId]?.canEdit || false;
                     return `
                     <tr>
@@ -143,10 +149,19 @@
                         </td>
                     </tr>
                 `;}).join('');
+                
+                updatePagination();
             }
         } catch (e) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Ошибка загрузки</td></tr>';
         }
+    }
+
+    function updatePagination() {
+        const currentPage = state.page + 1;
+        document.getElementById('documentsPageInfo').textContent = `Страница ${currentPage} из ${state.totalPages || 1}`;
+        document.getElementById('documentsPrevBtn').disabled = state.page <= 0;
+        document.getElementById('documentsNextBtn').disabled = state.page >= state.totalPages - 1;
     }
 
     window.deleteDocument = async function(id) {
@@ -183,7 +198,18 @@
             state.searchTerm = '';
             state.statusFilter = '';
             state.spaceFilter = '';
+            state.page = 0;
             fetchDocuments();
+        });
+
+        // Initialize per-page selector
+        // REMOVED: setupPerPageSelect
+
+        document.getElementById('documentsPrevBtn').addEventListener('click', () => {
+            if (state.page > 0) { state.page--; fetchDocuments(); }
+        });
+        document.getElementById('documentsNextBtn').addEventListener('click', () => {
+            if (state.page < state.totalPages - 1) { state.page++; fetchDocuments(); }
         });
     });
 })();

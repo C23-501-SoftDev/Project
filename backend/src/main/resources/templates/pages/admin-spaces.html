@@ -24,15 +24,10 @@
         </table>
     </div>
 
-    <div class="pagination" id="spacesPagination">
-        <button class="button-secondary" id="spacesPrevBtn" disabled>Назад</button>
-        <span id="spacesPageInfo">Страница 1 из 1</span>
-        <select id="spacesPerPageSelect">
-            <option value="5">5 на странице</option>
-            <option value="20" selected>20 на странице</option>
-            <option value="50">50 на странице</option>
-        </select>
-        <button class="button-secondary" id="spacesNextBtn" disabled>Вперед</button>
+    <div class="pagination" id="spacesPagination" style="margin-top: 20px;">
+        <button class="button-secondary" id="spacesPrevBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Назад</button>
+        <span id="spacesPageInfo" style="margin: 0 10px;">Страница 1 из 1</span>
+        <button class="button-secondary" id="spacesNextBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
     </div>
     <div class="states">
         <p id="spacesEmptyMsg" style="display:none; text-align:center;">Пространства не найдены</p>
@@ -418,6 +413,13 @@
                 await loadUsersList();
                 await fetchSpaces();
                 initLocalSelects();
+                
+                document.getElementById('spacesPrevBtn').addEventListener('click', () => {
+                    if (state.page > 0) { state.page--; fetchSpaces(); }
+                });
+                document.getElementById('spacesNextBtn').addEventListener('click', () => {
+                    if (state.page < state.totalPages - 1) { state.page++; fetchSpaces(); }
+                });
                 
                 document.getElementById('closeSpaceModalBtn')?.addEventListener('click', () => closeModal('spaceModal'));
                 document.getElementById('saveSpaceBtn')?.addEventListener('click', saveSpace);

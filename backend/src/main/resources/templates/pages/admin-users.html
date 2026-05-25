@@ -57,19 +57,10 @@
         </table>
     </div>
 
-    <div class="pagination" id="usersPagination">
-        <button class="button-secondary" id="usersPrevBtn" disabled>Назад</button>
-        <span id="usersPageInfo">Страница 1 из 1</span>
-        <div class="custom-select" id="usersPerPageWrapper" style="width: 180px;">
-            <div class="select-styled">20 на странице</div>
-            <div class="select-options">
-                <div class="select-option" data-value="5">5 на странице</div>
-                <div class="select-option" data-value="20">20 на странице</div>
-                <div class="select-option" data-value="50">50 на странице</div>
-            </div>
-        </div>
-        <input type="hidden" id="usersPerPageSelect" value="20">
-        <button class="button-secondary" id="usersNextBtn" disabled>Вперед</button>
+    <div class="pagination" id="usersPagination" style="margin-top: 20px;">
+        <button class="button-secondary" id="usersPrevBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Назад</button>
+        <span id="usersPageInfo" style="margin: 0 10px;">Страница 1 из 1</span>
+        <button class="button-secondary" id="usersNextBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
     </div>
     <div class="states">
         <p id="usersEmptyMsg" style="display:none; text-align:center;">Пользователи не найдены</p>
@@ -426,11 +417,6 @@
             };
 
             setupCustomSelect('statusFilterWrapper', 'statusFilter');
-            setupCustomSelect('usersPerPageWrapper', 'usersPerPageSelect', (val) => {
-                state.size = parseInt(val);
-                state.page = 0;
-                fetchUsers();
-            });
             setupCustomSelect('userRoleWrapper', 'userRole');
 
             document.addEventListener('click', () => {

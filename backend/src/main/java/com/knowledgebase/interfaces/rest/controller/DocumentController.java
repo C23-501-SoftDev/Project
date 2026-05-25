@@ -124,9 +124,11 @@ public class DocumentController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
-    public ResponseEntity<List<DocumentResponse>> getDocuments(
+    public ResponseEntity<?> getDocuments(
             @RequestParam(required = false) Long spaceId,
             @RequestParam(defaultValue = "false") boolean includeDeleted,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal User currentUser) {
         
         List<Document> documents;
@@ -141,11 +143,23 @@ public class DocumentController {
             documents = documentService.getAllAccessibleDocuments(currentUser.getId(), currentUser.isAdmin(), includeDeleted);
         }
 
-
-
-        List<DocumentResponse> response = documents.stream()
+        // Ручная пагинация (так как сервис возвращает List)
+        int totalElements = documents.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int fromIndex = Math.min(page * size, totalElements);
+        int toIndex = Math.min(fromIndex + size, totalElements);
+        
+        List<DocumentResponse> pagedResponse = documents.subList(fromIndex, toIndex).stream()
                 .map(doc -> mapper.toDocumentResponse(doc, null))
                 .toList();
-        return ResponseEntity.ok(response);
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("content", pagedResponse);
+        result.put("totalElements", totalElements);
+        result.put("totalPages", totalPages);
+        result.put("size", size);
+        result.put("number", page);
+
+        return ResponseEntity.ok(result);
     }
 }
