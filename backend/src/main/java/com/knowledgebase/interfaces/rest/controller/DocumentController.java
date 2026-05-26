@@ -21,8 +21,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -223,14 +225,13 @@ public class DocumentController {
         @ApiResponse(responseCode = "400", description = "Некорректная поисковая строка или размер страницы")
     })
     public ResponseEntity<PageResponse<DocumentResponse>> searchDocuments(
-            @RequestParam String q,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal User currentUser) {
 
-        if (q == null || q.isBlank()) {
-            throw new IllegalArgumentException("Поисковая строка не может быть пустой");
-        }
         if (page < 0) {
             throw new IllegalArgumentException("Номер страницы не может быть отрицательным");
         }
@@ -240,6 +241,8 @@ public class DocumentController {
 
         var searchPage = documentService.searchDocumentsByTitle(
                 q,
+                dateFrom,
+                dateTo,
                 currentUser.getId(),
                 currentUser.isAdmin(),
                 page,
