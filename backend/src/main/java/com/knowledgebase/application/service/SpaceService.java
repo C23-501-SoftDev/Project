@@ -193,10 +193,11 @@ public class SpaceService {
         space.softDelete();
         spaceRepository.save(space);
 
-        // Мягко удаляем все документы в пространстве
+        // Мягко удаляем все документы в пространстве БЕЗ перепривязки детей,
+        // чтобы сохранить структуру для последующего восстановления
         List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, false);
         for (com.knowledgebase.domain.model.Document doc : documents) {
-            documentService.deleteDocument(doc.getId());
+            documentService.deleteDocument(doc.getId(), false);
         }
     }
 
@@ -242,14 +243,33 @@ public class SpaceService {
         // Восстанавливаем пространство
         space.restore(); 
         spaceRepository.save(space);
+        spaceRepository.flush();
 
-        // Восстанавливаем документы в пространстве
+        // Восстанавливаем документы в пространстве в порядке иерархии (сначала родители, потом дети)
+        // Это необходимо, чтобы restoreDocument корректно определял живых предков
         List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, true);
-        for (com.knowledgebase.domain.model.Document doc : documents) {
-            // Восстанавливаем документ только если он был удален вместе с пространством
-            // (в этой реализации: проверяем, что статус DELETED)
+        
+        // Строим иерархию для восстановления
+        java.util.Map<Long, List<com.knowledgebase.domain.model.Document>> childrenMap = documents.stream()
+                .filter(d -> d.getParentDocumentId() != null)
+                .collect(java.util.stream.Collectors.groupingBy(com.knowledgebase.domain.model.Document::getParentDocumentId));
+
+        List<com.knowledgebase.domain.model.Document> roots = documents.stream()
+                .filter(d -> d.getParentDocumentId() == null)
+                .toList();
+
+        restoreHierarchy(roots, childrenMap);
+    }
+
+    private void restoreHierarchy(List<com.knowledgebase.domain.model.Document> nodes, 
+                                 java.util.Map<Long, List<com.knowledgebase.domain.model.Document>> childrenMap) {
+        for (com.knowledgebase.domain.model.Document doc : nodes) {
             if (doc.getStatus() == com.knowledgebase.domain.model.DocumentStatus.DELETED) {
-                documentService.restoreDocument(doc.getId());
+                documentService.restoreDocument(doc.getId(), true);
+            }
+            List<com.knowledgebase.domain.model.Document> children = childrenMap.getOrDefault(doc.getId(), java.util.Collections.emptyList());
+            if (!children.isEmpty()) {
+                restoreHierarchy(children, childrenMap);
             }
         }
     }

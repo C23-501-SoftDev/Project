@@ -125,4 +125,9 @@ public class SpaceRepositoryImpl implements SpaceRepository {
     public long count() {
         return jpaRepository.countByIsDeletedFalse();
     }
+
+    @Override
+    public void flush() {
+        jpaRepository.flush();
+    }
 }

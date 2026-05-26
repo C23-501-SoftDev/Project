@@ -119,4 +119,9 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     public boolean hasChildren(Long id) {
         return jpaRepository.existsByParentDocumentId(id);
     }
+
+    @Override
+    public void flush() {
+        jpaRepository.flush();
+    }
 }

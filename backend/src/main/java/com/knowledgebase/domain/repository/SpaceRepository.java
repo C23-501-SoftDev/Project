@@ -85,4 +85,6 @@ public interface SpaceRepository {
      * Возвращает общее количество пространств.
      */
     long count();
+
+    void flush();
 }

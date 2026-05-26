@@ -245,9 +245,12 @@ public class DocumentService {
     /**
      * Удаляет документ (переводит в статус DELETED и перемещает файл в .archive/).
      * Дочерние документы привязываются к родителю удаляемого документа.
+     *
+     * @param id ID документа
+     * @param reparentChildren если true, дочерние документы перепривязываются к родителю (используется при обычном удалении)
      */
     @Transactional
-    public void deleteDocument(Long id) {
+    public void deleteDocument(Long id, boolean reparentChildren) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
@@ -255,16 +258,18 @@ public class DocumentService {
             return;
         }
 
-        // Перепривязываем дочерние документы к родителю текущего документа
-        Long newParentId = document.getParentDocumentId();
-        List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
-                .filter(d -> id.equals(d.getParentDocumentId()))
-                .toList();
-        
-        for (Document child : children) {
-            child.setParentDocumentId(newParentId);
-            documentRepository.save(child);
-            log.debug("Дочерний документ ID {} перепривязан к новому родителю ID {}", child.getId(), newParentId);
+        if (reparentChildren) {
+            // Перепривязываем дочерние документы к родителю текущего документа
+            Long newParentId = document.getParentDocumentId();
+            List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                    .filter(d -> id.equals(d.getParentDocumentId()))
+                    .toList();
+            
+            for (Document child : children) {
+                child.setParentDocumentId(newParentId);
+                documentRepository.save(child);
+                log.debug("Дочерний документ ID {} перепривязан к новому родителю ID {}", child.getId(), newParentId);
+            }
         }
 
         log.info("Архивация документа ID {}: title='{}'", id, document.getTitle());
@@ -278,6 +283,14 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.archive(newPath);
         documentRepository.save(document);
+    }
+
+    /**
+     * Удаляет документ с перепривязкой дочерних документов.
+     */
+    @Transactional
+    public void deleteDocument(Long id) {
+        deleteDocument(id, true);
     }
 
     /**
@@ -301,10 +314,12 @@ public class DocumentService {
 
     /**
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
-     * Если родитель удален, ищет первого живого предка.
+     *
+     * @param id ID документа
+     * @param keepHierarchy если true, сохраняет текущего родителя (используется при восстановлении пространства)
      */
     @Transactional
-    public void restoreDocument(Long id) {
+    public void restoreDocument(Long id, boolean keepHierarchy) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() != DocumentStatus.DELETED) {
@@ -322,7 +337,7 @@ public class DocumentService {
         }
 
         // Проверяем родителя при восстановлении
-        if (document.getParentDocumentId() != null) {
+        if (!keepHierarchy && document.getParentDocumentId() != null) {
             Document parent = documentRepository.findById(document.getParentDocumentId()).orElse(null);
             if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
                 // Ищем первого неудаленного предка
@@ -331,6 +346,10 @@ public class DocumentService {
                 log.info("Родитель документа ID {} удален. Установлен новый предок ID {}", id, newParentId);
             }
         }
+        
+        // При восстановлении пространства (keepHierarchy=true) мы НЕ должны менять родителя,
+        // но текущий код в deleteDocument перепривязывает детей к дедушке!
+        // Это и есть причина потери иерархии при удалении.
 
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
@@ -343,6 +362,15 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.restore(originalPath);
         documentRepository.save(document);
+        documentRepository.flush();
+    }
+
+    /**
+     * Восстанавливает документ с автоматическим поиском живого предка.
+     */
+    @Transactional
+    public void restoreDocument(Long id) {
+        restoreDocument(id, false);
     }
 
     private Long findFirstActiveAncestor(Long parentId) {
