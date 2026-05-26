@@ -76,19 +76,27 @@ public class AuthController {
     /**
      * POST /login
      * Обработка формы входа — установка JWT Cookie и редирект.
+     * При ошибке аутентификации — редирект обратно на страницу логина с параметром error.
      */
     @PostMapping("/login")
     @SecurityRequirements
     @Operation(summary = "Вход через форму", description = "Аутентификация и установка JWT Cookie")
     public String loginForm(@RequestParam String username,
                            @RequestParam String password,
-                           HttpServletResponse response) {
+                           HttpServletResponse response,
+                           Model model) {
+        try {
         User user = authService.authenticate(username, password);
         String token = tokenProvider.generateToken(user);
 
         setJwtCookie(response, token);
 
         return "redirect:/";
+        } catch (Exception e) {
+            // Если аутентификация не удалась, возвращаемся на страницу входа с ошибкой
+            model.addAttribute("errorMessage", "Неверный логин или пароль");
+            return "login";
+    }
     }
 
     /**
@@ -186,3 +194,4 @@ public class AuthController {
                 String.format("XSRF-TOKEN=; Path=/; Max-Age=0; SameSite=Lax"));
     }
 }
+
