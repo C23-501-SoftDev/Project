@@ -7,6 +7,7 @@ import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
 import com.knowledgebase.domain.model.GlobalRole;
+import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
@@ -254,6 +255,9 @@ public class DocumentService {
      */
     @Transactional
     public void deleteDocument(Long id) {
+        if (documentRepository.hasChildren(id)) {
+            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
+        }
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
@@ -275,20 +279,76 @@ public class DocumentService {
     }
 
     /**
-     * Возвращает все документы, к которым у пользователя есть доступ.
-     * 
-     * - ADMIN, READER, EDITOR видят все документы во всех пространствах.
-     * - GUEST видит только документы в разрешенных пространствах.
+     * Удаляет документ навсегда (hard-delete).
      */
-    public List<Document> getAllAccessibleDocuments(Long userId, boolean isAdmin, boolean includeDeleted) {
-        if (isAdmin) {
-            return documentRepository.findAll(includeDeleted);
+    @Transactional
+    public void hardDeleteDocument(Long id) {
+        if (documentRepository.hasChildren(id)) {
+            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
+        }
+        Document document = getDocumentById(id);
+        log.info("Полное удаление документа ID {}: title='{}'", id, document.getTitle());
+
+        // 1. Удаляем из БД
+        documentRepository.deleteById(id);
+
+        // 2. Удаляем файл из Git
+        contentRepository.deleteContent(document.getGitFilePath(), "Hard delete document: " + document.getTitle());
+    }
+
+
+    /**
+     * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
+     */
+    @Transactional
+    public void restoreDocument(Long id) {
+        Document document = getDocumentById(id);
+        
+        if (document.getStatus() != DocumentStatus.DELETED) {
+            log.info("Документ ID {} не находится в архиве", id);
+            return;
         }
 
-        // Проверяем роль пользователя
-        GlobalRole role = userRepository.findById(userId)
-                .map(User::getRole)
-                .orElse(GlobalRole.GUEST);
+        // Проверяем статус пространства
+        Space space = spaceRepository.findById(document.getSpaceId())
+                .orElseThrow(() -> new SpaceNotFoundException(document.getSpaceId()));
+        
+        if (space.isDeleted()) {
+            throw new com.knowledgebase.domain.exception.ConflictException(
+                "Нельзя восстановить документ в удаленном (неактивном) пространстве");
+        }
+
+        log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
+
+        String archivedPath = document.getGitFilePath();
+        String originalPath = archivedPath.replace(".archive/", "");
+
+        // 1. Перемещаем файл в Git
+        contentRepository.moveContent(archivedPath, originalPath, "Restore document: " + document.getTitle());
+
+        // 2. Обновляем метаданные в БД
+        document.restore(originalPath);
+        documentRepository.save(document);
+    }
+
+    /**
+     * Возвращает все документы, к которым у пользователя есть доступ.
+     */
+    public List<Document> getAllAccessibleDocuments(Long userId, boolean isAdmin, boolean includeDeleted) {
+        if (userId == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        GlobalRole role = user.getRole();
+
+        if (isAdmin && role != GlobalRole.GUEST) {
+            return documentRepository.findAll(includeDeleted);
+        }
 
         if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
             return documentRepository.findAll(includeDeleted);
@@ -300,6 +360,7 @@ public class DocumentService {
 
     /**
      * Возвращает список документов в пространстве.
+
      */
     public List<Document> getDocumentsInSpace(Long spaceId, boolean includeDeleted) {
         if (!spaceRepository.findById(spaceId).isPresent()) {

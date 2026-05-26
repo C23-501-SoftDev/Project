@@ -36,13 +36,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final SpaceService spaceService;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       ApplicationEventPublisher eventPublisher) {
+                       ApplicationEventPublisher eventPublisher,
+                       SpaceService spaceService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
+        this.spaceService = spaceService;
     }
 
     /**
@@ -159,6 +162,11 @@ public class UserService {
     public User deleteUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
+
+        // Если пользователь владеет какими-то пространствами, передаем их системному администратору (ID=1)
+        if (!userId.equals(1L)) {
+            spaceService.transferOwnership(userId, 1L);
+        }
 
         // Выполняем soft-delete через доменный метод
         user.softDelete();

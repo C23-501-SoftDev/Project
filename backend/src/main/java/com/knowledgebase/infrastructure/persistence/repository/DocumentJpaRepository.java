@@ -38,5 +38,7 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
         SELECT parent_document_id FROM Ancestors WHERE parent_document_id IS NOT NULL
         """, nativeQuery = true)
     List<Long> findAncestorIds(@org.springframework.data.repository.query.Param("documentId") Long documentId);
+
+    boolean existsByParentDocumentId(Long parentId);
 }
 

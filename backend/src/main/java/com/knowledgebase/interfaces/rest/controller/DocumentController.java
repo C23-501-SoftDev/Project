@@ -106,6 +106,18 @@ public class DocumentController {
     }
 
     /**
+     * POST /api/documents/{id}/restore
+     * Восстановить документ из архива.
+     */
+    @PostMapping("/{id}/restore")
+    @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @Operation(summary = "Восстановить документ", description = "Переводит в статус Published/Draft и перемещает файл из .archive/ в Git")
+    public ResponseEntity<Void> restoreDocument(@PathVariable Long id) {
+        documentService.restoreDocument(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * DELETE /api/documents/{id}
      * Удалить документ (архивация).
      */
@@ -124,15 +136,17 @@ public class DocumentController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
-    public ResponseEntity<List<DocumentResponse>> getDocuments(
+    public ResponseEntity<?> getDocuments(
             @RequestParam(required = false) Long spaceId,
             @RequestParam(defaultValue = "false") boolean includeDeleted,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal User currentUser) {
         
         List<Document> documents;
         if (spaceId != null) {
             // Для конкретного пространства проверяем доступ
-            if (!currentUser.isAdmin() && !com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.application.service.PermissionService.class).canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
+            if (!com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.application.service.PermissionService.class).canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
                 return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
             }
             documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
@@ -141,11 +155,23 @@ public class DocumentController {
             documents = documentService.getAllAccessibleDocuments(currentUser.getId(), currentUser.isAdmin(), includeDeleted);
         }
 
-
-
-        List<DocumentResponse> response = documents.stream()
+        // Ручная пагинация (так как сервис возвращает List)
+        int totalElements = documents.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int fromIndex = Math.min(page * size, totalElements);
+        int toIndex = Math.min(fromIndex + size, totalElements);
+        
+        List<DocumentResponse> pagedResponse = documents.subList(fromIndex, toIndex).stream()
                 .map(doc -> mapper.toDocumentResponse(doc, null))
                 .toList();
-        return ResponseEntity.ok(response);
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("content", pagedResponse);
+        result.put("totalElements", totalElements);
+        result.put("totalPages", totalPages);
+        result.put("size", size);
+        result.put("number", page);
+
+        return ResponseEntity.ok(result);
     }
 }

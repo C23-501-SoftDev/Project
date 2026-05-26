@@ -29,5 +29,11 @@ public record SpaceResponse(
     LocalDateTime createdAt,
 
     @Schema(description = "Дата последнего обновления")
-    LocalDateTime updatedAt
+    LocalDateTime updatedAt,
+
+    @Schema(description = "Статус пространства", example = "Active")
+    String status,
+
+    @Schema(description = "Флаг soft-удаления")
+    boolean isDeleted
 ) {}

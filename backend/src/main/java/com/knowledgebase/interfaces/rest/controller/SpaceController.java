@@ -74,10 +74,12 @@ public class SpaceController {
     })
     public ResponseEntity<java.util.Map<String, Object>> getAllSpaces(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String status) {
 
-        List<Space> spaces = spaceService.getAllSpaces(page, size);
-        long totalCount = spaceService.countAllSpaces();
+        String filterStatus = (status == null || status.isEmpty()) ? "active" : status;
+        List<Space> spaces = spaceService.getSpacesByStatus(filterStatus, page, size);
+        long totalCount = spaceService.countSpacesByStatus(filterStatus);
         int totalPages = (int) Math.ceil((double) totalCount / size);
         List<SpaceResponse> content = spaces.stream()
                 .map(mapper::toSpaceResponse)
@@ -177,6 +179,22 @@ public class SpaceController {
     }
 
     /**
+     * POST /api/admin/spaces/{spaceId}/restore
+     * Восстановление пространства (только ADMIN).
+     */
+    @PostMapping("/api/admin/spaces/{spaceId}/restore")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Восстановить пространство", description = "Восстанавливает удаленное пространство")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Пространство восстановлено"),
+        @ApiResponse(responseCode = "404", description = "Пространство не найдено")
+    })
+    public ResponseEntity<Void> restoreSpace(@PathVariable Long spaceId) {
+        spaceService.restoreSpace(spaceId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * POST /api/admin/spaces/{spaceId}/permissions
      * Назначение права доступа пользователю на пространство (только ADMIN).
      */
@@ -261,12 +279,13 @@ public class SpaceController {
     })
     public ResponseEntity<List<SpaceResponse>> getMySpaces(
             @AuthenticationPrincipal User currentUser,
+            @RequestParam(required = false) com.knowledgebase.domain.model.PermissionType requiredAccess,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
         boolean isAdmin = currentUser.isAdmin();
         List<Space> spaces = spaceService.getSpacesForUser(
-                currentUser.getId(), isAdmin, page, size);
+                currentUser.getId(), isAdmin, requiredAccess, page, size);
 
         List<SpaceResponse> response = spaces.stream()
                 .map(mapper::toSpaceResponse)

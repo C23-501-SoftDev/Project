@@ -75,6 +75,12 @@ public class Space {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /** Восстановление пространства (отмена soft-delete) */
+    public void restore() {
+        this.isDeleted = false;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     /** Проверяет, удалено ли пространство */
     public boolean isDeleted() {
         return isDeleted;

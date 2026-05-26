@@ -36,9 +36,29 @@ public interface SpaceRepository {
     Optional<Space> findByName(String name);
 
     /**
-     * Возвращает все пространства с пагинацией (для ADMIN).
+     * Возвращает все пространства с пагинацией (включая удаленные) (для ADMIN).
      */
     List<Space> findAll(int page, int size);
+
+    /**
+     * Возвращает только удаленные пространства (для ADMIN).
+     */
+    List<Space> findDeleted(int page, int size);
+
+    /**
+     * Возвращает все пространства (включая удаленные) с пагинацией (для ADMIN).
+     */
+    List<Space> findAllIncludeDeleted(int page, int size);
+
+    /**
+     * Возвращает общее количество удаленных пространств.
+     */
+    long countDeleted();
+
+    /**
+     * Возвращает общее количество пространств (включая удаленные).
+     */
+    long countAllIncludeDeleted();
 
     /**
      * Возвращает пространства, которыми владеет пользователь.
