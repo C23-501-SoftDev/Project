@@ -160,13 +160,16 @@ public class UserService {
      */
     @Transactional
     public User deleteUser(Long userId) {
+        // Запрещаем удаление системного администратора (ID=1)
+        if (userId.equals(1L)) {
+            throw new AccessDeniedException("Удаление системного администратора запрещено");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
-        // Если пользователь владеет какими-то пространствами, передаем их системному администратору (ID=1)
-        if (!userId.equals(1L)) {
-            spaceService.transferOwnership(userId, 1L);
-        }
+        // Передаем владение пространствами системному администратору (ID=1)
+        spaceService.transferOwnership(userId, 1L);
 
         // Выполняем soft-delete через доменный метод
         user.softDelete();
