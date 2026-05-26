@@ -159,6 +159,26 @@ public class SpaceService {
     }
 
     /**
+     * Передает владение всеми пространствами от одного пользователя другому.
+     *
+     * @param fromUserId ID старого владельца
+     * @param toUserId   ID нового владельца
+     */
+    @Transactional
+    public void transferOwnership(Long fromUserId, Long toUserId) {
+        log.info("Передача владения пространствами: от {} к {}", fromUserId, toUserId);
+
+        if (!userRepository.findById(toUserId).isPresent()) {
+            throw new UserNotFoundException(toUserId);
+        }
+
+        List<Space> ownedSpaces = spaceRepository.findByOwnerId(fromUserId);
+        for (Space space : ownedSpaces) {
+            updateSpace(space.getId(), space.getName(), space.getDescription(), toUserId);
+        }
+    }
+
+    /**
      * Удаляет пространство (soft-delete).
      * Документы внутри становятся недоступными для восстановления при восстановлении пространства.
      */
@@ -234,9 +254,6 @@ public class SpaceService {
         }
     }
 
-
-
-
     /**
      * Возвращает пространства по фильтру статуса (для ADMIN).
      */
@@ -261,13 +278,8 @@ public class SpaceService {
         return spaceRepository.count();
     }
 
-
-
     /**
      * Возвращает пространства, доступные пользователю.
-     *
-     * - ADMIN, READER, EDITOR видят все пространства (не удаленные).
-     * - GUEST видит только те, где есть явное право в space_permissions.
      *
      * @param userId    ID текущего пользователя
      * @param isAdmin   true если пользователь ADMIN
@@ -276,6 +288,20 @@ public class SpaceService {
      * @return список доступных пространств
      */
     public List<Space> getSpacesForUser(Long userId, boolean isAdmin, int page, int size) {
+        return getSpacesForUser(userId, isAdmin, null, page, size);
+    }
+
+    /**
+     * Возвращает пространства, доступные пользователю с учетом требуемого уровня доступа.
+     *
+     * @param userId         ID текущего пользователя
+     * @param isAdmin        true если пользователь ADMIN
+     * @param requiredAccess минимально требуемый тип права (может быть null для любого доступа)
+     * @param page           номер страницы
+     * @param size           размер страницы
+     * @return список доступных пространств
+     */
+    public List<Space> getSpacesForUser(Long userId, boolean isAdmin, PermissionType requiredAccess, int page, int size) {
         if (userId == null) {
             return java.util.Collections.emptyList();
         }
@@ -288,19 +314,52 @@ public class SpaceService {
 
         com.knowledgebase.domain.model.GlobalRole role = user.getRole();
 
-        // ADMIN (не GUEST) видит всё
+        // Если запрашивается доступ на запись (WRITE/OWNER), то ADMIN-READER должен видеть только разрешенные пространства,
+        // так же как и обычный READER. ADMIN-EDITOR по-прежнему видит всё.
         if (isAdmin && role != com.knowledgebase.domain.model.GlobalRole.GUEST) {
+            if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
+                if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
+                    // Для ADMIN с ролью READER при запросе WRITE проверяем явные права
+                    return findSpacesByExplicitPermissions(userId, requiredAccess);
+                }
+            }
             return spaceRepository.findAll(page, size);
         }
 
-        // READER и EDITOR видят все пространства сразу
-        if (role == com.knowledgebase.domain.model.GlobalRole.READER || role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
+        // EDITOR всегда может писать во все пространства
+        if (role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
             return spaceRepository.findAll(page, size);
         }
 
-        // GUEST (даже если isAdmin): только пространства с явными правами
+        // READER и GUEST: только пространства с явными правами, если требуется доступ выше READ
+        // Если требуется просто READ, READER видит всё.
+        if (role == com.knowledgebase.domain.model.GlobalRole.READER && (requiredAccess == null || requiredAccess == PermissionType.READ)) {
+            return spaceRepository.findAll(page, size);
+        }
+
+        // В остальных случаях (GUEST или READER, которому нужен WRITE/OWNER) — только по записям в разрешениях
+        return findSpacesByExplicitPermissions(userId, requiredAccess);
+    }
+
+    private List<Space> findSpacesByExplicitPermissions(Long userId, PermissionType requiredAccess) {
         List<SpacePermission> permissions = permissionRepository.findByUserId(userId);
-        List<Long> spaceIds = permissions.stream()
+        
+        // Фильтруем по требуемому уровню доступа
+        java.util.stream.Stream<SpacePermission> stream = permissions.stream();
+        if (requiredAccess != null) {
+            stream = stream.filter(p -> {
+                if (requiredAccess == PermissionType.READ) return true;
+                if (requiredAccess == PermissionType.WRITE) {
+                    return p.getPermissionType() == PermissionType.WRITE || p.getPermissionType() == PermissionType.OWNER;
+                }
+                if (requiredAccess == PermissionType.OWNER) {
+                    return p.getPermissionType() == PermissionType.OWNER;
+                }
+                return false;
+            });
+        }
+        
+        List<Long> spaceIds = stream
                 .map(SpacePermission::getSpaceId)
                 .distinct()
                 .toList();
@@ -314,7 +373,6 @@ public class SpaceService {
 
     /**
      * Назначает право доступа пользователю на пространство.
-
      *
      * @param spaceId        ID пространства
      * @param userId         ID пользователя
@@ -336,11 +394,28 @@ public class SpaceService {
             throw new UserNotFoundException(userId);
         }
 
-        // Проверяем дублирование
-        if (permissionRepository.existsBySpaceIdAndUserIdAndPermissionType(
-                spaceId, userId, permissionType)) {
-            throw new ConflictException(
-                "Пользователь уже имеет право " + permissionType + " на это пространство");
+        // Проверяем дублирование или избыточность (если есть WRITE/OWNER, то READ уже не нужен)
+        if (permissionRepository.existsBySpaceIdAndUserIdAndPermissionType(spaceId, userId, permissionType)) {
+            throw new ConflictException("У пользователя уже есть такие права");
+        }
+
+        if (permissionType == PermissionType.READ) {
+            boolean hasHigherAccess = permissionRepository.existsBySpaceIdAndUserIdAndPermissionType(spaceId, userId, PermissionType.WRITE) ||
+                                     permissionRepository.existsBySpaceIdAndUserIdAndPermissionType(spaceId, userId, PermissionType.OWNER);
+            if (hasHigherAccess) {
+                throw new ConflictException("У пользователя уже есть такие права");
+            }
+        }
+
+        // Улучшение: Не выдаем READER'у право READ, так как оно у него есть глобально.
+        com.knowledgebase.domain.model.User targetUser = userRepository.findByIdIncludingDeleted(userId).get();
+        if (targetUser.getRole() == com.knowledgebase.domain.model.GlobalRole.READER && permissionType == PermissionType.READ) {
+            throw new ConflictException("У пользователя уже есть такие права");
+        }
+        
+        // EDITOR'у тоже не нужно выдавать READ или WRITE
+        if (targetUser.getRole() == com.knowledgebase.domain.model.GlobalRole.EDITOR && (permissionType == PermissionType.READ || permissionType == PermissionType.WRITE)) {
+             throw new ConflictException("У пользователя уже есть такие права");
         }
 
         // Если выдается WRITE, удаляем READ

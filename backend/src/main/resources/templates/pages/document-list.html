@@ -32,7 +32,7 @@
         <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
     </div>
 
-    <div class="create-actions" style="margin-top: 5px; margin-bottom: 5px;" th:if="${currentUser.admin || currentUser.role.name() == 'EDITOR'}">
+    <div class="create-actions" id="createActions" style="margin-top: 5px; margin-bottom: 5px; display: none;">
         <button class="button-primary" id="createBtn" onclick="location.href='/documents/new'">+ Создать документ</button>
     </div>
 
@@ -185,9 +185,22 @@
         }
     };
 
+    async function checkCreatePermission() {
+        try {
+            // Запрашиваем хотя бы одно пространство с правом WRITE
+            const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=1');
+            if (spaces && spaces.length > 0) {
+                document.getElementById('createActions').style.display = 'block';
+            }
+        } catch (e) {
+            console.error('Failed to check create permission:', e);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         fetchSpaces();
         fetchDocuments();
+        checkCreatePermission();
 
         document.getElementById('applyFiltersBtn').addEventListener('click', () => {
             state.statusFilter = document.getElementById('statusFilter').value;

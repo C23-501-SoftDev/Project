@@ -86,22 +86,16 @@ public class PageController {
 
     @GetMapping("/documents/new")
     public String newDocument(@RequestParam(required = false) Long spaceId, @AuthenticationPrincipal User user, Model model) {
-        // Если spaceId передан, проверяем права на запись в это пространство
-        if (spaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
-            return "redirect:/spaces/" + spaceId;
-        }
+        // Проверяем, есть ли у пользователя доступ к созданию ХОТЯ БЫ В ОДНОМ пространстве.
+        var writableSpaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), com.knowledgebase.domain.model.PermissionType.WRITE, 0, 1);
         
-        // Если spaceId не передан, то на странице создания нужно будет его выбрать.
-        // Мы могли бы здесь запретить доступ совсем для READER/GUEST, если у них нет прав НИ В ОДНОМ пространстве.
-        // Но пока просто проверим, является ли пользователь хотя бы WRITER или ADMIN в системе.
-        // Согласно новым требованиям: READER не может создавать, WRITER может.
-        
-        if (!user.isAdmin() && user.getRole() == com.knowledgebase.domain.model.GlobalRole.READER) {
+        if (writableSpaces.isEmpty()) {
             return "redirect:/";
         }
-        // GUEST тоже не может создавать
-        if (!user.isAdmin() && user.getRole() == com.knowledgebase.domain.model.GlobalRole.GUEST) {
-             return "redirect:/";
+
+        // Если spaceId передан, проверяем права на запись в это конкретное пространство
+        if (spaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
+            return "redirect:/spaces/" + spaceId;
         }
 
         model.addAttribute("pageTitle", "Создание документа");

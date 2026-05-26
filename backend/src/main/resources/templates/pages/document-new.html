@@ -94,11 +94,42 @@
 
     async function fetchSpaces() {
         try {
-            const spaces = await apiFetch('/api/spaces');
+            // Очищаем список опций перед загрузкой
+            const spaceWrapper = document.getElementById('docSpaceWrapper');
+            const optionsDiv = spaceWrapper.querySelector('.select-options');
+            optionsDiv.innerHTML = ''; 
+
+            // Запрашиваем только те пространства, в которые у пользователя есть право WRITE
+            // Мы явно передаем requiredAccess=WRITE. 
+            // Теперь в SpaceService для READER это право будет проверяться ТОЛЬКО по таблице space_permissions.
+            const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=100');
+
+            if (!spaces || spaces.length === 0) {
+                spaceWrapper.querySelector('.select-styled').textContent = 'Нет доступных пространств для записи';
+                document.getElementById('submitBtn').disabled = true;
+                return;
+            }
+
             spaces.forEach(s => addOption('docSpaceWrapper', s.id, s.name, (id) => {
                 fetchParentDocuments(id);
             }));
-        } catch (e) { console.error(e); }
+            
+            // Если передан spaceId в URL, выбираем его автоматически
+            const urlParams = new URLSearchParams(window.location.search);
+            const preselectedSpaceId = urlParams.get('spaceId');
+            if (preselectedSpaceId) {
+                const space = spaces.find(s => s.id == preselectedSpaceId);
+                if (space) {
+                    spaceWrapper.querySelector('.select-styled').textContent = space.name;
+                    spaceWrapper.querySelector('.select-styled').style.color = 'var(--text-color)';
+                    document.getElementById('docSpace').value = space.id;
+                    fetchParentDocuments(space.id);
+                }
+            }
+        } catch (e) { 
+            console.error('Failed to fetch spaces:', e);
+            showToast('Ошибка при загрузке пространств', 'error');
+        }
     }
 
     async function fetchTemplates() {
