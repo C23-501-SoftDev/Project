@@ -139,8 +139,8 @@
                     <tr>
                         <td>${d.id}</td>
                         <td><strong>${escapeHtml(d.title)}</strong></td>
-                        <td>${d.spaceId}</td>
-                        <td>${d.authorId || 'Неизвестно'}</td>
+                        <td>${escapeHtml(d.spaceName || d.spaceId)}</td>
+                        <td>${escapeHtml(d.authorLogin || 'Неизвестно')}</td>
                         <td><span class="badge ${d.status ? d.status.toLowerCase() : ''}">${d.status || 'Draft'}</span></td>
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
@@ -263,7 +263,7 @@
             if (state.page > 0) { state.page--; fetchDocuments(); updateUrl(); }
     });
         document.getElementById('documentsNextBtn').addEventListener('click', () => {
-            if (state.page < state.totalPages - 1) { state.page++; fetchDocuments(); updateUrl(); }
+            if (state.page >= state.totalPages - 1) { state.page++; fetchDocuments(); updateUrl(); }
         });
     });
 })();

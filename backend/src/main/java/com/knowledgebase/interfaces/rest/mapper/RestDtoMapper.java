@@ -4,6 +4,7 @@ import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
@@ -23,9 +24,11 @@ import java.util.Optional;
 public class RestDtoMapper {
 
     private final UserRepository userRepository;
+    private final SpaceRepository spaceRepository;
 
-    public RestDtoMapper(UserRepository userRepository) {
+    public RestDtoMapper(UserRepository userRepository, SpaceRepository spaceRepository) {
         this.userRepository = userRepository;
+        this.spaceRepository = spaceRepository;
     }
 
     // ── User ──────────────────────────────────────────────────────────────────
@@ -101,11 +104,32 @@ public class RestDtoMapper {
 
     public DocumentResponse toDocumentResponse(Document document, String content) {
         if (document == null) return null;
+
+        // Получаем название пространства
+        String spaceName = null;
+        if (document.getSpaceId() != null) {
+            Optional<Space> space = spaceRepository.findById(document.getSpaceId());
+            if (space.isPresent()) {
+                spaceName = space.get().getName();
+            }
+        }
+
+        // Получаем логин автора
+        String authorLogin = null;
+        if (document.getAuthorId() != null) {
+            Optional<User> author = userRepository.findByIdIncludingDeleted(document.getAuthorId());
+            if (author.isPresent()) {
+                authorLogin = author.get().getLogin();
+            }
+        }
+
         return new DocumentResponse(
                 document.getId(),
                 document.getTitle(),
                 document.getSpaceId(),
+                spaceName,
                 document.getAuthorId(),
+                authorLogin,
                 document.getStatus(),
                 content,
                 document.getGitFilePath(),
@@ -114,3 +138,4 @@ public class RestDtoMapper {
         );
     }
 }
+

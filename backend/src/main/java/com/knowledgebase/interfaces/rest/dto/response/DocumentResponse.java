@@ -20,9 +20,13 @@ public record DocumentResponse(
     @Schema(description = "ID пространства", example = "1")
     Long spaceId,
 
+    @Schema(description = "Название пространства", example = "Общее")
+    String spaceName,
     @Schema(description = "ID автора", example = "2")
     Long authorId,
 
+    @Schema(description = "Логин автора", example = "ivanov")
+    String authorLogin,
     @Schema(description = "Статус документа", example = "DRAFT")
     DocumentStatus status,
 
@@ -38,3 +42,4 @@ public record DocumentResponse(
     @Schema(description = "Дата обновления")
     LocalDateTime updatedAt
 ) {}
+
