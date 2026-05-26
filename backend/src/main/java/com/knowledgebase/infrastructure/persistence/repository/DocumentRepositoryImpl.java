@@ -4,8 +4,11 @@ import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.infrastructure.persistence.entity.DocumentJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.DocumentJpaMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -67,6 +70,16 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     @Override
     public boolean existsByTitleAndSpaceIdAndNoParent(String title, Long spaceId) {
         return jpaRepository.countByTitleAndSpaceIdAndNoParent(title, spaceId) > 0;
+    }
+
+    @Override
+    public Page<Document> searchByTitle(String query, Pageable pageable) {
+        return jpaRepository.searchByTitle(query, pageable).map(mapper::toDomain);
+    }
+
+    @Override
+    public Page<Document> searchByTitleInSpaces(Collection<Long> spaceIds, String query, Pageable pageable) {
+        return jpaRepository.searchByTitleInSpaces(spaceIds, query, pageable).map(mapper::toDomain);
     }
 
     @Override
