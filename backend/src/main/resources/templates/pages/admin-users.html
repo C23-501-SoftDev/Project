@@ -220,6 +220,16 @@
             document.getElementById('usersNextBtn').disabled = state.page >= state.totalPages - 1;
         }
 
+        function updateUrl() {
+            const params = new URLSearchParams();
+            if (state.page > 0) params.set('page', state.page);
+            if (state.statusFilter !== 'active') params.set('status', state.statusFilter);
+            if (state.roleFilters.length > 0) params.set('roles', state.roleFilters.join(','));
+            if (state.searchTerm) params.set('search', state.searchTerm);
+            const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            history.replaceState(null, '', newUrl);
+        }
+
         function openCreateModal() {
             editingUserId = null;
             document.getElementById('userModalTitle').textContent = 'Создать пользователя';
@@ -383,6 +393,29 @@
         window.restoreUser = restoreUser;
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Читаем состояние из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            state.page = parseInt(urlParams.get('page')) || 0;
+            const statusParam = urlParams.get('status');
+            if (statusParam) state.statusFilter = statusParam;
+            const rolesParam = urlParams.get('roles');
+            if (rolesParam) state.roleFilters = rolesParam.split(',');
+            const searchParam = urlParams.get('search');
+            if (searchParam) state.searchTerm = searchParam;
+
+            // Устанавливаем значения в UI
+            document.getElementById('statusFilter').value = state.statusFilter;
+            const statusWrapper = document.getElementById('statusFilterWrapper');
+            const opt = statusWrapper.querySelector(`.select-option[data-value="${state.statusFilter}"]`);
+            if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
+
+            if (state.roleFilters.length > 0) {
+                document.querySelectorAll('.roleFilter').forEach(cb => {
+                    if (state.roleFilters.includes(cb.value)) cb.checked = true;
+                });
+            }
+            document.getElementById('searchInput').value = state.searchTerm;
+
             fetchUsers();
 
             // Custom Selects initialization
@@ -425,16 +458,22 @@
             });
 
             document.getElementById('usersPrevBtn').addEventListener('click', () => {
-                if (state.page > 0) { state.page--; fetchUsers(); }
+                if (state.page > 0) { state.page--; fetchUsers(); updateUrl(); }
             });
             document.getElementById('usersNextBtn').addEventListener('click', () => {
-                if (state.page < state.totalPages - 1) { state.page++; fetchUsers(); }
+                if (state.page < state.totalPages - 1) { state.page++; fetchUsers(); updateUrl(); }
             });
 
-            document.getElementById('applyFiltersBtn').addEventListener('click', applyUserFilters);
-            document.getElementById('clearFiltersBtn').addEventListener('click', clearUserFilters);
+            document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+                applyUserFilters();
+                updateUrl();
+            });
+            document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+                clearUserFilters();
+                updateUrl();
+            });
             document.getElementById('searchInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') applyUserFilters();
+                if (e.key === 'Enter') { applyUserFilters(); updateUrl(); }
             });
 
             document.getElementById('closeUserModalBtn').addEventListener('click', () => closeModal('userModal'));
@@ -443,4 +482,4 @@
             document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
         });
     })();
-</script>
+            </script>
