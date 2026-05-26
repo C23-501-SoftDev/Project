@@ -141,18 +141,18 @@
         btn.disabled = true;
         btn.textContent = 'Создание...';
 
-        try {
+            try {
             const body = { title, spaceId: parseInt(spaceId), content };
             if (templateId) body.templateId = parseInt(templateId);
             if (parentId) body.parentId = parseInt(parentId);
 
-            const response = await apiFetch('/api/documents', {
+            const document = await apiFetch('/api/documents', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
             showToast('Документ успешно создан');
-            setTimeout(() => { location.href = '/'; }, 1000);
+            setTimeout(() => { location.href = `/documents/${document.id}/edit`; }, 1000);
         } catch (e) {
             btn.disabled = false;
             btn.textContent = 'Создать и перейти к редактору';
