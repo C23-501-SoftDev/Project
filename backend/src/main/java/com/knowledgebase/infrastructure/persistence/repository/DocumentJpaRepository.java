@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -30,37 +31,58 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
 
     java.util.Optional<DocumentJpaEntity> findBySpaceIdAndTitle(Long spaceId, String title);
 
-        @Query(value = """
-                SELECT * FROM documents d
-                WHERE d.status <> 'Deleted'
-                    AND d.title ILIKE CONCAT('%', :query, '%')
-                ORDER BY d.updated_at DESC
-                """,
-                countQuery = """
-                SELECT count(*) FROM documents d
-                WHERE d.status <> 'Deleted'
-                    AND d.title ILIKE CONCAT('%', :query, '%')
-                """,
-                nativeQuery = true)
-        Page<DocumentJpaEntity> searchByTitle(@Param("query") String query, Pageable pageable);
+    @Query(value = """
+            SELECT * FROM documents d
+            WHERE d.status <> 'Deleted'
+              AND d.title ILIKE CONCAT('%', :query, '%')
+              AND (
+                    d.created_at BETWEEN :effectiveFrom AND :effectiveTo
+                    OR d.updated_at BETWEEN :effectiveFrom AND :effectiveTo
+                  )
+            ORDER BY d.updated_at DESC
+            """,
+            countQuery = """
+            SELECT count(*) FROM documents d
+            WHERE d.status <> 'Deleted'
+              AND d.title ILIKE CONCAT('%', :query, '%')
+              AND (
+                    d.created_at BETWEEN :effectiveFrom AND :effectiveTo
+                    OR d.updated_at BETWEEN :effectiveFrom AND :effectiveTo
+                  )
+            """,
+            nativeQuery = true)
+    Page<DocumentJpaEntity> searchByTitle(@Param("query") String query,
+                                          @Param("effectiveFrom") LocalDateTime effectiveFrom,
+                                          @Param("effectiveTo") LocalDateTime effectiveTo,
+                                          Pageable pageable);
 
-        @Query(value = """
-                SELECT * FROM documents d
-                WHERE d.status <> 'Deleted'
-                    AND d.space_id IN (:spaceIds)
-                    AND d.title ILIKE CONCAT('%', :query, '%')
-                ORDER BY d.updated_at DESC
-                """,
-                countQuery = """
-                SELECT count(*) FROM documents d
-                WHERE d.status <> 'Deleted'
-                    AND d.space_id IN (:spaceIds)
-                    AND d.title ILIKE CONCAT('%', :query, '%')
-                """,
-                nativeQuery = true)
-        Page<DocumentJpaEntity> searchByTitleInSpaces(@Param("spaceIds") Collection<Long> spaceIds,
-                                                                                                    @Param("query") String query,
-                                                                                                    Pageable pageable);
+    @Query(value = """
+            SELECT * FROM documents d
+            WHERE d.status <> 'Deleted'
+              AND d.space_id IN (:spaceIds)
+              AND d.title ILIKE CONCAT('%', :query, '%')
+              AND (
+                    d.created_at BETWEEN :effectiveFrom AND :effectiveTo
+                    OR d.updated_at BETWEEN :effectiveFrom AND :effectiveTo
+                  )
+            ORDER BY d.updated_at DESC
+            """,
+            countQuery = """
+            SELECT count(*) FROM documents d
+            WHERE d.status <> 'Deleted'
+              AND d.space_id IN (:spaceIds)
+              AND d.title ILIKE CONCAT('%', :query, '%')
+              AND (
+                    d.created_at BETWEEN :effectiveFrom AND :effectiveTo
+                    OR d.updated_at BETWEEN :effectiveFrom AND :effectiveTo
+                  )
+            """,
+            nativeQuery = true)
+    Page<DocumentJpaEntity> searchByTitleInSpaces(@Param("spaceIds") Collection<Long> spaceIds,
+                                                  @Param("query") String query,
+                                                  @Param("effectiveFrom") LocalDateTime effectiveFrom,
+                                                  @Param("effectiveTo") LocalDateTime effectiveTo,
+                                                  Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query(value = "SELECT count(*) FROM documents WHERE title = ?1 AND space_id = ?2 AND parent_document_id IS NULL", nativeQuery = true)
     long countByTitleAndSpaceIdAndNoParent(String title, Long spaceId);

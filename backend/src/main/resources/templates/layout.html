@@ -14,7 +14,9 @@
         </div>
         <div class="navbar-search">
             <form th:action="@{/search}" method="get">
-                <input type="text" name="q" placeholder="Поиск документов..." th:value="${searchQuery}">
+                <input type="text" name="q" class="search-query" placeholder="Поиск документов..." th:value="${searchQuery}">
+                <input type="date" name="dateFrom" class="search-date" th:value="${searchDateFrom}">
+                <input type="date" name="dateTo" class="search-date" th:value="${searchDateTo}">
                 <button type="submit" class="button-primary">Найти</button>
             </form>
         </div>

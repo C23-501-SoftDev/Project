@@ -15,7 +15,7 @@
         <sql>
             CREATE INDEX idx_documents_title_trgm
                 ON documents USING GIN (title gin_trgm_ops)
-                WHERE status <> 'Deleted';
+                WHERE status != 'Deleted';
         </sql>
 
         <rollback>
