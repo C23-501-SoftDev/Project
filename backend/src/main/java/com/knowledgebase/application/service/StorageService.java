@@ -61,6 +61,13 @@ public class StorageService {
     }
 
     /**
+     * Возвращает путь к директории вложений конкретного документа.
+     */
+    public Path getAttachmentDocumentPath(Long documentId) {
+        return getAttachmentsPath().resolve("document-" + documentId);
+    }
+
+    /**
      * Проверяет, что все хранилища доступны для чтения и записи.
      * Используется для health-check.
      */
