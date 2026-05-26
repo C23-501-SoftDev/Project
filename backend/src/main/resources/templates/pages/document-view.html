@@ -41,6 +41,7 @@
     (function () {
         const docId = document.getElementById('documentId').value;
         const attachmentList = document.getElementById('attachmentList');
+        let canManageAttachments = false;
 
         function formatFileSize(sizeBytes) {
             const units = ['B', 'KB', 'MB', 'GB'];
@@ -68,8 +69,17 @@
                         ${item.uploadedByLogin ? ` · ${escapeHtml(item.uploadedByLogin)}` : ''}
                     </div>
                 </div>
+                ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px;">Удалить</button>` : ''}
             </div>
         `).join('');
+
+            attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const attachmentId = button.getAttribute('data-attachment-id');
+                    const attachmentName = button.getAttribute('data-attachment-name') || 'вложение';
+                    await deleteAttachment(attachmentId, attachmentName);
+                });
+            });
         }
 
         async function loadAttachments() {
@@ -79,6 +89,21 @@
             } catch (e) {
                 attachmentList.innerHTML = '<div style="color:#B91C1C;">Не удалось загрузить вложения</div>';
             }
+        }
+
+        async function deleteAttachment(attachmentId, attachmentName) {
+            if (!window.confirm(`Удалить вложение «${attachmentName}»?`)) {
+                return;
+            }
+
+            await apiFetch(`/api/documents/${docId}/attachments/${attachmentId}`, {
+                method: 'DELETE'
+            });
+
+            if (typeof showToast === 'function') {
+                showToast('Вложение удалено');
+            }
+            await loadAttachments();
         }
 
         async function loadDocument() {
@@ -100,8 +125,10 @@
                     if (perms.canEdit) {
                         document.getElementById('editLink').style.display = 'inline-block';
                     }
+                    canManageAttachments = !!perms.canEdit;
                 } catch (e) {
                     console.error('Failed to load permissions:', e);
+                    canManageAttachments = false;
                 }
 
                 document.getElementById('documentContent').innerHTML = marked.parse(doc.content || '');
