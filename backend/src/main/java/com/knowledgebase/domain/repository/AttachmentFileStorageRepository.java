@@ -10,5 +10,7 @@ public interface AttachmentFileStorageRepository {
 
     void store(String storagePath, InputStream inputStream) throws IOException;
 
+    InputStream open(String storagePath) throws IOException;
+
     void delete(String storagePath) throws IOException;
 }

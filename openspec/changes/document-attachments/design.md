@@ -32,6 +32,7 @@
 ### 4. REST API (Interfaces Layer)
 - `GET /api/documents/{id}/attachments`
 - `POST /api/documents/{id}/attachments`
+- `GET /api/attachments/{attachmentId}/download`
 - `DELETE /api/documents/{id}/attachments/{attachmentId}`
 
 ## Risks / Trade-offs

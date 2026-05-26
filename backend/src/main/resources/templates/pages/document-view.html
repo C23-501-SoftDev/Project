@@ -63,7 +63,9 @@
             attachmentList.innerHTML = items.map(item => `
             <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff;">
                 <div style="min-width:0;">
-                    <div style="font-weight:600; color:#111827; word-break:break-word;">${escapeHtml(item.filename)}</div>
+                    <div style="font-weight:600; word-break:break-word;">
+                        <a href="/api/attachments/${item.id}/download" style="color:#111827; text-decoration:none;">${escapeHtml(item.filename)}</a>
+                    </div>
                     <div style="font-size:12px; color:#6B7280; margin-top:4px;">
                         ${formatFileSize(item.sizeBytes)} · ${escapeHtml(item.contentType || 'unknown')}
                         ${item.uploadedByLogin ? ` · ${escapeHtml(item.uploadedByLogin)}` : ''}

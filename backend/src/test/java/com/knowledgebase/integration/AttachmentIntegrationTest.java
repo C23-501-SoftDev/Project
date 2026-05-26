@@ -9,12 +9,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -76,6 +79,55 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
 
         assertTrue(attachmentRepository.findByDocumentId(context.document.getId(), false).isEmpty());
         assertTrue(Files.notExists(tempDir.resolve("blob-storage").resolve(storagePath)));
+    }
+
+    @Test
+    void downloadAttachment_returnsFileForUserWithReadAccess() throws Exception {
+        TestContext context = createDocumentContext();
+
+        MockMultipartFile file = new MockMultipartFile(
+                "files",
+                "specification.txt",
+                "text/plain",
+                "hello attachment".getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/documents/" + context.document.getId() + "/attachments")
+                        .file(file)
+                        .cookie(jwtCookie(context.jwt)))
+                .andExpect(status().isCreated());
+
+        long attachmentId = attachmentRepository.findByDocumentId(context.document.getId(), false).get(0).getId();
+
+        mockMvc.perform(get("/api/attachments/" + attachmentId + "/download")
+                        .cookie(jwtCookie(context.jwt)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("specification.txt")))
+                .andExpect(content().bytes("hello attachment".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void downloadAttachment_withoutSpaceReadAccess_returns403() throws Exception {
+        TestContext context = createDocumentContext();
+
+        MockMultipartFile file = new MockMultipartFile(
+                "files",
+                "secret.txt",
+                "text/plain",
+                "top secret".getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/documents/" + context.document.getId() + "/attachments")
+                        .file(file)
+                        .cookie(jwtCookie(context.jwt)))
+                .andExpect(status().isCreated());
+
+        long attachmentId = attachmentRepository.findByDocumentId(context.document.getId(), false).get(0).getId();
+
+        User guest = persistUser(uniqueLogin("guest"), "guest123", "guest@kb.local", GlobalRole.GUEST, false);
+        String guestJwt = loginAndGetJwt(guest.getLogin(), "guest123");
+
+        mockMvc.perform(get("/api/attachments/" + attachmentId + "/download")
+                        .cookie(jwtCookie(guestJwt)))
+                .andExpect(status().isForbidden());
     }
 
     @Test

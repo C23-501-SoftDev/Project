@@ -70,6 +70,7 @@
 |-------|----------|----------|--------|
 | GET | `/api/documents/{id}` | Полные данные документа (title, content, author, status, updatedAt, spaceId, templateId) | ✅ |
 | GET | `/api/documents/{id}/attachments` | Список вложений документа | ✅ |
+| GET | `/api/attachments/{attachmentId}/download` | Скачивание вложения по ID с проверкой прав чтения пространства | ✅ |
 | POST | `/api/documents/{id}/attachments` | Загрузка вложений (multipart/form-data) | ✅ |
 | DELETE | `/api/documents/{id}/attachments/{attachmentId}` | Удаление вложения | ✅ |
 | GET | `/api/documents/{id}/permissions` | Права доступа к документу (поверх прав пространства) | ❌ |
@@ -114,6 +115,7 @@
 | GET | `/api/documents/{id}` | Текущее содержимое документа для редактора | ✅ |
 | PUT | `/api/documents/{id}` | Обновление документа (создаёт новую версию в Git) | ✅ |
 | GET | `/api/documents/{id}/attachments` | Список текущих вложений | ✅ |
+| GET | `/api/attachments/{attachmentId}/download` | Скачивание вложения по ID с проверкой прав чтения пространства | ✅ |
 | POST | `/api/documents/{id}/attachments` | Загрузка вложений (multipart/form-data) | ✅ |
 | DELETE | `/api/documents/{id}/attachments/{attachmentId}` | Удаление вложения | ✅ |
 | PUT | `/api/documents/{id}/permissions` | Настройка прав доступа к документу (поверх пространственных) | ❌ |

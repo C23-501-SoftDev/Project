@@ -32,6 +32,12 @@ public class FileSystemAttachmentFileStorageRepository implements AttachmentFile
     }
 
     @Override
+    public InputStream open(String storagePath) throws IOException {
+        Path target = storageService.getBlobStoragePath().resolve(storagePath).normalize();
+        return Files.newInputStream(target);
+    }
+
+    @Override
     public void delete(String storagePath) throws IOException {
         Path target = storageService.getBlobStoragePath().resolve(storagePath).normalize();
         Files.deleteIfExists(target);

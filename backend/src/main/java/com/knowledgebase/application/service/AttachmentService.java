@@ -7,6 +7,8 @@ import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.repository.AttachmentFileStorageRepository;
 import com.knowledgebase.domain.repository.AttachmentRepository;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +37,7 @@ public class AttachmentService {
     private final AttachmentRepository attachmentRepository;
     private final AttachmentFileStorageRepository storageRepository;
     private final DocumentService documentService;
+    private final PermissionService permissionService;
 
     private final long maxFileSizeBytes;
     private final Set<String> allowedExtensions;
@@ -42,18 +45,35 @@ public class AttachmentService {
     public AttachmentService(AttachmentRepository attachmentRepository,
                              AttachmentFileStorageRepository storageRepository,
                              DocumentService documentService,
+                             PermissionService permissionService,
                              @Value("${app.storage.attachments.max-size-bytes:10485760}") long maxFileSizeBytes,
                              @Value("${app.storage.attachments.allowed-extensions:md,png,jpg,jpeg,gif,pdf,txt,docx,xlsx,pptx,zip}") String allowedExtensions) {
         this.attachmentRepository = attachmentRepository;
         this.storageRepository = storageRepository;
         this.documentService = documentService;
+        this.permissionService = permissionService;
         this.maxFileSizeBytes = maxFileSizeBytes;
         this.allowedExtensions = parseAllowedExtensions(allowedExtensions);
+    }
+
+    public boolean canDownload(Long userId, boolean isAdmin, Long attachmentId) {
+        if (userId == null) {
+            return false;
+        }
+
+        Attachment attachment = getAttachmentById(attachmentId);
+        Document document = documentService.getDocumentById(attachment.getDocumentId());
+        return permissionService.canRead(userId, isAdmin, document.getSpaceId());
     }
 
     public List<Attachment> getAttachmentsForDocument(Long documentId) {
         documentService.getDocumentById(documentId);
         return attachmentRepository.findByDocumentId(documentId, false);
+    }
+
+    public Attachment getAttachmentById(Long attachmentId) {
+        return attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new AttachmentNotFoundException(attachmentId));
     }
 
     @Transactional
@@ -101,8 +121,7 @@ public class AttachmentService {
     @Transactional
     public void deleteAttachment(Long documentId, Long attachmentId) {
         documentService.getDocumentById(documentId);
-        Attachment attachment = attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new AttachmentNotFoundException(attachmentId));
+        Attachment attachment = getAttachmentById(attachmentId);
 
         if (!documentId.equals(attachment.getDocumentId())) {
             throw new AttachmentNotFoundException(attachmentId);
@@ -118,14 +137,23 @@ public class AttachmentService {
 
     public Attachment getAttachment(Long documentId, Long attachmentId) {
         documentService.getDocumentById(documentId);
-        Attachment attachment = attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new AttachmentNotFoundException(attachmentId));
+        Attachment attachment = getAttachmentById(attachmentId);
 
         if (!documentId.equals(attachment.getDocumentId())) {
             throw new AttachmentNotFoundException(attachmentId);
         }
 
         return attachment;
+    }
+
+    public AttachmentDownloadData downloadAttachment(Long attachmentId) {
+        Attachment attachment = getAttachmentById(attachmentId);
+        try {
+            Resource resource = new InputStreamResource(storageRepository.open(attachment.getStoragePath()));
+            return new AttachmentDownloadData(attachment, resource);
+        } catch (IOException ex) {
+            throw new AttachmentValidationException("Не удалось открыть файл вложения: " + ex.getMessage());
+        }
     }
 
     private void validateFiles(List<MultipartFile> files) {
@@ -205,4 +233,6 @@ public class AttachmentService {
             }
         }
     }
+
+    public record AttachmentDownloadData(Attachment attachment, Resource resource) {}
 }
