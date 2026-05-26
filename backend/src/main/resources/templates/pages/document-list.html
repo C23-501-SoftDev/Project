@@ -165,26 +165,6 @@
         document.getElementById('documentsNextBtn').disabled = state.page >= state.totalPages - 1;
     }
 
-                window.restoreDocument = async function(id) {
-                    try {
-                        await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
-                        showToast('Документ восстановлен');
-                        fetchDocuments();
-                    } catch (e) {
-                        console.error('Restore failed:', e);
-                    }
-                };
-
-                window.deleteDocument = async function(id) {
-        try {
-            await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });
-            showToast('Документ удален');
-            fetchDocuments();
-        } catch (e) {
-            console.error('Delete failed:', e);
-        }
-    };
-
     async function checkCreatePermission() {
         try {
             // Запрашиваем хотя бы одно пространство с правом WRITE

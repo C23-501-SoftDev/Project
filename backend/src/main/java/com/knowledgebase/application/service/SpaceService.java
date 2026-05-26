@@ -317,8 +317,8 @@ public class SpaceService {
         // Если запрашивается доступ на запись (WRITE/OWNER), то ADMIN-READER должен видеть только разрешенные пространства,
         // так же как и обычный READER. ADMIN-EDITOR по-прежнему видит всё.
         if (isAdmin && role != com.knowledgebase.domain.model.GlobalRole.GUEST) {
-            if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
-                if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
+            if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
+                if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
                     // Для ADMIN с ролью READER при запросе WRITE проверяем явные права
                     return findSpacesByExplicitPermissions(userId, requiredAccess);
                 }
@@ -333,11 +333,15 @@ public class SpaceService {
 
         // READER и GUEST: только пространства с явными правами, если требуется доступ выше READ
         // Если требуется просто READ, READER видит всё.
-        if (role == com.knowledgebase.domain.model.GlobalRole.READER && (requiredAccess == null || requiredAccess == PermissionType.READ)) {
-            return spaceRepository.findAll(page, size);
+        if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
+            if (requiredAccess == null || requiredAccess == PermissionType.READ) {
+                return spaceRepository.findAll(page, size);
+            }
+            // Если READER запрашивает WRITE/OWNER - только явные права
+            return findSpacesByExplicitPermissions(userId, requiredAccess);
         }
 
-        // В остальных случаях (GUEST или READER, которому нужен WRITE/OWNER) — только по записям в разрешениях
+        // В остальных случаях (GUEST) — только по записям в разрешениях
         return findSpacesByExplicitPermissions(userId, requiredAccess);
     }
 

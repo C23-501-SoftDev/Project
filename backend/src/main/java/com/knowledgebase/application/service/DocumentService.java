@@ -37,15 +37,18 @@ public class DocumentService {
     private final DocumentContentRepository contentRepository;
     private final SpaceRepository spaceRepository;
     private final UserRepository userRepository;
+    private final com.knowledgebase.domain.repository.TemplateRepository templateRepository;
 
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
                            SpaceRepository spaceRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           com.knowledgebase.domain.repository.TemplateRepository templateRepository) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
         this.userRepository = userRepository;
+        this.templateRepository = templateRepository;
     }
 
     /**
@@ -55,18 +58,9 @@ public class DocumentService {
      * @param title    заголовок
      * @param content  содержимое Markdown
      * @param spaceId  ID пространства
-     * @param authorId ID автора
-     * @return созданный документ
-     */
-    /**
-     * Создаёт новый документ.
-     * Сначала сохраняет метаданные в БД, затем контент в Git.
-     *
-     * @param title    заголовок
-     * @param content  содержимое Markdown
-     * @param spaceId  ID пространства
      * @param parentId ID родительского документа
      * @param authorId ID автора
+     * @param templateId ID шаблона (опционально)
      * @return созданный документ
      */
     @Transactional
@@ -83,13 +77,11 @@ public class DocumentService {
         User author = userRepository.findById(authorId)
                 .orElseThrow(() -> new UserNotFoundException(authorId));
 
-        String actualContent = content;
+        String actualContent = content != null ? content : "";
         if (templateId != null) {
-            com.knowledgebase.domain.repository.TemplateRepository templateRepository = 
-                com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.domain.repository.TemplateRepository.class);
             actualContent = templateRepository.findById(templateId)
                 .map(com.knowledgebase.domain.model.Template::getContent)
-                .orElse(content);
+                .orElse(actualContent);
         }
 
         // 1. Сохраняем метаданные в БД с временным путем, чтобы получить ID
@@ -252,17 +244,27 @@ public class DocumentService {
 
     /**
      * Удаляет документ (переводит в статус DELETED и перемещает файл в .archive/).
+     * Дочерние документы привязываются к родителю удаляемого документа.
      */
     @Transactional
     public void deleteDocument(Long id) {
-        if (documentRepository.hasChildren(id)) {
-            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
-        }
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
             log.info("Документ ID {} уже удален", id);
             return;
+        }
+
+        // Перепривязываем дочерние документы к родителю текущего документа
+        Long newParentId = document.getParentDocumentId();
+        List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                .filter(d -> id.equals(d.getParentDocumentId()))
+                .toList();
+        
+        for (Document child : children) {
+            child.setParentDocumentId(newParentId);
+            documentRepository.save(child);
+            log.debug("Дочерний документ ID {} перепривязан к новому родителю ID {}", child.getId(), newParentId);
         }
 
         log.info("Архивация документа ID {}: title='{}'", id, document.getTitle());
@@ -299,6 +301,7 @@ public class DocumentService {
 
     /**
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
+     * Если родитель удален, ищет первого живого предка.
      */
     @Transactional
     public void restoreDocument(Long id) {
@@ -318,6 +321,17 @@ public class DocumentService {
                 "Нельзя восстановить документ в удаленном (неактивном) пространстве");
         }
 
+        // Проверяем родителя при восстановлении
+        if (document.getParentDocumentId() != null) {
+            Document parent = documentRepository.findById(document.getParentDocumentId()).orElse(null);
+            if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
+                // Ищем первого неудаленного предка
+                Long newParentId = findFirstActiveAncestor(document.getParentDocumentId());
+                document.setParentDocumentId(newParentId);
+                log.info("Родитель документа ID {} удален. Установлен новый предок ID {}", id, newParentId);
+            }
+        }
+
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
         String archivedPath = document.getGitFilePath();
@@ -329,6 +343,20 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.restore(originalPath);
         documentRepository.save(document);
+    }
+
+    private Long findFirstActiveAncestor(Long parentId) {
+        if (parentId == null) {
+            return null;
+        }
+        Document parent = documentRepository.findById(parentId).orElse(null);
+        if (parent == null) {
+            return null;
+        }
+        if (parent.getStatus() != DocumentStatus.DELETED) {
+            return parent.getId();
+        }
+        return findFirstActiveAncestor(parent.getParentDocumentId());
     }
 
     /**

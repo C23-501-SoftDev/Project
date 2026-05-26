@@ -68,6 +68,28 @@ async function apiFetch(url, options = {}) {
     }
 }
 
+async function deleteDocument(id) {
+    try {
+        await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });
+        if (typeof showToast === 'function') showToast('Документ удален');
+        // Reload to update the tree sidebar
+        setTimeout(() => location.reload(), 1000);
+    } catch (e) {
+        console.error('Delete failed:', e);
+    }
+}
+
+async function restoreDocument(id) {
+    try {
+        await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
+        if (typeof showToast === 'function') showToast('Документ восстановлен');
+        // Reload to update the tree sidebar
+        setTimeout(() => location.reload(), 1000);
+    } catch (e) {
+        console.error('Restore failed:', e);
+    }
+}
+
 function showToast(message, type = 'success') {
     let toast = document.getElementById('toast');
     if (!toast) {
