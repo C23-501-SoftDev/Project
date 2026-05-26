@@ -276,21 +276,29 @@ public class SpaceService {
      * @return список доступных пространств
      */
     public List<Space> getSpacesForUser(Long userId, boolean isAdmin, int page, int size) {
-        if (isAdmin) {
-            return spaceRepository.findAll(page, size);
+        if (userId == null) {
+            return java.util.Collections.emptyList();
         }
 
         // Проверяем роль пользователя
-        com.knowledgebase.domain.model.GlobalRole role = userRepository.findById(userId)
-                .map(com.knowledgebase.domain.model.User::getRole)
-                .orElse(com.knowledgebase.domain.model.GlobalRole.GUEST);
+        com.knowledgebase.domain.model.User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        com.knowledgebase.domain.model.GlobalRole role = user.getRole();
+
+        // ADMIN (не GUEST) видит всё
+        if (isAdmin && role != com.knowledgebase.domain.model.GlobalRole.GUEST) {
+            return spaceRepository.findAll(page, size);
+        }
 
         // READER и EDITOR видят все пространства сразу
         if (role == com.knowledgebase.domain.model.GlobalRole.READER || role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
             return spaceRepository.findAll(page, size);
         }
 
-        // GUEST: только пространства с явными правами
+        // GUEST (даже если isAdmin): только пространства с явными правами
         List<SpacePermission> permissions = permissionRepository.findByUserId(userId);
         List<Long> spaceIds = permissions.stream()
                 .map(SpacePermission::getSpaceId)
@@ -306,6 +314,7 @@ public class SpaceService {
 
     /**
      * Назначает право доступа пользователю на пространство.
+
      *
      * @param spaceId        ID пространства
      * @param userId         ID пользователя
@@ -332,6 +341,16 @@ public class SpaceService {
                 spaceId, userId, permissionType)) {
             throw new ConflictException(
                 "Пользователь уже имеет право " + permissionType + " на это пространство");
+        }
+
+        // Если выдается WRITE, удаляем READ
+        if (permissionType == PermissionType.WRITE) {
+            permissionRepository.deleteBySpaceIdAndUserIdAndPermissionType(spaceId, userId, PermissionType.READ);
+        }
+        // Если выдается OWNER, удаляем READ и WRITE
+        if (permissionType == PermissionType.OWNER) {
+            permissionRepository.deleteBySpaceIdAndUserIdAndPermissionType(spaceId, userId, PermissionType.READ);
+            permissionRepository.deleteBySpaceIdAndUserIdAndPermissionType(spaceId, userId, PermissionType.WRITE);
         }
 
         SpacePermission permission = SpacePermission.grant(spaceId, userId, permissionType);

@@ -335,14 +335,20 @@ public class DocumentService {
      * Возвращает все документы, к которым у пользователя есть доступ.
      */
     public List<Document> getAllAccessibleDocuments(Long userId, boolean isAdmin, boolean includeDeleted) {
-        if (isAdmin) {
-            return documentRepository.findAll(includeDeleted);
+        if (userId == null) {
+            return java.util.Collections.emptyList();
         }
 
-        // Проверяем роль пользователя
-        GlobalRole role = userRepository.findById(userId)
-                .map(User::getRole)
-                .orElse(GlobalRole.GUEST);
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        GlobalRole role = user.getRole();
+
+        if (isAdmin && role != GlobalRole.GUEST) {
+            return documentRepository.findAll(includeDeleted);
+        }
 
         if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
             return documentRepository.findAll(includeDeleted);
@@ -354,6 +360,7 @@ public class DocumentService {
 
     /**
      * Возвращает список документов в пространстве.
+
      */
     public List<Document> getDocumentsInSpace(Long spaceId, boolean includeDeleted) {
         if (!spaceRepository.findById(spaceId).isPresent()) {

@@ -52,19 +52,20 @@ public class PermissionService {
      * @return true если операция разрешена
      */
     public boolean canWrite(Long userId, boolean isAdmin, Long spaceId) {
-        if (isAdmin) {
-            return true;
-        }
         if (userId == null) {
             return false;
         }
+
+        GlobalRole role = userRepository.findById(userId)
+                .map(com.knowledgebase.domain.model.User::getRole)
+                .orElse(GlobalRole.GUEST);
+
+        if (isAdmin && role != GlobalRole.GUEST) {
+            return true;
+        }
         
         // 1. Проверяем глобальную роль (EDITOR всегда может писать)
-        boolean isGlobalEditor = userRepository.findById(userId)
-                .map(user -> user.getRole() == GlobalRole.EDITOR)
-                .orElse(false);
-        
-        if (isGlobalEditor) {
+        if (role == GlobalRole.EDITOR) {
             return true;
         }
 
@@ -88,15 +89,15 @@ public class PermissionService {
      * @return true если чтение разрешено
      */
     public boolean canRead(Long userId, boolean isAdmin, Long spaceId) {
-        if (isAdmin) {
-            return true;
-        }
         if (userId == null) {
             return false;
         }
 
         return userRepository.findById(userId)
                 .map(user -> {
+                    if (isAdmin && user.getRole() != GlobalRole.GUEST) {
+                        return true;
+                    }
                     if (user.getRole() == GlobalRole.READER || user.getRole() == GlobalRole.EDITOR) {
                         return true;
                     }
@@ -108,6 +109,7 @@ public class PermissionService {
 
     /**
      * Возвращает список типов прав пользователя в пространстве.
+
      * Используется в GET /api/user/permissions?spaceId={id}
      *
      * Для ADMIN возвращает [READ, WRITE, OWNER] — полный набор прав.
@@ -119,29 +121,36 @@ public class PermissionService {
      * @return список прав
      */
     public List<PermissionType> getUserPermissions(Long userId, boolean isAdmin, Long spaceId) {
-        if (isAdmin) {
-            // ADMIN имеет все права неявно
-            return List.of(PermissionType.READ, PermissionType.WRITE, PermissionType.OWNER);
-        }
-
         if (userId == null) {
             return List.of();
         }
 
         return userRepository.findById(userId)
                 .map(user -> {
+                    if (isAdmin && user.getRole() != GlobalRole.GUEST) {
+                        // ADMIN (кроме GUEST) имеет все права неявно
+                        return List.of(PermissionType.READ, PermissionType.WRITE, PermissionType.OWNER);
+                    }
+
                     // Базовые права на основе роли
                     java.util.Set<PermissionType> types = new java.util.HashSet<>();
-                    types.add(PermissionType.READ); // Все видят всё (кроме GUEST, но canRead это разрулит)
+                    if (user.getRole() != GlobalRole.GUEST) {
+                        types.add(PermissionType.READ); // Все видят всё (кроме GUEST, но canRead это разрулит)
+                    }
                     
                     if (user.getRole() == GlobalRole.EDITOR) {
                         types.add(PermissionType.WRITE);
                     }
                     
-                    // Добавляем явные права из БД (они могут дать WRITE пользователю с ролью READER)
+                    // Добавляем явные права из БД (они могут дать WRITE пользователю с ролью READER или GUEST)
                     if (spaceId != null) {
                         permissionRepository.findBySpaceIdAndUserId(spaceId, userId)
                                 .forEach(p -> types.add(p.getPermissionType()));
+                    }
+
+                    // Если есть WRITE или OWNER, READ не нужен в списке (т.к. WRITE подразумевает READ)
+                    if (types.contains(PermissionType.WRITE) || types.contains(PermissionType.OWNER)) {
+                        types.remove(PermissionType.READ);
                     }
                     
                     return types.stream().toList();

@@ -146,7 +146,7 @@ public class DocumentController {
         List<Document> documents;
         if (spaceId != null) {
             // Для конкретного пространства проверяем доступ
-            if (!currentUser.isAdmin() && !com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.application.service.PermissionService.class).canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
+            if (!com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.application.service.PermissionService.class).canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
                 return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
             }
             documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
