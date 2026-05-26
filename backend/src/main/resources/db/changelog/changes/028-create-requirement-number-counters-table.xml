@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="028-create-requirement-number-counters-table" author="knowledgebase-dev">
+        <comment>Таблица счетчиков для автонумерации требований по пространству и типу документа</comment>
+
+        <createTable tableName="requirement_number_counters"
+                     remarks="Счетчики автонумерации требований в документах из шаблонов">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_requirement_number_counters" nullable="false"/>
+            </column>
+            <column name="space_id" type="BIGINT" remarks="Пространство">
+                <constraints nullable="false"/>
+            </column>
+            <column name="template_id" type="BIGINT" remarks="Тип документа / шаблон">
+                <constraints nullable="false"/>
+            </column>
+            <column name="next_number" type="INT" defaultValueNumeric="1" remarks="Следующий порядковый номер">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="requirement_number_counters"
+                             columnNames="space_id, template_id"
+                             constraintName="uq_requirement_number_counters_space_template"/>
+
+        <addForeignKeyConstraint
+                baseTableName="requirement_number_counters"
+                baseColumnNames="space_id"
+                constraintName="fk_requirement_number_counters_space"
+                referencedTableName="spaces"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+                baseTableName="requirement_number_counters"
+                baseColumnNames="template_id"
+                constraintName="fk_requirement_number_counters_template"
+                referencedTableName="templates"
+                referencedColumnNames="id"
+                onDelete="CASCADE"/>
+
+        <createIndex tableName="requirement_number_counters" indexName="idx_requirement_number_counters_space_template">
+            <column name="space_id"/>
+            <column name="template_id"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="requirement_number_counters"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

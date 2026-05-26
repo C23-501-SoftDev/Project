@@ -23,12 +23,13 @@ public class Document {
     /**
      * Фабричный метод для создания нового документа.
      */
-    public static Document create(String title, Long authorId, Long spaceId, String gitFilePath) {
+    public static Document create(String title, Long authorId, Long spaceId, String gitFilePath, Long templateId) {
         Document document = new Document();
         document.title = title;
         document.authorId = authorId;
         document.spaceId = spaceId;
         document.gitFilePath = gitFilePath;
+        document.templateId = templateId;
         document.status = DocumentStatus.DRAFT;
         document.createdAt = LocalDateTime.now();
         document.updatedAt = LocalDateTime.now();

@@ -12,6 +12,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.domain.repository.TemplateRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,16 +37,22 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final DocumentContentRepository contentRepository;
     private final SpaceRepository spaceRepository;
+    private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
+    private final RequirementNumberService requirementNumberService;
 
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
                            SpaceRepository spaceRepository,
-                           UserRepository userRepository) {
+                           TemplateRepository templateRepository,
+                           UserRepository userRepository,
+                           RequirementNumberService requirementNumberService) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
+        this.templateRepository = templateRepository;
         this.userRepository = userRepository;
+        this.requirementNumberService = requirementNumberService;
     }
 
     /**
@@ -85,15 +92,14 @@ public class DocumentService {
 
         String actualContent = content;
         if (templateId != null) {
-            com.knowledgebase.domain.repository.TemplateRepository templateRepository = 
-                com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.domain.repository.TemplateRepository.class);
             actualContent = templateRepository.findById(templateId)
                 .map(com.knowledgebase.domain.model.Template::getContent)
                 .orElse(content);
+            actualContent = requirementNumberService.numberRequirements(actualContent, spaceId, templateId);
         }
 
         // 1. Сохраняем метаданные в БД с временным путем, чтобы получить ID
-        Document document = Document.create(title, authorId, spaceId, "pending/" + System.nanoTime());
+        Document document = Document.create(title, authorId, spaceId, "pending/" + System.nanoTime(), templateId);
         if (parentId != null) {
             document.setParentDocumentId(parentId);
         }

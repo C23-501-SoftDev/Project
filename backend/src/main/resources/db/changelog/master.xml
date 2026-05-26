@@ -41,5 +41,6 @@
     <include file="db/changelog/changes/025-fix-role-constraint.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/026-add-document-title-uniqueness-index.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/027-add-is-deleted-to-spaces.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/028-create-requirement-number-counters-table.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
