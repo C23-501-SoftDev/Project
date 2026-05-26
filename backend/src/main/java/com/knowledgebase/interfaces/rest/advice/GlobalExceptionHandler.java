@@ -88,6 +88,14 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(com.knowledgebase.domain.exception.AttachmentValidationException.class)
+    public ResponseEntity<ErrorResponse> handleAttachmentValidation(
+            com.knowledgebase.domain.exception.AttachmentValidationException ex,
+            HttpServletRequest request) {
+        log.warn("Ошибка валидации вложения: {}", ex.getMessage());
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
+    }
+
     // ── 403 Forbidden: ошибки авторизации ────────────────────────────────────
 
     /**
@@ -118,6 +126,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleUserNotFound(
             UserNotFoundException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(AttachmentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAttachmentNotFound(
+            AttachmentNotFoundException ex, HttpServletRequest request) {
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
     }
 

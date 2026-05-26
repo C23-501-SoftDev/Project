@@ -3,8 +3,13 @@ package com.knowledgebase.support;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.domain.repository.DocumentRepository;
+import com.knowledgebase.domain.repository.AttachmentRepository;
+import com.knowledgebase.application.service.DocumentService;
 import com.knowledgebase.infrastructure.persistence.repository.SpaceJpaRepository;
 import com.knowledgebase.infrastructure.persistence.repository.SpacePermissionJpaRepository;
+import com.knowledgebase.infrastructure.persistence.repository.AttachmentJpaRepository;
 import com.knowledgebase.infrastructure.persistence.repository.UserJpaRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,15 +58,20 @@ public abstract class IntegrationTestBase {
     @Autowired protected MockMvc mockMvc;
     @Autowired protected PasswordEncoder passwordEncoder;
     @Autowired protected UserRepository userRepository;
+    @Autowired protected SpaceRepository spaceRepository;
+    @Autowired protected DocumentService documentService;
+    @Autowired protected AttachmentRepository attachmentRepository;
 
     @Autowired protected UserJpaRepository userJpaRepository;
     @Autowired protected SpaceJpaRepository spaceJpaRepository;
     @Autowired protected SpacePermissionJpaRepository spacePermissionJpaRepository;
+    @Autowired protected AttachmentJpaRepository attachmentJpaRepository;
     @Autowired protected JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void cleanDatabase() {
         // Порядок важен из-за FK.
+        attachmentJpaRepository.deleteAll();
         spacePermissionJpaRepository.deleteAll();
         spaceJpaRepository.deleteAll();
         userJpaRepository.deleteAll();

@@ -112,6 +112,11 @@ app:
     blob:
       # Путь к blob-хранилищу для изображений и вложений
       path: ${BLOB_STORAGE_PATH:./data/blob-storage}
+    attachments:
+      # Максимальный размер одного файла вложения
+      max-size-bytes: ${ATTACHMENT_MAX_SIZE_BYTES:10485760}
+      # Разрешённые расширения файлов вложений
+      allowed-extensions: ${ATTACHMENT_ALLOWED_EXTENSIONS:md,png,jpg,jpeg,gif,pdf,txt,docx,xlsx,pptx,zip}
 ---
 # =====================================================
 # Профиль DEV — локальная разработка

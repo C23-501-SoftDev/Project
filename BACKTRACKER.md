@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-05-15
+**Дата обновления:** 2026-05-26
 
 ---
 
@@ -69,7 +69,9 @@
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
 | GET | `/api/documents/{id}` | Полные данные документа (title, content, author, status, updatedAt, spaceId, templateId) | ✅ |
-| GET | `/api/documents/{id}/attachments` | Список вложений документа | ❌ |
+| GET | `/api/documents/{id}/attachments` | Список вложений документа | ✅ |
+| POST | `/api/documents/{id}/attachments` | Загрузка вложений (multipart/form-data) | ✅ |
+| DELETE | `/api/documents/{id}/attachments/{attachmentId}` | Удаление вложения | ✅ |
 | GET | `/api/documents/{id}/permissions` | Права доступа к документу (поверх прав пространства) | ❌ |
 | GET | `/api/documents/{id}/versions?page=0&size=10` | Список версий документа | ❌ |
 | GET | `/api/user/permissions?spaceId={id}` | Права в пространстве (для отображения кнопок Edit/Delete) | ✅ |
@@ -111,9 +113,9 @@
 |-------|----------|----------|--------|
 | GET | `/api/documents/{id}` | Текущее содержимое документа для редактора | ✅ |
 | PUT | `/api/documents/{id}` | Обновление документа (создаёт новую версию в Git) | ✅ |
-| POST | `/api/blobs` | Загрузка вложения (multipart/form-data) → `{ url, id }` | ❌ |
-| DELETE | `/api/blobs/{id}` | Удаление вложения | ❌ |
-| GET | `/api/documents/{id}/attachments` | Список текущих вложений | ❌ |
+| GET | `/api/documents/{id}/attachments` | Список текущих вложений | ✅ |
+| POST | `/api/documents/{id}/attachments` | Загрузка вложений (multipart/form-data) | ✅ |
+| DELETE | `/api/documents/{id}/attachments/{attachmentId}` | Удаление вложения | ✅ |
 | PUT | `/api/documents/{id}/permissions` | Настройка прав доступа к документу (поверх пространственных) | ❌ |
 | PATCH | `/api/documents/{id}/status` | Изменение статуса (Draft → Published) | ❌ |
 | DELETE | `/api/documents/{id}` | Soft-удаление документа (статус → Deleted) | ✅ |
@@ -261,7 +263,7 @@
 | **Diff версий** | GET `/api/documents/{id}/diff` | ❌ |
 | **Откат версии** | POST `/api/documents/{id}/restore` | ❌ |
 | **Поиск** | GET `/api/documents/search` | ❌ |
-| **Вложения** | POST/DELETE `/api/blobs`, GET `/api/documents/{id}/attachments` | ❌ |
+| **Вложения** | GET/POST/DELETE `/api/documents/{id}/attachments` | ✅ |
 | **Экспорт** | GET `/api/documents/{id}/export` | ❌ |
 | **Шаблоны** | GET `/api/templates` | ❌ |
 

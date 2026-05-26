@@ -3,7 +3,7 @@ function toggleSpaceTree(spaceId) {
     if (treeElement) {
         const isVisible = treeElement.style.display !== 'none';
         treeElement.style.display = isVisible ? 'none' : 'block';
-        
+
         // Save state to localStorage to persist across navigation
         localStorage.setItem('space-tree-' + spaceId, isVisible ? 'hidden' : 'visible');
     }
@@ -37,11 +37,20 @@ function getCsrfToken() {
 
 async function apiFetch(url, options = {}) {
     const csrfToken = getCsrfToken();
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers = {
-        'Content-Type': 'application/json',
         'X-XSRF-TOKEN': csrfToken,
         ...options.headers
     };
+
+    if (!isFormData && !headers['Content-Type'] && !headers['content-type']) {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    if (isFormData) {
+        delete headers['Content-Type'];
+        delete headers['content-type'];
+    }
 
     const defaultOptions = {
         headers,
@@ -87,8 +96,8 @@ function showToast(message, type = 'success') {
 }
 
 function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, function(m) {
-        switch(m) {
+    return String(str).replace(/[&<>"']/g, function (m) {
+        switch (m) {
             case '&': return '&amp;';
             case '<': return '&lt;';
             case '>': return '&gt;';

@@ -1,7 +1,8 @@
 <div class="document-view-page">
     <input type="hidden" id="documentId" th:value="${documentId}">
-    
-    <div class="view-header" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #eee; padding-bottom:16px;">
+
+    <div class="view-header"
+        style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #eee; padding-bottom:16px;">
         <div>
             <h1 id="docTitle" style="margin:0 0 8px 0;">Загрузка...</h1>
             <div style="font-size:14px; color:#666; display: flex; align-items: center; gap: 16px;">
@@ -14,51 +15,102 @@
             </div>
         </div>
         <div class="view-actions" style="display:flex; gap:12px;">
-            <a id="editLink" href="#" class="button-primary" style="text-decoration:none; display:none;">Редактировать</a>
+            <a id="editLink" href="#" class="button-primary"
+                style="text-decoration:none; display:none;">Редактировать</a>
             <a href="/" class="button-secondary" style="text-decoration:none;">Назад к списку</a>
         </div>
     </div>
 
-    <div id="documentContent" class="markdown-body" style="background:#fff; padding:32px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); min-height:400px;">
+    <div id="documentContent" class="markdown-body"
+        style="background:#fff; padding:32px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); min-height:400px;">
         <!-- Отрендеренный контент -->
+    </div>
+
+    <div class="attachments-panel"
+        style="margin-top:24px; padding:20px; border:1px solid #E5E7EB; border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div
+            style="font-size:13px; font-weight:700; color:#4B5563; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:12px;">
+            Вложения</div>
+        <div id="attachmentList" style="display:grid; gap:10px; color:#6B7280;">Загрузка вложений...</div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 <script>
-(function() {
-    const docId = document.getElementById('documentId').value;
+    (function () {
+        const docId = document.getElementById('documentId').value;
+        const attachmentList = document.getElementById('attachmentList');
 
-    async function loadDocument() {
-        try {
-            const doc = await apiFetch(`/api/documents/${docId}`);
-            document.getElementById('docTitle').textContent = doc.title;
-            document.getElementById('docAuthor').textContent = doc.authorId;
-            document.getElementById('docDate').textContent = doc.updatedAt || 'неизвестно';
-            
-            const statusBadge = document.getElementById('docStatus');
-            statusBadge.textContent = doc.status;
-            statusBadge.className = 'badge ' + doc.status.toLowerCase();
-
-            document.getElementById('editLink').href = `/documents/${docId}/edit`;
-            
-            // Проверка прав на отображение кнопки редактирования
-            try {
-                const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
-                if (perms.canEdit) {
-                    document.getElementById('editLink').style.display = 'inline-block';
-                }
-            } catch (e) {
-                console.error('Failed to load permissions:', e);
+        function formatFileSize(sizeBytes) {
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let value = sizeBytes || 0;
+            let unitIndex = 0;
+            while (value >= 1024 && unitIndex < units.length - 1) {
+                value /= 1024;
+                unitIndex += 1;
             }
-            
-            document.getElementById('documentContent').innerHTML = marked.parse(doc.content || '');
-        } catch (e) {
-            document.getElementById('documentContent').innerHTML = '<p style="color:red;">Ошибка при загрузке документа.</p>';
+            return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
         }
-    }
 
-    document.addEventListener('DOMContentLoaded', loadDocument);
-})();
+        function renderAttachments(items) {
+            if (!items || items.length === 0) {
+                attachmentList.innerHTML = '<div style="color:#6B7280;">Вложений нет</div>';
+                return;
+            }
+
+            attachmentList.innerHTML = items.map(item => `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff;">
+                <div style="min-width:0;">
+                    <div style="font-weight:600; color:#111827; word-break:break-word;">${escapeHtml(item.filename)}</div>
+                    <div style="font-size:12px; color:#6B7280; margin-top:4px;">
+                        ${formatFileSize(item.sizeBytes)} · ${escapeHtml(item.contentType || 'unknown')}
+                        ${item.uploadedByLogin ? ` · ${escapeHtml(item.uploadedByLogin)}` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        }
+
+        async function loadAttachments() {
+            try {
+                const items = await apiFetch(`/api/documents/${docId}/attachments`);
+                renderAttachments(items);
+            } catch (e) {
+                attachmentList.innerHTML = '<div style="color:#B91C1C;">Не удалось загрузить вложения</div>';
+            }
+        }
+
+        async function loadDocument() {
+            try {
+                const doc = await apiFetch(`/api/documents/${docId}`);
+                document.getElementById('docTitle').textContent = doc.title;
+                document.getElementById('docAuthor').textContent = doc.authorId;
+                document.getElementById('docDate').textContent = doc.updatedAt || 'неизвестно';
+
+                const statusBadge = document.getElementById('docStatus');
+                statusBadge.textContent = doc.status;
+                statusBadge.className = 'badge ' + doc.status.toLowerCase();
+
+                document.getElementById('editLink').href = `/documents/${docId}/edit`;
+
+                // Проверка прав на отображение кнопки редактирования
+                try {
+                    const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
+                    if (perms.canEdit) {
+                        document.getElementById('editLink').style.display = 'inline-block';
+                    }
+                } catch (e) {
+                    console.error('Failed to load permissions:', e);
+                }
+
+                document.getElementById('documentContent').innerHTML = marked.parse(doc.content || '');
+                await loadAttachments();
+            } catch (e) {
+                document.getElementById('documentContent').innerHTML = '<p style="color:red;">Ошибка при загрузке документа.</p>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadDocument);
+    })();
 </script>

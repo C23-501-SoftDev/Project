@@ -1,10 +1,12 @@
 package com.knowledgebase.interfaces.rest.mapper;
 
 import com.knowledgebase.domain.model.Document;
+import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.interfaces.rest.dto.response.AttachmentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
@@ -111,6 +113,30 @@ public class RestDtoMapper {
                 document.getGitFilePath(),
                 document.getCreatedAt(),
                 document.getUpdatedAt()
+        );
+    }
+
+    public AttachmentResponse toAttachmentResponse(Attachment attachment) {
+        if (attachment == null) {
+            return null;
+        }
+
+        String uploaderLogin = null;
+        if (attachment.getUploadedBy() != null) {
+            uploaderLogin = userRepository.findByIdIncludingDeleted(attachment.getUploadedBy())
+                    .map(User::getLogin)
+                    .orElse(null);
+        }
+
+        return new AttachmentResponse(
+                attachment.getId(),
+                attachment.getDocumentId(),
+                attachment.getFilename(),
+                attachment.getContentType(),
+                attachment.getSizeBytes(),
+                attachment.getUploadedBy(),
+                uploaderLogin,
+                attachment.getUploadedAt()
         );
     }
 }
