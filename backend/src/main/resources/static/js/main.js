@@ -216,6 +216,76 @@ function showToast(message, type = 'success') {
     }, 2000);
 }
 
+// ── Export → attachment ───────────────────────────────────────────────────────
+
+async function exportAndAttach(docId, format) {
+    try {
+        showToast(`Экспорт в ${format.toUpperCase()}…`);
+        const response = await apiFetch(`/api/documents/${docId}/export/${format}`);
+        const blob = await response.blob();
+        const cd = response.headers.get('Content-Disposition') || '';
+        const m = cd.match(/filename\*=UTF-8''([^;]+)|filename="?([^";\r\n]+)"?/i);
+        const filename = m ? decodeURIComponent(m[1] || m[2]) : `document.${format}`;
+
+        const fd = new FormData();
+        fd.append('files', new File([blob], filename, { type: blob.type }));
+        await apiFetch(`/api/documents/${docId}/attachments`, { method: 'POST', body: fd });
+
+        showToast(`«${filename}» добавлен как вложение`);
+        if (typeof window.loadAttachments === 'function') window.loadAttachments();
+    } catch (_) { /* apiFetch уже показывает toast */ }
+}
+
+// ── Shared floating export dropdown (position:fixed — не обрезается таблицей) ─
+
+let _exportMenuEl = null;
+
+function _getExportMenuEl() {
+    if (_exportMenuEl) return _exportMenuEl;
+    _exportMenuEl = document.createElement('div');
+    _exportMenuEl.style.cssText =
+        'display:none; position:fixed; background:#fff; border:1px solid #E5E7EB;' +
+        ' border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.12); z-index:9999;' +
+        ' overflow:hidden; white-space:nowrap;';
+    ['html', 'pdf', 'docx'].forEach((fmt, i) => {
+        const a = document.createElement('a');
+        a.textContent = fmt.toUpperCase();
+        a.href = '#';
+        a.style.cssText = 'display:block; padding:8px 18px; font-size:13px; color:#111827; text-decoration:none;'
+            + (i ? ' border-top:1px solid #F3F4F6;' : '');
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = _exportMenuEl.dataset.docId;
+            _exportMenuEl.style.display = 'none';
+            if (id) exportAndAttach(Number(id), fmt);
+        });
+        _exportMenuEl.appendChild(a);
+    });
+    document.body.appendChild(_exportMenuEl);
+    document.addEventListener('click', () => { _exportMenuEl.style.display = 'none'; });
+    return _exportMenuEl;
+}
+
+function openExportMenu(e, docId) {
+    e.stopPropagation();
+    const menu = _getExportMenuEl();
+    const btn = e.currentTarget || e.target;
+    const rect = btn.getBoundingClientRect();
+    const sameDoc = menu.dataset.docId === String(docId);
+    const wasVisible = sameDoc && menu.style.display !== 'none';
+    menu.style.display = 'none';
+    if (wasVisible) return;
+
+    menu.dataset.docId = String(docId);
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.left = rect.left + 'px';
+    menu.style.display = 'block';
+    const mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth - 8) {
+        menu.style.left = (rect.right - mr.width) + 'px';
+    }
+}
+
 function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, function (m) {
         switch (m) {

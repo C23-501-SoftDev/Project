@@ -1,6 +1,7 @@
 package com.knowledgebase.interfaces.rest.controller;
 
 import com.knowledgebase.application.service.DocumentService;
+import com.knowledgebase.application.service.PermissionService;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.dto.request.CreateDocumentRequest;
@@ -35,12 +36,17 @@ import java.util.List;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final PermissionService permissionService;
     private final RestDtoMapper mapper;
 
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
 
     public DocumentController(DocumentService documentService, RestDtoMapper mapper) {
+    public DocumentController(DocumentService documentService,
+                               PermissionService permissionService,
+                               RestDtoMapper mapper) {
         this.documentService = documentService;
+        this.permissionService = permissionService;
         this.mapper = mapper;
     }
 
@@ -148,30 +154,29 @@ public class DocumentController {
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal User currentUser) {
         
-        List<Document> documents;
+        List<DocumentResponse> pagedContent;
+        long totalElements;
+
         if (spaceId != null) {
-            // Для конкретного пространства проверяем доступ
-            if (!com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.application.service.PermissionService.class).canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
-                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+            if (!permissionService.canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
-            documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
+            pagedContent = documentService.getDocumentsInSpacePaged(spaceId, includeDeleted, page, size)
+                    .stream().map(doc -> mapper.toDocumentResponse(doc, null)).toList();
+            totalElements = documentService.countDocumentsInSpace(spaceId, includeDeleted);
         } else {
-            // Получить все документы, доступные пользователю (через сервис)
-            documents = documentService.getAllAccessibleDocuments(currentUser.getId(), currentUser.isAdmin(), includeDeleted);
+            List<Document> all = documentService.getAllAccessibleDocuments(
+                    currentUser.getId(), currentUser.isAdmin(), includeDeleted);
+            totalElements = all.size();
+            int from = Math.min(page * size, (int) totalElements);
+            int to = Math.min(from + size, (int) totalElements);
+            pagedContent = all.subList(from, to).stream()
+                    .map(doc -> mapper.toDocumentResponse(doc, null)).toList();
         }
 
-        // Ручная пагинация (так как сервис возвращает List)
-        int totalElements = documents.size();
         int totalPages = (int) Math.ceil((double) totalElements / size);
-        int fromIndex = Math.min(page * size, totalElements);
-        int toIndex = Math.min(fromIndex + size, totalElements);
-        
-        List<DocumentResponse> pagedResponse = documents.subList(fromIndex, toIndex).stream()
-                .map(doc -> mapper.toDocumentResponse(doc, null))
-                .toList();
-
         java.util.Map<String, Object> result = new java.util.HashMap<>();
-        result.put("content", pagedResponse);
+        result.put("content", pagedContent);
         result.put("totalElements", totalElements);
         result.put("totalPages", totalPages);
         result.put("size", size);
