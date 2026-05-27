@@ -27,6 +27,7 @@ public class UserJpaMapper {
         entity.setEmail(user.getEmail());
         entity.setRole(user.getRole() != null ? user.getRole().getDbValue() : null);
         entity.setIsAdmin(user.getIsAdmin());
+        entity.setFullName(user.getFullName());
         entity.setIsDeleted(user.getIsDeleted());
         entity.setCreatedAt(user.getCreatedAt());
         entity.setUpdatedAt(user.getUpdatedAt());
@@ -51,6 +52,7 @@ public class UserJpaMapper {
                 role,
                 entity.isAdmin(),
                 entity.isDeleted(),
+                entity.getFullName(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

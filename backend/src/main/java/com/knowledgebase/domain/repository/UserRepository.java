@@ -146,7 +146,6 @@ public interface UserRepository {
     boolean hasVersions(Long userId);
 
     /**
-    /**
      * Находит активных пользователей по списку ID.
      * @param ids список ID пользователей
      * @return список активных пользователей
@@ -176,4 +175,23 @@ public interface UserRepository {
      * @return количество пользователей
      */
     long countWithFilters(Boolean includeDeleted, List<String> roles, List<String> isAdmin, String search);
+
+    /**
+     * Поиск пользователей по части логина или части ФИО (case-insensitive).
+     * Возвращает пользователей с учётом флага includeDeleted.
+     * @param query часть логина или ФИО
+     * @param page номер страницы (0-based)
+     * @param size размер страницы
+     * @param includeDeleted включать ли удалённых пользователей
+     * @return список пользователей
+     */
+    List<User> search(String query, int page, int size, boolean includeDeleted);
+
+    /**
+     * Возвращает общее количество результатов поиска (для пагинации).
+     * @param query запрос поиска
+     * @param includeDeleted включать ли удалённых пользователей
+     * @return количество найденных пользователей
+     */
+    long countSearch(String query, boolean includeDeleted);
 }
