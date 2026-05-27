@@ -102,6 +102,27 @@ async function applyDocumentSpaceFilter(page, spaceId, spaceName) {
   await page.locator("#applyFiltersBtn").click();
 }
 
+async function waitDocumentsLoaded(page) {
+  await expect(page.locator("#documentsTbody")).not.toContainText("Загрузка...", {
+    timeout: 15_000,
+  });
+}
+
+async function goToLastDocumentsPage(page) {
+  const next = page.locator("#documentsNextBtn");
+  while (await next.isEnabled()) {
+    const reload = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/documents?") &&
+        r.request().method() === "GET" &&
+        r.ok()
+    );
+    await next.click();
+    await reload;
+    await waitDocumentsLoaded(page);
+  }
+}
+
 module.exports = {
   selectCustomOption,
   selectCustomOptionByText,
@@ -113,4 +134,6 @@ module.exports = {
   goToLastSpacesPage,
   selectFirstSpaceOwner,
   applyDocumentSpaceFilter,
+  waitDocumentsLoaded,
+  goToLastDocumentsPage,
 };

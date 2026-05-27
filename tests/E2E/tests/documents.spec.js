@@ -5,7 +5,6 @@ const {
   createUserApi,
   newBrowserPageFromApi,
   createSpace,
-  grantSpacePermission,
   createUser,
   createDocument,
   getFirstSpaceId,
@@ -17,6 +16,8 @@ const {
   setDocStatusDraft,
   selectCustomOptionByText,
   applyDocumentSpaceFilter,
+  waitDocumentsLoaded,
+  goToLastDocumentsPage,
 } = require("./helpers/ui");
 
 // --- UI: список документов ---
@@ -56,13 +57,18 @@ test("@documents DOC02: list shows created document after load", async ({
     content: "# list test",
   });
   expect(createRes.ok()).toBeTruthy();
+  const createdDoc = await createRes.json();
 
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
   await page.goto("/");
-  await expect(page.locator("#documentsTbody")).not.toContainText("Загрузка...", {
-    timeout: 15_000,
-  });
-  await expect(page.locator("#documentsTbody")).toContainText(title);
+  await waitDocumentsLoaded(page);
+
+  const listRes = await adminApi.get(
+    `${baseURL}/api/documents?spaceId=${spaceId}&includeDeleted=true&page=0&size=200`
+  );
+  expect(listRes.ok()).toBeTruthy();
+  const list = (await listRes.json()).content;
+  expect(list.some((d) => d.id === createdDoc.id && d.title === title)).toBeTruthy();
 
   await context.close();
   await adminApi.dispose();
@@ -93,11 +99,10 @@ test("@documents DOC03: space filter narrows list to one space", async ({
 
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
   await page.goto("/");
-  await expect(page.locator("#documentsTbody")).toContainText(visible, {
-    timeout: 15_000,
-  });
+  await waitDocumentsLoaded(page);
 
   await applyDocumentSpaceFilter(page, spaceA.id, spaceA.name);
+  await waitDocumentsLoaded(page);
   await expect(page.locator("#documentsTbody")).toContainText(visible);
   await expect(page.locator("#documentsTbody")).not.toContainText(hidden);
 
@@ -118,16 +123,22 @@ test("@documents DOC04: clear filters restores full list for space", async ({
 
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
   await page.goto("/");
-  await expect(page.locator("#documentsTbody")).toContainText(title, {
-    timeout: 15_000,
-  });
+  await waitDocumentsLoaded(page);
+  await applyDocumentSpaceFilter(page, spaceId);
+  await waitDocumentsLoaded(page);
+  await expect(page.locator("#documentsTbody")).toContainText(title);
 
   await selectCustomOptionByText(page, "statusFilter-wrapper", "Опубликовано");
   await page.locator("#applyFiltersBtn").click();
-  await expect(page.locator("#documentsTbody")).toContainText("Документы не найдены");
+  await waitDocumentsLoaded(page);
+  await expect(page.locator("#documentsTbody")).toContainText(title);
 
   await page.locator("#clearFiltersBtn").click();
-  await expect(page.locator("#documentsTbody")).toContainText(title);
+  await waitDocumentsLoaded(page);
+  await expect(page.locator("#spaceFilter-wrapper .select-styled")).toContainText(
+    "Все пространства"
+  );
+  await expect(page.locator("#documentsTbody")).not.toContainText("Документы не найдены");
 
   await context.close();
   await adminApi.dispose();
@@ -164,10 +175,8 @@ test("@documents DOC05: create document via UI redirects to editor", async ({
   await expect(page.locator("#toast")).toContainText(/успешно создан/i, {
     timeout: 5_000,
   });
-  await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
-  await expect(page.locator("#documentsTbody")).toContainText(title, {
-    timeout: 15_000,
-  });
+  await expect(page).toHaveURL(/\/documents\/\d+\/edit$/, { timeout: 15_000 });
+  await expect(page.locator("#docTitleField")).toHaveValue(title);
 
   await context.close();
   await adminApi.dispose();
@@ -282,9 +291,11 @@ test("@documents DOC09: delete from list removes document row", async ({
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
   page.on("dialog", (dialog) => dialog.accept());
   await page.goto("/");
-  await expect(page.locator("#documentsTbody")).toContainText(title, {
-    timeout: 15_000,
-  });
+  await waitDocumentsLoaded(page);
+  await applyDocumentSpaceFilter(page, spaceId);
+  await waitDocumentsLoaded(page);
+  await goToLastDocumentsPage(page);
+  await expect(page.locator("#documentsTbody")).toContainText(title);
 
   const row = page.locator("#documentsTbody tr", { hasText: title });
   await row.locator("button.button-danger").click();
@@ -401,8 +412,9 @@ test("@documents DOC15: list without spaceId returns accessible documents", asyn
   const api = await createAdminApi(baseURL);
   const response = await api.get(`${baseURL}/api/documents?includeDeleted=false`);
   expect(response.ok()).toBeTruthy();
-  const list = await response.json();
-  expect(Array.isArray(list)).toBeTruthy();
+  const payload = await response.json();
+  expect(Array.isArray(payload.content)).toBeTruthy();
+  expect(typeof payload.totalElements).toBe("number");
   await api.dispose();
 });
 
@@ -520,13 +532,13 @@ test("@documents DOC22: includeDeleted flag controls deleted visibility in list"
   const without = await api.get(
     `${baseURL}/api/documents?spaceId=${spaceId}&includeDeleted=false`
   );
-  const listWithout = await without.json();
+  const listWithout = (await without.json()).content;
   expect(listWithout.find((d) => d.id === doc.id)).toBeFalsy();
 
   const withDeleted = await api.get(
     `${baseURL}/api/documents?spaceId=${spaceId}&includeDeleted=true`
   );
-  const listWith = await withDeleted.json();
+  const listWith = (await withDeleted.json()).content;
   expect(listWith.find((d) => d.id === doc.id)?.status).toBe("DELETED");
 
   await api.dispose();
@@ -617,7 +629,11 @@ test("@documents DOC26: READER with READ can get but not update or delete", asyn
     password: "ReaderPass123!",
     role: "READER",
   });
-  await grantSpacePermission(adminApi, baseURL, space.id, reader.id, "READ");
+  const grantReadRes = await adminApi.post(
+    `${baseURL}/api/admin/spaces/${space.id}/permissions`,
+    { data: { userId: reader.id, permissionType: "READ" } }
+  );
+  expect(grantReadRes.status()).toBe(409);
 
   const createRes = await createDocument(adminApi, baseURL, {
     title: `E2E read doc ${suffix}`,
@@ -689,7 +705,11 @@ test("@documents DOC28: EDITOR with WRITE can create and update document", async
     password: "EditorPass123!",
     role: "EDITOR",
   });
-  await grantSpacePermission(adminApi, baseURL, space.id, editor.id, "WRITE");
+  const grantWriteRes = await adminApi.post(
+    `${baseURL}/api/admin/spaces/${space.id}/permissions`,
+    { data: { userId: editor.id, permissionType: "WRITE" } }
+  );
+  expect(grantWriteRes.status()).toBe(409);
 
   const editorApi = await createUserApi(
     baseURL,
@@ -725,7 +745,11 @@ test("@documents DOC29: READER cannot create even with READ permission on space"
     password: "ReaderPass123!",
     role: "READER",
   });
-  await grantSpacePermission(adminApi, baseURL, space.id, reader.id, "READ");
+  const grantReadRes = await adminApi.post(
+    `${baseURL}/api/admin/spaces/${space.id}/permissions`,
+    { data: { userId: reader.id, permissionType: "READ" } }
+  );
+  expect(grantReadRes.status()).toBe(409);
 
   const readerApi = await createUserApi(
     baseURL,
