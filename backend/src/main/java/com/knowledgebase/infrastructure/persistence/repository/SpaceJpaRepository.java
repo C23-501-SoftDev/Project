@@ -25,6 +25,8 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
 
     Page<SpaceJpaEntity> findByIsDeletedFalse(Pageable pageable);
 
+    List<SpaceJpaEntity> findByIsDeletedFalseOrderByCreatedAtDesc();
+
     Page<SpaceJpaEntity> findByIsDeletedTrue(Pageable pageable);
 
     List<SpaceJpaEntity> findAllByIdInAndIsDeletedFalse(Set<Long> ids);

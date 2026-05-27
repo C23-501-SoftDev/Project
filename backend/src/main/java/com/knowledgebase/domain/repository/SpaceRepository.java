@@ -41,6 +41,11 @@ public interface SpaceRepository {
     List<Space> findAll(int page, int size);
 
     /**
+     * Возвращает все активные пространства без пагинации.
+     */
+    List<Space> findAllActive();
+
+    /**
      * Возвращает только удаленные пространства (для ADMIN).
      */
     List<Space> findDeleted(int page, int size);
