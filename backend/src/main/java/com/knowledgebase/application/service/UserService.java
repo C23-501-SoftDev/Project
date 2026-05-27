@@ -124,11 +124,22 @@ public class UserService {
         }
 
         // Применяем изменения через метод домена
-        user.updateProfile(login, email, role, isAdmin);
+        user.updateProfile(login, email, role, isAdmin, null);
 
         User updated = userRepository.save(user);
         log.info("Пользователь обновлён: id={}", userId);
         return updated;
+    }
+
+    /**
+     * Поиск пользователей по части логина или ФИО. Возвращает только активных.
+     */
+    public List<User> searchUsers(String query, int page, int size, boolean includeDeleted) {
+        return userRepository.search(query, page, size, includeDeleted);
+    }
+
+    public long countSearchUsers(String query, boolean includeDeleted) {
+        return userRepository.countSearch(query, includeDeleted);
     }
 
     /**

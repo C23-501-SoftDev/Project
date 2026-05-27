@@ -41,6 +41,24 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
 
     long countByIsDeletedFalse();
 
+            @Query(value = "SELECT * FROM users WHERE is_deleted = false AND (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                countQuery = "SELECT COUNT(*) FROM users WHERE is_deleted = false AND (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                nativeQuery = true)
+            Page<UserJpaEntity> searchByLoginOrFullName(@Param("q") String q, Pageable pageable);
+
+            @Query(value = "SELECT COUNT(*) FROM users WHERE is_deleted = false AND (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                nativeQuery = true)
+            long countByLoginOrFullName(@Param("q") String q);
+
+            @Query(value = "SELECT * FROM users WHERE (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                countQuery = "SELECT COUNT(*) FROM users WHERE (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                nativeQuery = true)
+            Page<UserJpaEntity> searchByLoginOrFullNameIncludingDeleted(@Param("q") String q, Pageable pageable);
+
+            @Query(value = "SELECT COUNT(*) FROM users WHERE (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                nativeQuery = true)
+            long countByLoginOrFullNameIncludingDeleted(@Param("q") String q);
+
     @Query(value = "SELECT COUNT(*) > 0 FROM spaces WHERE owner_id = :userId", nativeQuery = true)
     boolean hasOwnedSpaces(@Param("userId") Long userId);
 }

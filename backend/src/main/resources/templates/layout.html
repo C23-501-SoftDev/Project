@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle} ?: 'База знаний'">База знаний</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
 </head>
+
 <body>
     <!-- Навигационная панель -->
     <nav class="navbar" th:if="${currentUser != null}">
@@ -14,21 +16,23 @@
         </div>
         <div class="navbar-search">
             <form th:action="@{/search}" method="get">
-                <input type="text" name="q" class="search-query" placeholder="Поиск документов..." th:value="${searchQuery}">
+                <input type="text" name="q" class="search-query" placeholder="Поиск документов..."
+                    th:value="${searchQuery}">
                 <input type="date" name="dateFrom" class="search-date" th:value="${searchDateFrom}">
                 <input type="date" name="dateTo" class="search-date" th:value="${searchDateTo}">
                 <button type="submit" class="button-primary">Найти</button>
             </form>
         </div>
         <div class="navbar-menu">
-                    <span class="user-info" th:text="${currentUser.login}">Пользователь</span>
-                    <span class="user-role" th:text="${currentUser.role.name()}">Роль</span>
-                    <a th:if="${currentUser.admin}" th:href="@{/admin/users}" class="button-primary" style="text-decoration:none;">Админ-панель</a>
-                    <form th:action="@{/logout}" method="post" style="display:inline;">
-                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                        <button type="submit" class="button-danger">Выйти</button>
-                    </form>
-                </div>
+            <span class="user-info" th:text="${currentUser.login}">Пользователь</span>
+            <span class="user-role" th:text="${currentUser.role.name()}">Роль</span>
+            <a th:if="${currentUser.admin}" th:href="@{/admin/users}" class="button-primary"
+                style="text-decoration:none;">Админ-панель</a>
+            <form th:action="@{/logout}" method="post" style="display:inline;">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="button-danger">Выйти</button>
+            </form>
+        </div>
     </nav>
 
     <!-- Основной контент -->
@@ -41,18 +45,18 @@
             <div class="space-tree" th:if="${spaces != null}">
                 <ul class="space-list">
                     <li th:each="space : ${spaces}" class="space-item">
-                        <button type="button" 
-                                class="space-button"
-                                th:onclick="'toggleSpaceTree(' + ${space.id} + ')'"
-                                th:text="${space.name}"
-                                th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'">
+                        <button type="button" class="space-button" th:onclick="'toggleSpaceTree(' + ${space.id} + ')'"
+                            th:text="${space.name}"
+                            th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'">
                             Пространство
                         </button>
                         <!-- Дерево отображается, если оно было загружено, скрытие/раскрытие через JS -->
-                        <div th:id="'tree-' + ${space.id}" 
-                             th:style="${currentSpace != null && currentSpace.id == space.id} ? 'display:block' : 'display:none'">
+                        <div th:id="'tree-' + ${space.id}"
+                            th:style="${currentSpace != null && currentSpace.id == space.id} ? 'display:block' : 'display:none'">
                             <div th:if="${spaceTrees != null && spaceTrees.get(space.id) != null}">
-                                <div th:replace="~{fragments/document-tree :: documentTree(${spaceTrees.get(space.id)})}"></div>
+                                <div
+                                    th:replace="~{fragments/document-tree :: documentTree(${spaceTrees.get(space.id)})}">
+                                </div>
                             </div>
                         </div>
                     </li>
@@ -71,4 +75,5 @@
     <script th:src="@{/js/main.js}"></script>
     <script th:src="@{/js/custom-select.js}"></script>
 </body>
+
 </html>
