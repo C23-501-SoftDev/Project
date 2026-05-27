@@ -36,14 +36,14 @@ public interface SpaceRepository {
     Optional<Space> findByName(String name);
 
     /**
-     * Возвращает все пространства (включая удаленные) без пагинации (для списка).
-     */
-    List<Space> findAllActive();
-
-    /**
      * Возвращает все пространства с пагинацией (включая удаленные) (для ADMIN).
      */
     List<Space> findAll(int page, int size);
+
+    /**
+     * Возвращает все активные пространства без пагинации.
+     */
+    List<Space> findAllActive();
 
     /**
      * Возвращает только удаленные пространства (для ADMIN).
