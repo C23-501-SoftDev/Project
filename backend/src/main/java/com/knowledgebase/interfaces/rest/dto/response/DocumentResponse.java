@@ -33,6 +33,9 @@ public record DocumentResponse(
     @Schema(description = "Содержимое документа (Markdown)", example = "# Текст")
     String content,
 
+    @Schema(description = "Содержимое документа (HTML, сгенерированный из Markdown)")
+    String contentHtml,
+
     @Schema(description = "Путь к файлу в Git", example = "spaces/1/101.md")
     String gitFilePath,
 
