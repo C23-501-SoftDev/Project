@@ -212,12 +212,17 @@ public class AttachmentService {
         }
     }
 
+    /** Проверяет, что список файлов не пустой. */
     private void validateFiles(List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             throw new AttachmentValidationException("Необходимо выбрать хотя бы один файл для загрузки");
         }
     }
 
+    /**
+     * Проверяет единичный файл: не пустой, размер и расширение.
+     * @throws AttachmentValidationException при нарушении ограничений
+     */
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new AttachmentValidationException("Файл не может быть пустым");
@@ -233,11 +238,13 @@ public class AttachmentService {
         }
     }
 
+    /** Формирует уникальный путь для хранения файла во внешнем хранилище. */
     private String buildStoragePath(Long documentId, String originalFilename) {
         String safeName = originalFilename.replaceAll("[\\\\/:*?\"<>|\\s]+", "_");
         return String.join("/", "attachments", "document-" + documentId, UUID.randomUUID() + "-" + safeName);
     }
 
+    /** Нормализует и валидирует исходное имя файла. */
     private String normalizeOriginalFilename(String originalFilename) {
         if (originalFilename == null || originalFilename.isBlank()) {
             throw new AttachmentValidationException("Имя файла не может быть пустым");
@@ -267,6 +274,7 @@ public class AttachmentService {
         return extensions;
     }
 
+    /** Форматирует допустимые расширения в строку, например ".jpg, .png". */
     private String formatAllowedExtensions() {
         return allowedExtensions.stream()
                 .sorted()
@@ -280,6 +288,10 @@ public class AttachmentService {
         return String.format(Locale.ROOT, "%.1f MB", megabytes);
     }
 
+    /**
+     * Пытается удалить список ранее сохранённых путей — используется при откате
+     * после ошибки загрузки нескольких файлов.
+     */
     private void cleanupStoredFiles(List<String> storedPaths) {
         for (String storedPath : storedPaths) {
             try {
@@ -290,5 +302,8 @@ public class AttachmentService {
         }
     }
 
+    /**
+     * DTO: содержит метаданные вложения и {@link Resource} для передачи в ответе.
+     */
     public record AttachmentDownloadData(Attachment attachment, Resource resource) {}
 }
