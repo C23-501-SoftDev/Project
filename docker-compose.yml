@@ -66,5 +66,20 @@ services:
       retries: 20
     restart: unless-stopped
 
+  e2e:
+    image: mcr.microsoft.com/playwright:latest
+    container_name: kb_e2e
+    profiles: ["e2e"]
+    working_dir: /e2e
+    environment:
+      E2E_BASE_URL: http://app:8080
+    volumes:
+      - ./tests/E2E:/e2e
+    depends_on:
+      app:
+        condition: service_healthy
+    command: >
+      bash -lc "npm ci && npx playwright test"
+
 volumes:
   postgres_data:
