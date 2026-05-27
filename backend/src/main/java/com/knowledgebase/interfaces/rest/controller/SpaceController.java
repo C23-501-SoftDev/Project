@@ -1,14 +1,10 @@
 package com.knowledgebase.interfaces.rest.controller;
 
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
-import com.knowledgebase.domain.repository.SpaceRepository;
-import com.knowledgebase.domain.repository.UserRepository;
-import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
-import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.interfaces.rest.advice.ErrorResponse;
 import com.knowledgebase.interfaces.rest.dto.request.CreateSpaceRequest;
 import com.knowledgebase.interfaces.rest.dto.request.GrantPermissionRequest;
@@ -30,16 +26,12 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 
 
 /**
  * Контроллер управления пространствами.
  *
  * Административные эндпоинты (ADMIN only):
- * - GET  /api/admin/spaces                        — список всех пространств
- * - POST /api/admin/spaces                        — создание пространства
  * - POST /api/admin/spaces/{spaceId}/permissions  — назначение прав
  *
  * Пользовательские эндпоинты (все авторизованные):
@@ -301,6 +293,34 @@ public class SpaceController {
         boolean isAdmin = currentUser.isAdmin();
         List<Space> spaces = spaceService.getSpacesForUser(
                 currentUser.getId(), isAdmin, requiredAccess);
+
+        List<SpaceResponse> response = spaces.stream()
+                .map(mapper::toSpaceResponse)
+                .toList();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/spaces/search
+     * Поиск пространств текущего пользователя по названию.
+     */
+    @GetMapping("/api/spaces/search")
+    @Operation(summary = "Поиск пространств",
+               description = "Возвращает пространства текущего пользователя, названия которых содержат поисковый запрос.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Список найденных пространств"),
+        @ApiResponse(responseCode = "401", description = "Не аутентифицирован")
+    })
+    public ResponseEntity<List<SpaceResponse>> searchSpaces(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(name = "q", required = false) String query,
+            @RequestParam(required = false) com.knowledgebase.domain.model.PermissionType requiredAccess,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+
+        boolean isAdmin = currentUser.isAdmin();
+        List<Space> spaces = spaceService.searchSpacesForUser(
+                currentUser.getId(), isAdmin, requiredAccess, query, page, size);
 
         List<SpaceResponse> response = spaces.stream()
                 .map(mapper::toSpaceResponse)
