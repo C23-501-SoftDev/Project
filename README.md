@@ -85,6 +85,29 @@ This means the **startup script automatically configured git SSH remote** for yo
 
 Press `Ctrl+C` to exit logs.
 
+### Email notifications
+
+The backend sends email notifications asynchronously in response to domain events (user created, space permission granted, document updated). Delivery happens only after the originating database transaction commits, and a failed email never breaks the business operation.
+
+Environment variables:
+
+- `NOTIFICATIONS_ENABLED`: `false` (default) logs the email instead of sending it (no SMTP server required); `true` delivers via SMTP.
+- `NOTIFICATIONS_FROM`: sender address (`no-reply@knowledgebase.local` by default).
+- `NOTIFICATIONS_ADMIN_EMAIL`: default recipient for the admin test email.
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: SMTP connection settings (used when enabled).
+- `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS`: SMTP auth/STARTTLS toggles (`true` by default).
+
+Verify SMTP configuration with the admin-only test endpoint:
+
+```bash
+curl -X POST http://localhost:8080/api/admin/notifications/test \
+  -H "Content-Type: application/json" \
+  --cookie "JWT=<admin-jwt>" \
+  -d '{"recipient":"you@example.com"}'
+```
+
+The endpoint returns `202 Accepted` with `{ recipient, queued, notificationsEnabled }`. SMTP availability does not affect `/actuator/health`.
+
 ### Step 4: Verify
 
 Check container status:
@@ -609,6 +632,14 @@ Project/
 | DELETE | `/api/admin/spaces/{id}` | Удаление пространства (RESTRICT если есть документы) | ❌ |
 | POST | `/api/admin/spaces/{spaceId}/permissions` | Назначение прав (`{ userId, permissionType: READ\|WRITE\|OWNER }`) | ✅ |
 | GET | `/api/admin/spaces/{id}/permissions` | Список прав пространства (с полями userLogin, userEmail) | ✅ |
+
+---
+
+## Админ-панель: Уведомления
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| POST | `/api/admin/notifications/test` | Отправка тестового письма для проверки SMTP (`{ recipient? }`); ответ `202` с `{ recipient, queued, notificationsEnabled }` | ✅ |
 
 ---
 

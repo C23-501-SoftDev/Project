@@ -1,5 +1,6 @@
 package com.knowledgebase.application.service;
 
+import com.knowledgebase.domain.event.SpacePermissionGrantedEvent;
 import com.knowledgebase.domain.exception.ConflictException;
 import com.knowledgebase.domain.exception.SpaceNotFoundException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
@@ -11,6 +12,7 @@ import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,17 +37,20 @@ public class SpaceService {
     private final UserRepository userRepository;
     private final com.knowledgebase.domain.repository.DocumentContentRepository contentRepository;
     private final DocumentService documentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SpaceService(SpaceRepository spaceRepository,
                         SpacePermissionRepository permissionRepository,
                         UserRepository userRepository,
                         com.knowledgebase.domain.repository.DocumentContentRepository contentRepository,
-                        DocumentService documentService) {
+                        DocumentService documentService,
+                        ApplicationEventPublisher eventPublisher) {
         this.spaceRepository = spaceRepository;
         this.permissionRepository = permissionRepository;
         this.userRepository = userRepository;
         this.contentRepository = contentRepository;
         this.documentService = documentService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -430,6 +435,10 @@ public class SpaceService {
 
         SpacePermission permission = SpacePermission.grant(spaceId, userId, permissionType);
         SpacePermission saved = permissionRepository.save(permission);
+
+        // Публикуем событие для уведомления пользователя (email и т.д.).
+        eventPublisher.publishEvent(new SpacePermissionGrantedEvent(
+                spaceId, userId, permissionType.name()));
 
         log.info("Право назначено: spaceId={}, userId={}, type={}", spaceId, userId, permissionType);
         return saved;

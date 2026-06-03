@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-05-14",
+    "updatedAt": "2026-06-03",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -195,6 +195,26 @@
                 "../../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md"
             ],
             "dependsOn": [
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "add-email-notifications",
+            "title": "Email notifications: async event-driven email + admin SMTP test",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.3 Системные уведомления/US4.3.1 Рассылка Email-уведомлений/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.3 Системные уведомления/US4.3.2 Настройка параметров SMTP и асинхронной рассылки/description.md"
+            ],
+            "description": "Asynchronous email notification subsystem. Listens to UserCreatedEvent, SpacePermissionGrantedEvent, and DocumentUpdatedEvent (AFTER_COMMIT) and sends email via JavaMailSender on a dedicated thread pool. Sender is configuration-driven (real SMTP vs logging no-op). Adds an admin test-email endpoint.",
+            "endpoints": [
+                "POST /api/admin/notifications/test"
+            ],
+            "dependsOn": [
+                "admin-users-crud",
+                "spaces-and-permissions",
                 "documents-crud"
             ]
         }

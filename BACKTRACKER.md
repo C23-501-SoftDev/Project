@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-05-26
+**Дата обновления:** 2026-06-03
 
 ---
 
@@ -245,6 +245,7 @@
 |-------|----------|----------|--------|
 | GET | `/api/settings` | Системные настройки (тема, язык) | ❌ |
 | PUT | `/api/settings` | Обновление настроек | ❌ |
+| POST | `/api/admin/notifications/test` | Тестовое письмо для проверки SMTP (`{ recipient? }`) → `202 { recipient, queued, notificationsEnabled }` | ✅ |
 
 > **Примечание:** Страница настроек не описана в базовой документации, но упомянутa в readme.md как часть админ-панели. Требуется уточнение требований.
 
@@ -286,6 +287,7 @@
 | **Users CRUD** | Full CRUD `/api/admin/users` + password + restore + soft-delete | ✅ |
 | **Spaces list + create** | GET/POST `/api/spaces`, GET `/api/admin/spaces` | ✅ |
 | **Permissions** | POST `/api/admin/spaces/{id}/permissions`, GET `/api/user/permissions` | ✅ |
+| **Email notifications** | Async email on user/permission/document events + POST `/api/admin/notifications/test` | ✅ |
 
 ---
 

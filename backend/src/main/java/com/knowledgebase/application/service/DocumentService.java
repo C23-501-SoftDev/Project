@@ -1,5 +1,6 @@
 package com.knowledgebase.application.service;
 
+import com.knowledgebase.domain.event.DocumentUpdatedEvent;
 import com.knowledgebase.domain.exception.DocumentNotFoundException;
 import com.knowledgebase.domain.exception.DocumentValidationException;
 import com.knowledgebase.domain.exception.SpaceNotFoundException;
@@ -16,6 +17,7 @@ import com.knowledgebase.domain.repository.TemplateRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,19 +42,22 @@ public class DocumentService {
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
     private final RequirementNumberService requirementNumberService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
                            SpaceRepository spaceRepository,
                            TemplateRepository templateRepository,
                            UserRepository userRepository,
-                           RequirementNumberService requirementNumberService) {
+                           RequirementNumberService requirementNumberService,
+                           ApplicationEventPublisher eventPublisher) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
         this.templateRepository = templateRepository;
         this.userRepository = userRepository;
         this.requirementNumberService = requirementNumberService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -252,6 +257,16 @@ public class DocumentService {
                     "system@knowledgebase.com"
             );
         }
+
+        // Уведомляем участников пространства об изменении документа (US4.3.1).
+        // Слушатель сработает после фиксации текущей транзакции (AFTER_COMMIT).
+        eventPublisher.publishEvent(new DocumentUpdatedEvent(
+                updatedMetadata.getId(),
+                updatedMetadata.getTitle(),
+                document.getSpaceId(),
+                editorId,
+                editor.getLogin()
+        ));
 
         return updatedMetadata;
     }

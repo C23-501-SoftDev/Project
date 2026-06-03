@@ -36,3 +36,9 @@
 - **dependsOn**: `spaces-and-permissions`
 - **endpoints**: `GET/POST/PUT/DELETE /api/admin/spaces`
 - **docs**: `../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md`
+
+### add-email-notifications — Email notifications: async event-driven email + admin SMTP test
+- **status**: done
+- **dependsOn**: `admin-users-crud`, `spaces-and-permissions`, `documents-crud`
+- **endpoints**: `POST /api/admin/notifications/test`
+- **docs**: `../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.3 Системные уведомления/US4.3.1 Рассылка Email-уведомлений/description.md`, `.../US4.3.2 Настройка параметров SMTP и асинхронной рассылки/description.md`
