@@ -80,15 +80,15 @@ public class StorageService {
             boolean blobAccessible = blobPath.toFile().canRead() && blobPath.toFile().canWrite();
             
             if (!gitAccessible) {
-                log.warn("Git-репозиторий недоступен: {}", gitPath);
+                log.warn("Git repository storage is not accessible");
             }
             if (!blobAccessible) {
-                log.warn("Blob-хранилище недоступно: {}", blobPath);
+                log.warn("Blob storage is not accessible");
             }
             
             return gitAccessible && blobAccessible;
         } catch (Exception e) {
-            log.error("Ошибка проверки доступности хранилищ", e);
+            log.error("Storage accessibility check failed");
             return false;
         }
     }

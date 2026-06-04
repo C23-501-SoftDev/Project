@@ -88,7 +88,7 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            log.error("Ошибка при обработке JWT Cookie: {}", e.getMessage());
+            log.error("JWT cookie processing failed");
         }
 
         filterChain.doFilter(request, response);

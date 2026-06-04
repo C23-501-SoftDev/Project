@@ -1,9 +1,8 @@
 package com.knowledgebase.interfaces.rest.advice;
 
 import com.knowledgebase.domain.exception.*;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -35,7 +34,7 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final SystemLogger log = SystemLogger.getLogger(GlobalExceptionHandler.class, "rest.error");
 
     // ── 400 Bad Request: ошибки валидации ────────────────────────────────────
 
@@ -61,7 +60,13 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 fieldErrors);
 
-        log.warn("Ошибка валидации для {}: {}", request.getRequestURI(), fieldErrors);
+        log.warn(
+                "HTTP validation failed",
+                "handle_validation_error",
+                "client_error",
+                "path", request.getRequestURI(),
+                "field_count", fieldErrors.size()
+        );
         return ResponseEntity.badRequest().body(response);
     }
 
@@ -76,7 +81,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCredentials(
             InvalidCredentialsException ex, HttpServletRequest request) {
-        log.warn("Ошибка аутентификации: {}", ex.getMessage());
+        log.warn(
+                "HTTP authentication failed",
+                "handle_authentication_error",
+                "client_error",
+                "path", request.getRequestURI()
+        );
         return buildResponse(HttpStatus.UNAUTHORIZED, "Unauthorized", ex.getMessage(), request);
     }
 
@@ -84,7 +94,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDocumentValidation(
             com.knowledgebase.domain.exception.DocumentValidationException ex,
             HttpServletRequest request) {
-        log.warn("Ошибка валидации документа: {}", ex.getMessage());
+        log.warn(
+                "HTTP document validation failed",
+                "handle_document_validation_error",
+                "client_error",
+                "path", request.getRequestURI()
+        );
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
     }
 
@@ -92,7 +107,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAttachmentValidation(
             com.knowledgebase.domain.exception.AttachmentValidationException ex,
             HttpServletRequest request) {
-        log.warn("Ошибка валидации вложения: {}", ex.getMessage());
+        log.warn(
+                "HTTP attachment validation failed",
+                "handle_attachment_validation_error",
+                "client_error",
+                "path", request.getRequestURI()
+        );
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
     }
 
@@ -105,7 +125,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDomainAccessDenied(
             com.knowledgebase.domain.exception.AccessDeniedException ex,
             HttpServletRequest request) {
-        log.warn("Доступ запрещён: {}", ex.getMessage());
+        log.warn(
+                "HTTP access denied",
+                "handle_access_denied",
+                "client_error",
+                "path", request.getRequestURI()
+        );
         return buildResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), request);
     }
 
@@ -116,7 +141,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleSpringAccessDenied(
             AccessDeniedException ex, HttpServletRequest request) {
-        log.warn("Spring Security: доступ запрещён к {}", request.getRequestURI());
+        log.warn(
+                "HTTP access denied",
+                "handle_spring_access_denied",
+                "client_error",
+                "path", request.getRequestURI()
+        );
         return buildResponse(HttpStatus.FORBIDDEN, "Forbidden",
                 "Недостаточно прав для выполнения данной операции", request);
     }
@@ -146,7 +176,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> handleConflict(
             ConflictException ex, HttpServletRequest request) {
-        log.warn("Конфликт данных: {}", ex.getMessage());
+        log.warn(
+                "HTTP conflict handled",
+                "handle_conflict",
+                "client_error",
+                "path", request.getRequestURI()
+        );
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), request);
     }
 
@@ -159,7 +194,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
             Exception ex, HttpServletRequest request) {
-        log.error("Полный стектрейс ошибки для {}: ", request.getRequestURI(), ex);
+        log.error(
+                "HTTP internal error handled",
+                "handle_internal_error",
+                ex,
+                "path", request.getRequestURI()
+        );
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",
                 "Внутренняя ошибка сервера: " + ex.getMessage(), request);
     }

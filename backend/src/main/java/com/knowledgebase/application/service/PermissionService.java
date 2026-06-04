@@ -4,8 +4,6 @@ import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.PermissionType;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.UserRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,8 +24,6 @@ import java.util.List;
 @Service("permissionService")
 @Transactional(readOnly = true)
 public class PermissionService {
-
-    private static final Logger log = LoggerFactory.getLogger(PermissionService.class);
 
     private final SpacePermissionRepository permissionRepository;
     private final UserRepository userRepository;

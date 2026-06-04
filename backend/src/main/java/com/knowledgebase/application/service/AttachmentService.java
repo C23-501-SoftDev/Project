@@ -7,10 +7,9 @@ import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.repository.AttachmentFileStorageRepository;
 import com.knowledgebase.domain.repository.AttachmentRepository;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +31,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class AttachmentService {
 
-    private static final Logger log = LoggerFactory.getLogger(AttachmentService.class);
+    private static final SystemLogger systemLog = SystemLogger.getLogger(AttachmentService.class, "service.attachment");
 
     private final AttachmentRepository attachmentRepository;
     private final AttachmentFileStorageRepository storageRepository;
@@ -78,6 +77,14 @@ public class AttachmentService {
 
     @Transactional
     public List<Attachment> uploadAttachments(Long documentId, List<MultipartFile> files, Long uploadedBy) {
+        systemLog.info(
+                "Service operation started",
+                "upload_attachments",
+                "started",
+                "document_id", documentId,
+                "user_id", uploadedBy,
+                "file_count", files == null ? 0 : files.size()
+        );
         Document document = documentService.getDocumentById(documentId);
         validateFiles(files);
 
@@ -108,18 +115,50 @@ public class AttachmentService {
                 savedAttachments.add(attachmentRepository.save(attachment));
             }
 
+            systemLog.info(
+                    "Service operation completed",
+                    "upload_attachments",
+                    "success",
+                    "document_id", documentId,
+                    "user_id", uploadedBy,
+                    "file_count", savedAttachments.size()
+            );
             return savedAttachments;
         } catch (IOException ex) {
             cleanupStoredFiles(storedPaths);
+            systemLog.error(
+                    "Service operation failed",
+                    "upload_attachments",
+                    ex,
+                    "document_id", documentId,
+                    "user_id", uploadedBy,
+                    "file_count", files.size()
+            );
             throw new AttachmentValidationException(ex.getMessage());
         } catch (RuntimeException ex) {
             cleanupStoredFiles(storedPaths);
+            systemLog.error(
+                    "Service operation failed",
+                    "upload_attachments",
+                    ex,
+                    "document_id", documentId,
+                    "user_id", uploadedBy,
+                    "file_count", files.size()
+            );
             throw ex;
         }
     }
 
     @Transactional
     public void deleteAttachment(Long documentId, Long attachmentId) {
+        systemLog.info(
+                "Service operation started",
+                "delete_attachment",
+                "started",
+                "document_id", documentId,
+                "attachment_id", attachmentId
+        );
+        try {
         documentService.getDocumentById(documentId);
         Attachment attachment = getAttachmentById(attachmentId);
 
@@ -132,6 +171,23 @@ public class AttachmentService {
             storageRepository.delete(attachment.getStoragePath());
         } catch (IOException ex) {
             throw new AttachmentValidationException("Не удалось удалить файл вложения: " + ex.getMessage());
+        }
+        systemLog.info(
+                "Service operation completed",
+                "delete_attachment",
+                "success",
+                "document_id", documentId,
+                "attachment_id", attachmentId
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "delete_attachment",
+                    ex,
+                    "document_id", documentId,
+                    "attachment_id", attachmentId
+            );
+            throw ex;
         }
     }
 
@@ -147,12 +203,35 @@ public class AttachmentService {
     }
 
     public AttachmentDownloadData downloadAttachment(Long attachmentId) {
+        systemLog.info(
+                "Service operation started",
+                "download_attachment",
+                "started",
+                "attachment_id", attachmentId
+        );
+        try {
         Attachment attachment = getAttachmentById(attachmentId);
         try {
             Resource resource = new InputStreamResource(storageRepository.open(attachment.getStoragePath()));
+            systemLog.info(
+                    "Service operation completed",
+                    "download_attachment",
+                    "success",
+                    "attachment_id", attachmentId,
+                    "document_id", attachment.getDocumentId()
+            );
             return new AttachmentDownloadData(attachment, resource);
         } catch (IOException ex) {
             throw new AttachmentValidationException("Не удалось открыть файл вложения: " + ex.getMessage());
+        }
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "download_attachment",
+                    ex,
+                    "attachment_id", attachmentId
+            );
+            throw ex;
         }
     }
 
@@ -229,7 +308,11 @@ public class AttachmentService {
             try {
                 storageRepository.delete(storedPath);
             } catch (IOException cleanupEx) {
-                log.warn("Не удалось удалить временный файл вложения {}: {}", storedPath, cleanupEx.getMessage());
+                systemLog.warn(
+                        "Temporary attachment cleanup failed",
+                        "cleanup_attachment_upload",
+                        "warning"
+                );
             }
         }
     }

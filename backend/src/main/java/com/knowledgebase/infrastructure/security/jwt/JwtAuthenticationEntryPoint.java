@@ -39,7 +39,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
                          HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
 
-        log.warn("Неавторизованный запрос к {}: {}", request.getRequestURI(), authException.getMessage());
+        log.warn("Unauthorized request: path={}", request.getRequestURI());
 
         if (isAjaxRequest(request) || isApiRequest(request)) {
             sendJsonResponse(response, request);

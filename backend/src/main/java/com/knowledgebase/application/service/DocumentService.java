@@ -14,6 +14,7 @@ import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.TemplateRepository;
 import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 public class DocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
+    private static final SystemLogger systemLog = SystemLogger.getLogger(DocumentService.class, "service.document");
 
     private final DocumentRepository documentRepository;
     private final DocumentContentRepository contentRepository;
@@ -78,7 +80,17 @@ public class DocumentService {
      */
     @Transactional
     public Document createDocument(String title, String content, Long spaceId, Long parentId, Long authorId, Long templateId) {
-        log.debug("Создание документа: title='{}', spaceId={}, parentId={}, authorId={}, templateId={}", title, spaceId, parentId, authorId, templateId);
+        systemLog.info(
+                "Service operation started",
+                "create_document",
+                "started",
+                "space_id", spaceId,
+                "parent_id", parentId,
+                "user_id", authorId,
+                "template_id", templateId
+        );
+        try {
+        log.debug("Creating document: spaceId={}, parentId={}, authorId={}, templateId={}", spaceId, parentId, authorId, templateId);
 
         validateHierarchy(null, parentId, spaceId);
         validateTitleUniqueness(title, spaceId, parentId, null);
@@ -127,7 +139,27 @@ public class DocumentService {
             author.getEmail()
         );
 
+        systemLog.info(
+                "Service operation completed",
+                "create_document",
+                "success",
+                "document_id", updatedMetadata.getId(),
+                "space_id", spaceId,
+                "user_id", authorId
+        );
         return updatedMetadata;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "create_document",
+                    ex,
+                    "space_id", spaceId,
+                    "parent_id", parentId,
+                    "user_id", authorId,
+                    "template_id", templateId
+            );
+            throw ex;
+        }
     }
 
     private void validateHierarchy(Long documentId, Long parentId, Long spaceId) {
@@ -210,11 +242,21 @@ public class DocumentService {
      */
     @Transactional
     public Document updateDocument(Long id, String title, String content, DocumentStatus status, Long parentId, Long editorId) {
+        systemLog.info(
+                "Service operation started",
+                "update_document",
+                "started",
+                "document_id", id,
+                "user_id", editorId,
+                "status", status,
+                "parent_id", parentId
+        );
+        try {
         Document document = getDocumentById(id);
         User editor = userRepository.findById(editorId)
                 .orElseThrow(() -> new UserNotFoundException(editorId));
 
-        log.debug("Обновление документа ID {}: title='{}', status={}, parentId={}", id, title, status, parentId);
+        log.debug("Updating document: documentId={}, status={}, parentId={}", id, status, parentId);
 
         validateHierarchy(id, parentId, document.getSpaceId());
         if (title != null) {
@@ -253,7 +295,27 @@ public class DocumentService {
             );
         }
 
+        systemLog.info(
+                "Service operation completed",
+                "update_document",
+                "success",
+                "document_id", updatedMetadata.getId(),
+                "user_id", editorId,
+                "status", status
+        );
         return updatedMetadata;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "update_document",
+                    ex,
+                    "document_id", id,
+                    "user_id", editorId,
+                    "status", status,
+                    "parent_id", parentId
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -261,17 +323,30 @@ public class DocumentService {
      */
     @Transactional
     public void deleteDocument(Long id) {
+        systemLog.info(
+                "Service operation started",
+                "delete_document",
+                "started",
+                "document_id", id
+        );
+        try {
         if (documentRepository.hasChildren(id)) {
             throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
         }
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
+            systemLog.info(
+                    "Service operation completed",
+                    "delete_document",
+                    "already_deleted",
+                    "document_id", id
+            );
             log.info("Документ ID {} уже удален", id);
             return;
         }
 
-        log.info("Архивация документа ID {}: title='{}'", id, document.getTitle());
+        log.info("Archiving document: documentId={}", id);
 
         String oldPath = document.getGitFilePath();
         String newPath = ".archive/" + oldPath;
@@ -282,6 +357,21 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.archive(newPath);
         documentRepository.save(document);
+        systemLog.info(
+                "Service operation completed",
+                "delete_document",
+                "success",
+                "document_id", id
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "delete_document",
+                    ex,
+                    "document_id", id
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -289,17 +379,39 @@ public class DocumentService {
      */
     @Transactional
     public void hardDeleteDocument(Long id) {
+        systemLog.info(
+                "Service operation started",
+                "hard_delete_document",
+                "started",
+                "document_id", id
+        );
+        try {
         if (documentRepository.hasChildren(id)) {
             throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
         }
         Document document = getDocumentById(id);
-        log.info("Полное удаление документа ID {}: title='{}'", id, document.getTitle());
+        log.info("Hard deleting document: documentId={}", id);
 
         // 1. Удаляем из БД
         documentRepository.deleteById(id);
 
         // 2. Удаляем файл из Git
         contentRepository.deleteContent(document.getGitFilePath(), "Hard delete document: " + document.getTitle());
+        systemLog.info(
+                "Service operation completed",
+                "hard_delete_document",
+                "success",
+                "document_id", id
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "hard_delete_document",
+                    ex,
+                    "document_id", id
+            );
+            throw ex;
+        }
     }
 
 
@@ -308,9 +420,22 @@ public class DocumentService {
      */
     @Transactional
     public void restoreDocument(Long id) {
+        systemLog.info(
+                "Service operation started",
+                "restore_document",
+                "started",
+                "document_id", id
+        );
+        try {
         Document document = getDocumentById(id);
         
         if (document.getStatus() != DocumentStatus.DELETED) {
+            systemLog.info(
+                    "Service operation completed",
+                    "restore_document",
+                    "not_deleted",
+                    "document_id", id
+            );
             log.info("Документ ID {} не находится в архиве", id);
             return;
         }
@@ -324,7 +449,7 @@ public class DocumentService {
                 "Нельзя восстановить документ в удаленном (неактивном) пространстве");
         }
 
-        log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
+        log.info("Restoring document: documentId={}", id);
 
         String archivedPath = document.getGitFilePath();
         String originalPath = archivedPath.replace(".archive/", "");
@@ -335,6 +460,21 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.restore(originalPath);
         documentRepository.save(document);
+        systemLog.info(
+                "Service operation completed",
+                "restore_document",
+                "success",
+                "document_id", id
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "restore_document",
+                    ex,
+                    "document_id", id
+            );
+            throw ex;
+        }
     }
 
     /**

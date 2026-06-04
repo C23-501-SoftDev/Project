@@ -7,6 +7,7 @@ import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -32,6 +33,7 @@ import java.util.List;
 public class UserService {
 
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
+    private static final SystemLogger systemLog = SystemLogger.getLogger(UserService.class, "service.user");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -62,7 +64,15 @@ public class UserService {
      */
     @Transactional
     public User createUser(String login, String email, String password, GlobalRole role, boolean isAdmin) {
-        log.debug("Создание пользователя: login={}, email={}, role={}, isAdmin={}", login, email, role, isAdmin);
+        systemLog.info(
+                "Service operation started",
+                "create_user",
+                "started",
+                "role", role,
+                "is_admin", isAdmin
+        );
+        try {
+        log.debug("Creating user: role={}, isAdmin={}", role, isAdmin);
 
         // Проверяем уникальность логина (включая удалённых — логин всегда уникален)
         if (userRepository.existsByLoginIncludingDeleted(login)) {
@@ -87,8 +97,26 @@ public class UserService {
         eventPublisher.publishEvent(new UserCreatedEvent(savedUser.getId(),
                 savedUser.getEmail(), savedUser.getLogin()));
 
-        log.info("Пользователь создан: id={}, login={}", savedUser.getId(), login);
+        log.info("User created: id={}", savedUser.getId());
+        systemLog.info(
+                "Service operation completed",
+                "create_user",
+                "success",
+                "user_id", savedUser.getId(),
+                "role", savedUser.getRole(),
+                "is_admin", savedUser.isAdmin()
+        );
         return savedUser;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "create_user",
+                    ex,
+                    "role", role,
+                    "is_admin", isAdmin
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -105,6 +133,16 @@ public class UserService {
      */
     @Transactional
     public User updateUser(Long userId, String login, String email, GlobalRole role, boolean isAdmin, Long currentUserId) {
+        systemLog.info(
+                "Service operation started",
+                "update_user",
+                "started",
+                "user_id", userId,
+                "current_user_id", currentUserId,
+                "role", role,
+                "is_admin", isAdmin
+        );
+        try {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -128,7 +166,26 @@ public class UserService {
 
         User updated = userRepository.save(user);
         log.info("Пользователь обновлён: id={}", userId);
+        systemLog.info(
+                "Service operation completed",
+                "update_user",
+                "success",
+                "user_id", userId,
+                "current_user_id", currentUserId
+        );
         return updated;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "update_user",
+                    ex,
+                    "user_id", userId,
+                    "current_user_id", currentUserId,
+                    "role", role,
+                    "is_admin", isAdmin
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -140,6 +197,13 @@ public class UserService {
      */
     @Transactional
     public void changePassword(Long userId, String newPassword) {
+        systemLog.info(
+                "Service operation started",
+                "change_password",
+                "started",
+                "user_id", userId
+        );
+        try {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -148,6 +212,21 @@ public class UserService {
 
         userRepository.save(user);
         log.info("Пароль изменён для пользователя: id={}", userId);
+        systemLog.info(
+                "Service operation completed",
+                "change_password",
+                "success",
+                "user_id", userId
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "change_password",
+                    ex,
+                    "user_id", userId
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -160,6 +239,13 @@ public class UserService {
      */
     @Transactional
     public User deleteUser(Long userId) {
+        systemLog.info(
+                "Service operation started",
+                "delete_user",
+                "started",
+                "user_id", userId
+        );
+        try {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -173,7 +259,22 @@ public class UserService {
         User saved = userRepository.save(user);
 
         log.info("Пользователь soft-удалён: id={}", userId);
+        systemLog.info(
+                "Service operation completed",
+                "delete_user",
+                "success",
+                "user_id", userId
+        );
         return saved;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "delete_user",
+                    ex,
+                    "user_id", userId
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -185,6 +286,13 @@ public class UserService {
      */
     @Transactional
     public User restoreUser(Long userId) {
+        systemLog.info(
+                "Service operation started",
+                "restore_user",
+                "started",
+                "user_id", userId
+        );
+        try {
         User user = userRepository.findByIdIncludingDeleted(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -196,7 +304,22 @@ public class UserService {
         User saved = userRepository.save(user);
 
         log.info("Пользователь восстановлен: id={}", userId);
+        systemLog.info(
+                "Service operation completed",
+                "restore_user",
+                "success",
+                "user_id", userId
+        );
         return saved;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "restore_user",
+                    ex,
+                    "user_id", userId
+            );
+            throw ex;
+        }
     }
 
     /**

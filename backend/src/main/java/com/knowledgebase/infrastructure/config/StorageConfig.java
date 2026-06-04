@@ -1,10 +1,9 @@
 package com.knowledgebase.infrastructure.config;
 
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import jakarta.annotation.PostConstruct;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,15 +12,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-/**
- * Конфигурация файловых хранилищ.
- * Выполняет требование US4.1.1: Инициализация локальной директории 
- * для Git-репозитория и Blob-хранилища.
- */
 @Configuration
 public class StorageConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(StorageConfig.class);
+    private static final SystemLogger log = SystemLogger.getLogger(StorageConfig.class, "storage.config");
 
     @Value("${app.storage.git.path:./data/git-repo}")
     private String gitRepoPath;
@@ -34,105 +28,91 @@ public class StorageConfig {
         try {
             initGitRepository();
             initBlobStorage();
-            log.info("Хранилища успешно инициализированы");
-        } catch (Exception e) {
-            log.error("Критическая ошибка инициализации файловых хранилищ", e);
-            throw new RuntimeException("Не удалось инициализировать хранилища", e);
+            log.info("Storage initialized successfully", "storage_init", "success");
+        } catch (Exception ex) {
+            log.error("Storage initialization failed", "storage_init", ex);
+            throw new RuntimeException("Failed to initialize storage", ex);
         }
     }
 
     private void initGitRepository() throws IOException, GitAPIException {
         Path gitPath = Paths.get(gitRepoPath);
-        
-        log.info("Инициализация Git-репозитория: {}", gitPath.toAbsolutePath());
-        
-        // Создаем директорию, если её нет
+
+        log.info("Storage initialization started", "init_git_storage", "started");
+
         if (!Files.exists(gitPath)) {
             Files.createDirectories(gitPath);
-            log.info("Создана директория: {}", gitPath);
+            log.info("Storage directory created", "init_git_storage", "created");
         }
 
-        // Проверяем, есть ли уже репозиторий
         Path dotGit = gitPath.resolve(".git");
         if (!Files.exists(dotGit)) {
-            log.info("Инициализация пустого Git-репозитория...");
-            
-            // 1. git init
+            log.info("Git repository initialization started", "init_git_repository", "started");
+
             try (Git git = Git.init().setDirectory(gitPath.toFile()).call()) {
-                log.info("Git-репозиторий инициализирован: {}", git.getRepository().getDirectory());
+                log.info("Git repository initialized", "init_git_repository", "success");
             }
-            
-            // 2. Создаем первый коммит
+
             createInitialCommit(gitPath);
-            
         } else {
-            log.info("Git-репозиторий уже существует: {}", dotGit);
+            log.info("Git repository already exists", "init_git_repository", "already_exists");
         }
     }
 
     private void createInitialCommit(Path gitPath) throws IOException, GitAPIException {
         Path readmePath = gitPath.resolve("README.md");
-        
-        // Создаем README.md
+
         String content = """
                 # Knowledge Base Repository
-                
-                Этот репозиторий содержит Markdown-файлы документов базы знаний.
-                
-                ## Структура
-                - Каждый документ сохраняется как отдельный `.md` файл
-                - Изменения автоматически коммитятся при сохранении
-                
-                ## Информация
-                - **Создан:** %s
-                - **Система:** Knowledge Base Backend
-                
+
+                This repository contains Knowledge Base Markdown documents.
+
+                ## Structure
+                - Each document is stored as a separate `.md` file.
+                - Changes are committed automatically when content is saved.
+
+                ## Info
+                - **Created:** %s
+                - **System:** Knowledge Base Backend
+
                 ---
-                *Этот файл создан автоматически при инициализации системы.*
+                *This file was generated automatically during system initialization.*
                 """.formatted(java.time.LocalDateTime.now());
-        
+
         Files.writeString(readmePath, content);
-        log.info("Создан файл README.md");
-        
-        // Открываем репозиторий
+        log.info("Initial repository README created", "init_git_repository", "readme_created");
+
         try (Git git = Git.open(gitPath.toFile())) {
-            
-            // git add README.md
             git.add()
-               .addFilepattern("README.md")
-               .call();
-            log.info("Файл добавлен в индекс (git add)");
-            
-            // git commit
+                    .addFilepattern("README.md")
+                    .call();
+            log.info("Initial repository README staged", "init_git_repository", "readme_staged");
+
             git.commit()
-               .setMessage("Initial commit: system initialization")
-               .setAuthor("Knowledge Base System", "system@knowledgebase.local")
-               .call();
-            log.info("Создан начальный коммит (git commit)");
-            
+                    .setMessage("Initial commit: system initialization")
+                    .setAuthor("Knowledge Base System", "system@knowledgebase.local")
+                    .call();
+            log.info("Initial repository commit created", "init_git_repository", "success");
         }
     }
 
     private void initBlobStorage() throws IOException {
         Path blobPath = Paths.get(blobStoragePath);
-        
-        log.info("Инициализация Blob-хранилища: {}", blobPath.toAbsolutePath());
-        
+
+        log.info("Storage initialization started", "init_blob_storage", "started");
+
         if (!Files.exists(blobPath)) {
             Files.createDirectories(blobPath);
-            log.info("Создана директория: {}", blobPath);
-            
-            // Создаем поддиректории
+            log.info("Storage directory created", "init_blob_storage", "created");
+
             Files.createDirectories(blobPath.resolve("images"));
             Files.createDirectories(blobPath.resolve("attachments"));
-            log.info("Созданы поддиректории: images/, attachments/");
-            
-            // Создаем .gitkeep для отслеживания пустых папок (опционально)
+            log.info("Blob storage subdirectories created", "init_blob_storage", "subdirectories_created");
+
             Files.createFile(blobPath.resolve("images/.gitkeep"));
             Files.createFile(blobPath.resolve("attachments/.gitkeep"));
-            
         } else {
-            log.info("Blob-хранилище уже существует: {}", blobPath);
+            log.info("Blob storage already exists", "init_blob_storage", "already_exists");
         }
     }
 }

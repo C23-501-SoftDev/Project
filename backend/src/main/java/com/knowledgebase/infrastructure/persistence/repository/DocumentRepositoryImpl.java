@@ -5,6 +5,7 @@ import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.infrastructure.persistence.entity.DocumentJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.DocumentJpaMapper;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
@@ -16,6 +17,8 @@ import java.util.stream.Collectors;
 
 @Repository
 public class DocumentRepositoryImpl implements DocumentRepository {
+
+    private static final SystemLogger systemLog = SystemLogger.getLogger(DocumentRepositoryImpl.class, "repository.document");
 
     private final DocumentJpaRepository jpaRepository;
     private final DocumentJpaMapper mapper;
@@ -31,9 +34,19 @@ public class DocumentRepositoryImpl implements DocumentRepository {
 
     @Override
     public Document save(Document document) {
-        DocumentJpaEntity entity = mapper.toEntity(document);
-        DocumentJpaEntity savedEntity = jpaRepository.save(entity);
-        return mapper.toDomain(savedEntity);
+        try {
+            DocumentJpaEntity entity = mapper.toEntity(document);
+            DocumentJpaEntity savedEntity = jpaRepository.save(entity);
+            return mapper.toDomain(savedEntity);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "save_document",
+                    ex,
+                    "entity_id", document == null ? null : document.getId()
+            );
+            throw ex;
+        }
     }
 
     @Override
@@ -148,7 +161,17 @@ public class DocumentRepositoryImpl implements DocumentRepository {
 
     @Override
     public void deleteById(Long id) {
-        jpaRepository.deleteById(id);
+        try {
+            jpaRepository.deleteById(id);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "delete_document",
+                    ex,
+                    "entity_id", id
+            );
+            throw ex;
+        }
     }
 
     @Override

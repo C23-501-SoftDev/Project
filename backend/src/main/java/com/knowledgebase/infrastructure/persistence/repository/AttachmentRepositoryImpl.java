@@ -4,6 +4,7 @@ import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.repository.AttachmentRepository;
 import com.knowledgebase.infrastructure.persistence.entity.AttachmentJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.AttachmentJpaMapper;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,6 +17,8 @@ import java.util.stream.Collectors;
 @Repository
 public class AttachmentRepositoryImpl implements AttachmentRepository {
 
+    private static final SystemLogger systemLog = SystemLogger.getLogger(AttachmentRepositoryImpl.class, "repository.attachment");
+
     private final AttachmentJpaRepository jpaRepository;
     private final AttachmentJpaMapper mapper;
 
@@ -26,9 +29,20 @@ public class AttachmentRepositoryImpl implements AttachmentRepository {
 
     @Override
     public Attachment save(Attachment attachment) {
-        AttachmentJpaEntity entity = mapper.toEntity(attachment);
-        AttachmentJpaEntity saved = jpaRepository.save(entity);
-        return mapper.toDomain(saved);
+        try {
+            AttachmentJpaEntity entity = mapper.toEntity(attachment);
+            AttachmentJpaEntity saved = jpaRepository.save(entity);
+            return mapper.toDomain(saved);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "save_attachment",
+                    ex,
+                    "entity_id", attachment == null ? null : attachment.getId(),
+                    "document_id", attachment == null ? null : attachment.getDocumentId()
+            );
+            throw ex;
+        }
     }
 
     @Override
@@ -48,7 +62,17 @@ public class AttachmentRepositoryImpl implements AttachmentRepository {
 
     @Override
     public void deleteById(Long id) {
-        jpaRepository.deleteById(id);
+        try {
+            jpaRepository.deleteById(id);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "delete_attachment",
+                    ex,
+                    "entity_id", id
+            );
+            throw ex;
+        }
     }
 
     @Override

@@ -1,8 +1,8 @@
 package com.knowledgebase;
 
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 /**
  * Главный класс приложения "База знаний" (Knowledge Base).
@@ -30,7 +30,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 @SpringBootApplication
 public class KnowledgeBaseApplication {
 
+    private static final SystemLogger log = SystemLogger.getLogger(KnowledgeBaseApplication.class, "application");
+
     public static void main(String[] args) {
-        SpringApplication.run(KnowledgeBaseApplication.class, args);
+        try {
+            SpringApplication.run(KnowledgeBaseApplication.class, args);
+        } catch (RuntimeException ex) {
+            log.error("Application startup failed", "application_start", ex);
+            throw ex;
+        }
     }
 }

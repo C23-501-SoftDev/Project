@@ -9,6 +9,7 @@ import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ import java.util.List;
 public class SpaceService {
 
     private static final Logger log = LoggerFactory.getLogger(SpaceService.class);
+    private static final SystemLogger systemLog = SystemLogger.getLogger(SpaceService.class, "service.space");
 
     private final SpaceRepository spaceRepository;
     private final SpacePermissionRepository permissionRepository;
@@ -61,7 +63,14 @@ public class SpaceService {
      */
     @Transactional
     public Space createSpace(String name, String description, Long ownerId) {
-        log.debug("Создание пространства: name={}, ownerId={}", name, ownerId);
+        systemLog.info(
+                "Service operation started",
+                "create_space",
+                "started",
+                "user_id", ownerId
+        );
+        try {
+        log.debug("Creating space: ownerId={}", ownerId);
 
         // Проверяем существование владельца
         if (!userRepository.findById(ownerId).isPresent()) {
@@ -87,8 +96,24 @@ public class SpaceService {
                 savedSpace.getId(), ownerId, PermissionType.OWNER);
         permissionRepository.save(ownerPermission);
 
-        log.info("Пространство создано: id={}, name={}, owner={}", savedSpace.getId(), name, ownerId);
+        log.info("Space created: id={}, owner={}", savedSpace.getId(), ownerId);
+        systemLog.info(
+                "Service operation completed",
+                "create_space",
+                "success",
+                "space_id", savedSpace.getId(),
+                "user_id", ownerId
+        );
         return savedSpace;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "create_space",
+                    ex,
+                    "user_id", ownerId
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -113,7 +138,15 @@ public class SpaceService {
      */
     @Transactional
     public Space updateSpace(Long spaceId, String name, String description, Long ownerId) {
-        log.debug("Обновление пространства: id={}, name={}, ownerId={}", spaceId, name, ownerId);
+        systemLog.info(
+                "Service operation started",
+                "update_space",
+                "started",
+                "space_id", spaceId,
+                "user_id", ownerId
+        );
+        try {
+        log.debug("Updating space: id={}, ownerId={}", spaceId, ownerId);
 
         Space space = spaceRepository.findById(spaceId)
                 .orElseThrow(() -> new SpaceNotFoundException(spaceId));
@@ -155,7 +188,24 @@ public class SpaceService {
             contentRepository.moveContent(oldPath, newPath, "Rename space from " + space.getName() + " to " + name);
         }
 
+        systemLog.info(
+                "Service operation completed",
+                "update_space",
+                "success",
+                "space_id", updatedSpace.getId(),
+                "user_id", ownerId
+        );
         return updatedSpace;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "update_space",
+                    ex,
+                    "space_id", spaceId,
+                    "user_id", ownerId
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -166,6 +216,14 @@ public class SpaceService {
      */
     @Transactional
     public void transferOwnership(Long fromUserId, Long toUserId) {
+        systemLog.info(
+                "Service operation started",
+                "transfer_space_ownership",
+                "started",
+                "from_user_id", fromUserId,
+                "to_user_id", toUserId
+        );
+        try {
         log.info("Передача владения пространствами: от {} к {}", fromUserId, toUserId);
 
         if (!userRepository.findById(toUserId).isPresent()) {
@@ -176,6 +234,24 @@ public class SpaceService {
         for (Space space : ownedSpaces) {
             updateSpace(space.getId(), space.getName(), space.getDescription(), toUserId);
         }
+        systemLog.info(
+                "Service operation completed",
+                "transfer_space_ownership",
+                "success",
+                "from_user_id", fromUserId,
+                "to_user_id", toUserId,
+                "space_count", ownedSpaces.size()
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "transfer_space_ownership",
+                    ex,
+                    "from_user_id", fromUserId,
+                    "to_user_id", toUserId
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -184,6 +260,13 @@ public class SpaceService {
      */
     @Transactional
     public void deleteSpace(Long spaceId) {
+        systemLog.info(
+                "Service operation started",
+                "delete_space",
+                "started",
+                "space_id", spaceId
+        );
+        try {
         log.info("Мягкое удаление пространства: id={}", spaceId);
         
         Space space = spaceRepository.findById(spaceId)
@@ -198,6 +281,22 @@ public class SpaceService {
         for (com.knowledgebase.domain.model.Document doc : documents) {
             documentService.deleteDocument(doc.getId());
         }
+        systemLog.info(
+                "Service operation completed",
+                "delete_space",
+                "success",
+                "space_id", spaceId,
+                "document_count", documents.size()
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "delete_space",
+                    ex,
+                    "space_id", spaceId
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -205,6 +304,13 @@ public class SpaceService {
      */
     @Transactional
     public void hardDeleteSpace(Long spaceId) {
+        systemLog.info(
+                "Service operation started",
+                "hard_delete_space",
+                "started",
+                "space_id", spaceId
+        );
+        try {
         log.info("Полное удаление пространства: id={}", spaceId);
         
         Space space = spaceRepository.findById(spaceId)
@@ -225,6 +331,22 @@ public class SpaceService {
         // Удаляем директорию в Git
         String sanitizedName = space.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
         contentRepository.deleteContent("spaces/" + sanitizedName, "Hard delete space: " + space.getName());
+        systemLog.info(
+                "Service operation completed",
+                "hard_delete_space",
+                "success",
+                "space_id", spaceId,
+                "document_count", documents.size()
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "hard_delete_space",
+                    ex,
+                    "space_id", spaceId
+            );
+            throw ex;
+        }
     }
 
     /**
@@ -234,6 +356,13 @@ public class SpaceService {
      */
     @Transactional
     public void restoreSpace(Long spaceId) {
+        systemLog.info(
+                "Service operation started",
+                "restore_space",
+                "started",
+                "space_id", spaceId
+        );
+        try {
         log.info("Восстановление пространства: id={}", spaceId);
         
         Space space = spaceRepository.findById(spaceId)
@@ -251,6 +380,22 @@ public class SpaceService {
             if (doc.getStatus() == com.knowledgebase.domain.model.DocumentStatus.DELETED) {
                 documentService.restoreDocument(doc.getId());
             }
+        }
+        systemLog.info(
+                "Service operation completed",
+                "restore_space",
+                "success",
+                "space_id", spaceId,
+                "document_count", documents.size()
+        );
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "restore_space",
+                    ex,
+                    "space_id", spaceId
+            );
+            throw ex;
         }
     }
 
@@ -382,6 +527,15 @@ public class SpaceService {
      */
     @Transactional
     public SpacePermission grantPermission(Long spaceId, Long userId, PermissionType permissionType) {
+        systemLog.info(
+                "Service operation started",
+                "grant_space_permission",
+                "started",
+                "space_id", spaceId,
+                "user_id", userId,
+                "permission_type", permissionType
+        );
+        try {
         log.debug("Назначение права: spaceId={}, userId={}, type={}", spaceId, userId, permissionType);
 
         // Проверяем существование пространства
@@ -432,7 +586,27 @@ public class SpaceService {
         SpacePermission saved = permissionRepository.save(permission);
 
         log.info("Право назначено: spaceId={}, userId={}, type={}", spaceId, userId, permissionType);
+        systemLog.info(
+                "Service operation completed",
+                "grant_space_permission",
+                "success",
+                "space_id", spaceId,
+                "user_id", userId,
+                "permission_type", permissionType,
+                "entity_id", saved.getId()
+        );
         return saved;
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Service operation failed",
+                    "grant_space_permission",
+                    ex,
+                    "space_id", spaceId,
+                    "user_id", userId,
+                    "permission_type", permissionType
+            );
+            throw ex;
+        }
     }
 
     /**

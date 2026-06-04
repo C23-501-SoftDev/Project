@@ -1,6 +1,7 @@
 package com.knowledgebase.infrastructure.persistence.repository;
 
 import com.knowledgebase.domain.repository.RequirementNumberRepository;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -8,6 +9,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class RequirementNumberRepositoryImpl implements RequirementNumberRepository {
+
+    private static final SystemLogger systemLog = SystemLogger.getLogger(RequirementNumberRepositoryImpl.class, "repository.requirement_number");
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -17,6 +20,7 @@ public class RequirementNumberRepositoryImpl implements RequirementNumberReposit
 
     @Override
     public int allocateNextRequirementNumber(Long spaceId, Long templateId) {
+        try {
         Integer currentValue = loadCurrentValueForUpdate(spaceId, templateId);
         if (currentValue != null) {
             jdbcTemplate.update(
@@ -60,6 +64,16 @@ public class RequirementNumberRepositoryImpl implements RequirementNumberReposit
                     templateId
             );
             return retryValue;
+        }
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "allocate_requirement_number",
+                    ex,
+                    "space_id", spaceId,
+                    "template_id", templateId
+            );
+            throw ex;
         }
     }
 
