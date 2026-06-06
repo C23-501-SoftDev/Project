@@ -241,7 +241,7 @@
             async function loadUsersList() {
                 try {
                     if (typeof adminFetch !== 'function') return;
-                    const data = await adminFetch('/api/admin/users?page=0&size=1000&includeDeleted=false');
+                    const data = await adminFetch('/api/admin/users?page=0&size=1000&status=active');
                     usersList = data.content || data.users || [];
                 } catch (e) {
                     console.error('Failed to load users:', e);

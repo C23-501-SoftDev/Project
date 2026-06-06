@@ -144,4 +144,26 @@ public interface UserRepository {
      * @return true если у пользователя есть версии
      */
     boolean hasVersions(Long userId);
+
+    /**
+     * Возвращает пользователей с применением фильтров и пагинацией.
+     * @param page номер страницы (0-based)
+     * @param size размер страницы
+     * @param sortBy поле сортировки
+     * @param sortDir направление сортировки
+     * @param includeDeleted включать ли удалённых пользователей (null=active only, true=all, false=deleted only)
+     * @param roles фильтр по ролям (null или пустой = без фильтра)
+     * @param search поиск по логину/email (null или пустой = без фильтра)
+     * @return список пользователей
+     */
+    List<User> findAllWithFilters(int page, int size, String sortBy, String sortDir, Boolean includeDeleted, List<String> roles, String search);
+
+    /**
+     * Возвращает общее количество пользователей с применением фильтров.
+     * @param includeDeleted включать ли удалённых пользователей
+     * @param roles фильтр по ролям
+     * @param search поиск по логину/email
+     * @return количество пользователей
+     */
+    long countWithFilters(Boolean includeDeleted, List<String> roles, String search);
 }
