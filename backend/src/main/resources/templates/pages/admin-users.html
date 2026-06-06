@@ -27,6 +27,13 @@
                 <label><input type="checkbox" value="Editor" class="roleFilter">Редактор</label>
             </div>
         </div>
+        <div class="filter-group">
+            <label>Админ:</label>
+            <div class="role-filters">
+                <label><input type="checkbox" value="true" class="adminFilter">Админ</label>
+                <label><input type="checkbox" value="false" class="adminFilter">Не админ</label>
+            </div>
+        </div>
         <input type="text" id="searchInput" placeholder="Поиск по логину/email">
         <button class="button-primary" id="applyFiltersBtn">Применить</button>
         <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
@@ -131,6 +138,7 @@
             size: 20,
             statusFilter: 'active',
             roleFilters: [],
+            adminFilters: [],
             searchTerm: '',
             totalElements: 0,
             totalPages: 0
@@ -164,6 +172,11 @@
             if (state.roleFilters.length > 0) {
                 state.roleFilters.forEach(role => {
                     url += `&roles=${encodeURIComponent(role)}`;
+                });
+            }
+            if (state.adminFilters.length > 0) {
+                state.adminFilters.forEach(val => {
+                    url += `&isAdmin=${encodeURIComponent(val)}`;
                 });
             }
 
@@ -342,6 +355,8 @@
         function applyUserFilters() {
             const checked = Array.from(document.querySelectorAll('.roleFilter:checked')).map(cb => cb.value);
             state.roleFilters = checked;
+            const adminChecked = Array.from(document.querySelectorAll('.adminFilter:checked')).map(cb => cb.value);
+            state.adminFilters = adminChecked;
             state.statusFilter = document.getElementById('statusFilter').value;
             state.searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
             state.page = 0;
@@ -351,6 +366,7 @@
 
         function clearUserFilters() {
             document.querySelectorAll('.roleFilter').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.adminFilter').forEach(cb => cb.checked = false);
             
             const statusFilter = document.getElementById('statusFilter');
             statusFilter.value = 'active';
@@ -361,6 +377,7 @@
 
             document.getElementById('searchInput').value = '';
             state.roleFilters = [];
+            state.adminFilters = [];
             state.statusFilter = 'active';
             state.searchTerm = '';
             state.page = 0;

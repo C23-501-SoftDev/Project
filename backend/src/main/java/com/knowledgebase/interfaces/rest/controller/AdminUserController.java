@@ -53,7 +53,7 @@ public class AdminUserController {
     /**
      * GET /api/admin/users
      * Список всех пользователей с пагинацией и фильтрами.
-     * Фильтры: status (active/deleted/all), roles (список ролей), search (по login/email)
+     * Фильтры: status (active/deleted/all), roles (список ролей), isAdmin (список true/false), search (по login/email)
      */
     @GetMapping
     @Operation(summary = "Список пользователей", description = "Возвращает список пользователей с пагинацией и фильтрами.")
@@ -81,11 +81,14 @@ public class AdminUserController {
             @Parameter(description = "Фильтр по ролям (можно указать несколько)", example = "READER,EDITOR")
             @RequestParam(required = false) List<String> roles,
 
+            @Parameter(description = "Фильтр по статусу администратора (true/false, можно указать несколько)", example = "true")
+            @RequestParam(required = false) List<String> isAdmin,
+
             @Parameter(description = "Поиск по логину или email", example = "admin")
             @RequestParam(required = false, defaultValue = "") String search) {
 
-        List<User> users = userService.getUsersWithFilters(page, size, sortBy, sortDir, status, roles, search);
-        long total = userService.countUsersWithFilters(status, roles, search);
+        List<User> users = userService.getUsersWithFilters(page, size, sortBy, sortDir, status, roles, isAdmin, search);
+        long total = userService.countUsersWithFilters(status, roles, isAdmin, search);
 
         List<UserResponse> userResponses = users.stream()
                 .map(mapper::toUserResponse)

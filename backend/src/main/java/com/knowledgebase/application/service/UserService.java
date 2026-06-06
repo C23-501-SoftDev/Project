@@ -263,30 +263,31 @@ public class UserService {
      * @param sortDir направление сортировки
      * @param statusFilter статус: "active", "deleted", "all"
      * @param roles фильтр по ролям (null или пустой = без фильтра)
+     * @param isAdmin фильтр по статусу админа (null или пустой = без фильтра)
      * @param search поиск по логину/email (null или пустой = без фильтра)
      * @return список пользователей
      */
     public List<User> getUsersWithFilters(int page, int size, String sortBy, String sortDir,
-                                          String statusFilter, List<String> roles, String search) {
+                                          String statusFilter, List<String> roles, List<String> isAdmin, String search) {
         Boolean includeDeleted = switch (statusFilter) {
             case "deleted" -> false;
             case "all" -> true;
             default -> null;
         };
 
-        return userRepository.findAllWithFilters(page, size, sortBy, sortDir, includeDeleted, roles, search);
+        return userRepository.findAllWithFilters(page, size, sortBy, sortDir, includeDeleted, roles, isAdmin, search);
     }
 
     /**
      * Возвращает общее количество пользователей с применением фильтров.
      */
-    public long countUsersWithFilters(String statusFilter, List<String> roles, String search) {
+    public long countUsersWithFilters(String statusFilter, List<String> roles, List<String> isAdmin, String search) {
         Boolean includeDeleted = switch (statusFilter) {
             case "deleted" -> false;
             case "all" -> true;
             default -> null;
         };
 
-        return userRepository.countWithFilters(includeDeleted, roles, search);
+        return userRepository.countWithFilters(includeDeleted, roles, isAdmin, search);
     }
 }

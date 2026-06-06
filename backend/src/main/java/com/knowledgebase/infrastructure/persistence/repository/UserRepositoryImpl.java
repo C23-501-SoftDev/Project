@@ -193,7 +193,7 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public List<User> findAllWithFilters(int page, int size, String sortBy, String sortDir, Boolean includeDeleted, List<String> roles, String search) {
+    public List<User> findAllWithFilters(int page, int size, String sortBy, String sortDir, Boolean includeDeleted, List<String> roles, List<String> isAdmin, String search) {
         String safeSortBy = List.of("id", "login", "email", "role", "createdAt", "updatedAt")
                 .contains(sortBy) ? sortBy : "createdAt";
 
@@ -204,18 +204,27 @@ public class UserRepositoryImpl implements UserRepository {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         List<String> rolesFilter = (roles != null && roles.isEmpty()) ? null : roles;
+        List<String> isAdminFilter = (isAdmin != null && isAdmin.isEmpty()) ? null : isAdmin;
         String searchFilter = (search != null && search.isBlank()) ? null : search;
 
         Page<UserJpaEntity> resultPage;
 
-        if (rolesFilter == null && searchFilter == null) {
+        if (rolesFilter == null && isAdminFilter == null && searchFilter == null) {
             resultPage = jpaRepository.findByStatusFilter(includeDeleted, pageable);
-        } else if (rolesFilter != null && searchFilter == null) {
+        } else if (rolesFilter != null && isAdminFilter == null && searchFilter == null) {
             resultPage = jpaRepository.findByStatusAndRoles(includeDeleted, rolesFilter, pageable);
-        } else if (rolesFilter == null) {
+        } else if (rolesFilter == null && isAdminFilter != null && searchFilter == null) {
+            resultPage = jpaRepository.findByStatusAndIsAdmin(includeDeleted, isAdminFilter, pageable);
+        } else if (rolesFilter == null && isAdminFilter == null) {
             resultPage = jpaRepository.findByStatusAndSearch(includeDeleted, searchFilter, pageable);
+        } else if (rolesFilter != null && isAdminFilter != null && searchFilter == null) {
+            resultPage = jpaRepository.findByStatusRolesAndIsAdmin(includeDeleted, rolesFilter, isAdminFilter, pageable);
+        } else if (rolesFilter != null && isAdminFilter == null) {
+            resultPage = jpaRepository.findByStatusRolesAndSearch(includeDeleted, rolesFilter, searchFilter, pageable);
+        } else if (rolesFilter == null && isAdminFilter != null) {
+            resultPage = jpaRepository.findByStatusIsAdminAndSearch(includeDeleted, isAdminFilter, searchFilter, pageable);
         } else {
-            resultPage = jpaRepository.findAllWithFilters(includeDeleted, rolesFilter, searchFilter, pageable);
+            resultPage = jpaRepository.findAllWithFilters(includeDeleted, rolesFilter, isAdminFilter, searchFilter, pageable);
         }
 
         return resultPage.stream()
@@ -224,18 +233,27 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public long countWithFilters(Boolean includeDeleted, List<String> roles, String search) {
+    public long countWithFilters(Boolean includeDeleted, List<String> roles, List<String> isAdmin, String search) {
         List<String> rolesFilter = (roles != null && roles.isEmpty()) ? null : roles;
+        List<String> isAdminFilter = (isAdmin != null && isAdmin.isEmpty()) ? null : isAdmin;
         String searchFilter = (search != null && search.isBlank()) ? null : search;
 
-        if (rolesFilter == null && searchFilter == null) {
+        if (rolesFilter == null && isAdminFilter == null && searchFilter == null) {
             return jpaRepository.countByStatusFilter(includeDeleted);
-        } else if (rolesFilter != null && searchFilter == null) {
+        } else if (rolesFilter != null && isAdminFilter == null && searchFilter == null) {
             return jpaRepository.countByStatusAndRoles(includeDeleted, rolesFilter);
-        } else if (rolesFilter == null) {
+        } else if (rolesFilter == null && isAdminFilter != null && searchFilter == null) {
+            return jpaRepository.countByStatusAndIsAdmin(includeDeleted, isAdminFilter);
+        } else if (rolesFilter == null && isAdminFilter == null) {
             return jpaRepository.countByStatusAndSearch(includeDeleted, searchFilter);
+        } else if (rolesFilter != null && isAdminFilter != null && searchFilter == null) {
+            return jpaRepository.countByStatusRolesAndIsAdmin(includeDeleted, rolesFilter, isAdminFilter);
+        } else if (rolesFilter != null && isAdminFilter == null) {
+            return jpaRepository.countByStatusRolesAndSearch(includeDeleted, rolesFilter, searchFilter);
+        } else if (rolesFilter == null && isAdminFilter != null) {
+            return jpaRepository.countByStatusIsAdminAndSearch(includeDeleted, isAdminFilter, searchFilter);
         } else {
-            return jpaRepository.countAllWithFilters(includeDeleted, rolesFilter, searchFilter);
+            return jpaRepository.countAllWithFilters(includeDeleted, rolesFilter, isAdminFilter, searchFilter);
         }
     }
 }
