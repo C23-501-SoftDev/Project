@@ -138,6 +138,8 @@ public class DocumentController {
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
     public ResponseEntity<?> getDocuments(
             @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) java.util.List<String> status,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "false") boolean includeDeleted,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -153,6 +155,22 @@ public class DocumentController {
         } else {
             // Получить все документы, доступные пользователю (через сервис)
             documents = documentService.getAllAccessibleDocuments(currentUser.getId(), currentUser.isAdmin(), includeDeleted);
+        }
+
+        // Фильтрация по статусам (если указаны)
+        if (status != null && !status.isEmpty()) {
+            java.util.Set<String> statusSet = new java.util.HashSet<>(status);
+            documents = documents.stream()
+                    .filter(doc -> doc.getStatus() != null && statusSet.contains(doc.getStatus().getDbValue()))
+                    .toList();
+        }
+
+        // Фильтрация по поисковому запросу (если есть)
+        if (search != null && !search.isEmpty()) {
+            String searchLower = search.toLowerCase();
+            documents = documents.stream()
+                    .filter(doc -> doc.getTitle() != null && doc.getTitle().toLowerCase().contains(searchLower))
+                    .toList();
         }
 
         // Ручная пагинация (так как сервис возвращает List)
