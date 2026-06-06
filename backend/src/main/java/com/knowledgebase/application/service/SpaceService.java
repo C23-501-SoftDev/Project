@@ -278,7 +278,18 @@ public class SpaceService {
      * Возвращает пространства по фильтру статуса (для ADMIN).
      */
     public List<Space> getSpacesByStatus(String status, int page, int size) {
-        if ("deleted".equals(status)) {
+        return getSpacesByStatusAndOwner(status, null, page, size);
+    }
+
+    /**
+     * Возвращает пространства по фильтру статуса и владельца (для ADMIN).
+     */
+    public List<Space> getSpacesByStatusAndOwner(String status, Long ownerId, int page, int size) {
+        if (ownerId != null) {
+            return spaceRepository.findByOwnerIdWithStatus(ownerId, status, page, size);
+        }
+        
+        if ("deleted".equals(status) || "inactive".equals(status)) {
             return spaceRepository.findDeleted(page, size);
         } else if ("all".equals(status)) {
             return spaceRepository.findAllIncludeDeleted(page, size);
@@ -290,12 +301,35 @@ public class SpaceService {
      * Возвращает количество пространств по фильтру статуса.
      */
     public long countSpacesByStatus(String status) {
-        if ("deleted".equals(status)) {
+        return countSpacesByStatusAndOwner(status, null);
+    }
+
+    /**
+     * Возвращает количество пространств по фильтру статуса и владельца.
+     */
+    public long countSpacesByStatusAndOwner(String status, Long ownerId) {
+        if (ownerId != null) {
+            return spaceRepository.countByOwnerIdWithStatus(ownerId, status);
+        }
+        
+        if ("deleted".equals(status) || "inactive".equals(status)) {
             return spaceRepository.countDeleted();
         } else if ("all".equals(status)) {
             return spaceRepository.countAllIncludeDeleted();
         }
         return spaceRepository.count();
+    }
+
+    /**
+     * Возвращает список администраторов, владеющих пространствами с учётом статуса.
+     */
+    public List<com.knowledgebase.domain.model.User> getAdminSpaceOwners(String status) {
+        List<Long> ownerIds = spaceRepository.findDistinctOwnerIdsByStatus(status);
+        if (ownerIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        
+        return userRepository.findActiveByIds(ownerIds);
     }
 
     /**

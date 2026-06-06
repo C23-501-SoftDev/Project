@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -43,4 +44,6 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
 
     @Query(value = "SELECT COUNT(*) > 0 FROM spaces WHERE owner_id = :userId", nativeQuery = true)
     boolean hasOwnedSpaces(@Param("userId") Long userId);
+
+    List<UserJpaEntity> findByIdInAndIsDeletedFalse(List<Long> ids);
 }

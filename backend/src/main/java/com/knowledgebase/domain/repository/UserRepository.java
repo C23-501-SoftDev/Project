@@ -144,4 +144,11 @@ public interface UserRepository {
      * @return true если у пользователя есть версии
      */
     boolean hasVersions(Long userId);
+
+    /**
+     * Находит активных пользователей по списку ID.
+     * @param ids список ID пользователей
+     * @return список активных пользователей
+     */
+    List<User> findActiveByIds(List<Long> ids);
 }

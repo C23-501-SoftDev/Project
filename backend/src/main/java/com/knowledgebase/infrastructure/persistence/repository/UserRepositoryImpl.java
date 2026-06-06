@@ -181,4 +181,13 @@ public class UserRepositoryImpl implements UserRepository {
             return false;
         }
     }
+
+    @Override
+    public List<User> findActiveByIds(List<Long> ids) {
+        if (ids.isEmpty()) return java.util.Collections.emptyList();
+        return jpaRepository.findByIdInAndIsDeletedFalse(ids)
+                .stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
 }
