@@ -226,6 +226,7 @@
 
             async function loadUsersList() {
                 try {
+                    if (typeof adminFetch !== 'function') return;
                     const data = await adminFetch('/api/admin/users?page=0&size=1000&includeDeleted=false');
                     usersList = data.content || data.users || [];
                 } catch (e) {

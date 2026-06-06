@@ -7,6 +7,7 @@ import com.knowledgebase.infrastructure.persistence.mapper.UserJpaMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -189,5 +190,52 @@ public class UserRepositoryImpl implements UserRepository {
                 .stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findAllWithFilters(int page, int size, String sortBy, String sortDir, Boolean includeDeleted, List<String> roles, String search) {
+        String safeSortBy = List.of("id", "login", "email", "role", "createdAt", "updatedAt")
+                .contains(sortBy) ? sortBy : "createdAt";
+
+        Sort sort = Sort.Direction.DESC.name().equalsIgnoreCase(sortDir)
+                ? Sort.by(safeSortBy).descending()
+                : Sort.by(safeSortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        List<String> rolesFilter = (roles != null && roles.isEmpty()) ? null : roles;
+        String searchFilter = (search != null && search.isBlank()) ? null : search;
+
+        Page<UserJpaEntity> resultPage;
+
+        if (rolesFilter == null && searchFilter == null) {
+            resultPage = jpaRepository.findByStatusFilter(includeDeleted, pageable);
+        } else if (rolesFilter != null && searchFilter == null) {
+            resultPage = jpaRepository.findByStatusAndRoles(includeDeleted, rolesFilter, pageable);
+        } else if (rolesFilter == null) {
+            resultPage = jpaRepository.findByStatusAndSearch(includeDeleted, searchFilter, pageable);
+        } else {
+            resultPage = jpaRepository.findAllWithFilters(includeDeleted, rolesFilter, searchFilter, pageable);
+        }
+
+        return resultPage.stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countWithFilters(Boolean includeDeleted, List<String> roles, String search) {
+        List<String> rolesFilter = (roles != null && roles.isEmpty()) ? null : roles;
+        String searchFilter = (search != null && search.isBlank()) ? null : search;
+
+        if (rolesFilter == null && searchFilter == null) {
+            return jpaRepository.countByStatusFilter(includeDeleted);
+        } else if (rolesFilter != null && searchFilter == null) {
+            return jpaRepository.countByStatusAndRoles(includeDeleted, rolesFilter);
+        } else if (rolesFilter == null) {
+            return jpaRepository.countByStatusAndSearch(includeDeleted, searchFilter);
+        } else {
+            return jpaRepository.countAllWithFilters(includeDeleted, rolesFilter, searchFilter);
+        }
     }
 }
