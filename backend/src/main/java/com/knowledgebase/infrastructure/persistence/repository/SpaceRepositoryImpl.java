@@ -4,6 +4,7 @@ import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.infrastructure.persistence.entity.SpaceJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.SpaceJpaMapper;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -99,6 +100,49 @@ public class SpaceRepositoryImpl implements SpaceRepository {
                 .stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Space> findByOwnerIdWithStatus(Long ownerId, String status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<SpaceJpaEntity> entityPage;
+        
+        if ("deleted".equals(status) || "inactive".equals(status)) {
+            entityPage = jpaRepository.findByOwnerIdAndIsDeletedTrue(ownerId, pageable);
+        } else if ("all".equals(status)) {
+            entityPage = jpaRepository.findByOwnerId(ownerId, pageable);
+        } else {
+            entityPage = jpaRepository.findByOwnerIdAndIsDeletedFalse(ownerId, pageable);
+        }
+        
+        return entityPage.getContent().stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countByOwnerIdWithStatus(Long ownerId, String status) {
+        if ("deleted".equals(status) || "inactive".equals(status)) {
+            return jpaRepository.countByOwnerIdAndIsDeletedTrue(ownerId);
+        } else if ("all".equals(status)) {
+            return jpaRepository.countByOwnerId(ownerId);
+        }
+        return jpaRepository.countByOwnerIdAndIsDeletedFalse(ownerId);
+    }
+
+    @Override
+    public List<Long> findDistinctOwnerIds() {
+        return jpaRepository.findDistinctOwnerIds();
+    }
+
+    @Override
+    public List<Long> findDistinctOwnerIdsByStatus(String status) {
+        if ("deleted".equals(status) || "inactive".equals(status)) {
+            return jpaRepository.findDistinctOwnerIdsByIsDeletedTrue();
+        } else if ("all".equals(status)) {
+            return jpaRepository.findDistinctOwnerIds();
+        }
+        return jpaRepository.findDistinctOwnerIdsByIsDeletedFalse();
     }
 
     @Override
