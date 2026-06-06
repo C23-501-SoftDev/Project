@@ -112,7 +112,6 @@
                     </div>
                     <input type="hidden" id="spaceFilter" value="">
                 </div>
-                <input type="text" id="searchInput" placeholder="Поиск по заголовку">
                 <button class="button-primary" id="applyFiltersBtn">Применить</button>
                 <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
             </div>
@@ -278,7 +277,7 @@
         const checked = Array.from(document.querySelectorAll('.statusFilter:checked')).map(cb => cb.value);
         state.statusFilters = checked;
         state.spaceFilter = document.getElementById('spaceFilter').value;
-        state.searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+        state.searchTerm = '';
         state.page = 0;
         fetchDocuments();
     }
@@ -291,7 +290,6 @@
         const spaceWrapper = document.getElementById('spaceFilterWrapper');
         spaceWrapper.querySelector('.select-styled').textContent = 'Все пространства';
 
-        document.getElementById('searchInput').value = '';
         state.statusFilters = ['Draft', 'Published', 'Deleted'];
         state.spaceFilter = '';
         state.searchTerm = '';
@@ -317,14 +315,14 @@
             }
         });
 
-        options.querySelectorAll('.select-option').forEach(opt => {
-            opt.addEventListener('click', () => {
-                const val = opt.dataset.value;
-                target.value = val;
-                styled.textContent = opt.textContent;
-                styled.classList.remove('active');
-                options.style.display = 'none';
-            });
+        options.addEventListener('click', (e) => {
+            const opt = e.target.closest('.select-option');
+            if (!opt) return;
+            const val = opt.dataset.value;
+            target.value = val;
+            styled.textContent = opt.textContent;
+            styled.classList.remove('active');
+            options.style.display = 'none';
         });
     }
 
@@ -342,9 +340,6 @@
 
         document.getElementById('applyFiltersBtn').addEventListener('click', applyFilters);
         document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
-        document.getElementById('searchInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') applyFilters();
-        });
 
         document.getElementById('documentsPrevBtn').addEventListener('click', () => {
             if (state.page > 0) { state.page--; fetchDocuments(); }
