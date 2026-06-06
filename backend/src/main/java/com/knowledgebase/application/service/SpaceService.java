@@ -278,7 +278,7 @@ public class SpaceService {
      * Возвращает пространства по фильтру статуса (для ADMIN).
      */
     public List<Space> getSpacesByStatus(String status, int page, int size) {
-        if ("deleted".equals(status)) {
+        if ("deleted".equals(status) || "inactive".equals(status)) {
             return spaceRepository.findDeleted(page, size);
         } else if ("all".equals(status)) {
             return spaceRepository.findAllIncludeDeleted(page, size);
@@ -290,7 +290,7 @@ public class SpaceService {
      * Возвращает количество пространств по фильтру статуса.
      */
     public long countSpacesByStatus(String status) {
-        if ("deleted".equals(status)) {
+        if ("deleted".equals(status) || "inactive".equals(status)) {
             return spaceRepository.countDeleted();
         } else if ("all".equals(status)) {
             return spaceRepository.countAllIncludeDeleted();

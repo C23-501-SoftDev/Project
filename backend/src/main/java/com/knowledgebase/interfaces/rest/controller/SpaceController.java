@@ -67,7 +67,7 @@ public class SpaceController {
      */
     @GetMapping("/api/admin/spaces")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "[ADMIN] Все пространства", description = "Возвращает список всех пространств системы")
+    @Operation(summary = "[ADMIN] Все пространства", description = "Возвращает список пространств с фильтрацией по статусу (active/inactive/all)")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Список пространств"),
         @ApiResponse(responseCode = "403", description = "Доступ запрещён")

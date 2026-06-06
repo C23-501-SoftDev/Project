@@ -7,15 +7,15 @@
     <div class="filter-bar" style="margin-bottom: 20px;">
         <div class="filter-group">
             <label>Статус:</label>
-            <div class="custom-select" id="statusFilterWrapper" style="width: 180px;">
-                <div class="select-styled">Все</div>
+            <div class="custom-select" id="statusFilterWrapper" style="width: 180px;" data-target="statusFilter">
+                <div class="select-styled">Активные</div>
                 <div class="select-options">
                     <div class="select-option" data-value="active">Активные</div>
-                    <div class="select-option" data-value="deleted">Удалённые</div>
+                    <div class="select-option" data-value="inactive">Неактивные</div>
                     <div class="select-option" data-value="all">Все</div>
                 </div>
             </div>
-            <input type="hidden" id="statusFilter" value="all">
+            <input type="hidden" id="statusFilter" value="active">
         </div>
         <button class="button-primary" id="applyFiltersBtn">Применить</button>
         <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
@@ -462,14 +462,20 @@
             // Используем глобальный инициализатор из custom-select.js
             document.addEventListener('DOMContentLoaded', async () => {
                 await loadUsersList();
-                await fetchSpaces();
                 
+                // Сначала инициализируем custom select, чтобы значения корректно передавались
                 if (typeof initCustomSelects === 'function') {
                     initCustomSelects();
                 } else {
                     // Fallback если глобальный скрипт не загрузился
                     initLocalSelects();
                 }
+                
+                // Убедимся, что фильтр статуса инициализирован правильно
+                document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Активные';
+                document.getElementById('statusFilter').value = 'active';
+                
+                await fetchSpaces();
                 
                 document.getElementById('spacesPrevBtn').addEventListener('click', () => {
                     if (state.page > 0) { state.page--; fetchSpaces(); }
@@ -489,8 +495,8 @@
                     fetchSpaces();
                 });
                 document.getElementById('clearFiltersBtn')?.addEventListener('click', () => {
-                    document.getElementById('statusFilter').value = 'all';
-                    document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Все';
+                    document.getElementById('statusFilter').value = 'active';
+                    document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Активные';
                     state.page = 0;
                     fetchSpaces();
                 });
