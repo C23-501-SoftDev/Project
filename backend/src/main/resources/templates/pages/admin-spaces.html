@@ -235,7 +235,7 @@
                     showToast('Восстановлено');
                     closeModal('restoreConfirmModal');
                     fetchSpaces();
-                } catch (e) { showToast('Ошибка восстановления', 'error'); }
+                } catch (e) { showToast(e.message || 'Ошибка восстановления', 'error'); }
             }
 
             async function loadUsersList() {
@@ -401,7 +401,7 @@
 
                     openModal('spaceModal');
                     window.initCustomSelects();
-                } catch (e) { showToast('Ошибка загрузки', 'error'); }
+                } catch (e) { showToast(e.message || 'Ошибка загрузки', 'error'); }
             }
 
             async function saveSpace() {
@@ -417,7 +417,7 @@
                     showToast('Успешно сохранено');
                     closeModal('spaceModal');
                     fetchSpaces();
-                } catch (e) { showToast('Ошибка сохранения', 'error'); }
+                } catch (e) { showToast(e.message || 'Ошибка сохранения', 'error'); }
             }
 
             async function deleteSpace(id) {
@@ -425,14 +425,14 @@
                     await adminFetch(`/api/admin/spaces/${id}`, { method: 'DELETE' });
                     showToast('Удалено');
                     fetchSpaces();
-                } catch (e) { showToast('Ошибка удаления', 'error'); }
+                } catch (e) { showToast(e.message || 'Ошибка удаления', 'error'); }
             }
 
             async function revokePermission(id) {
                 try {
                     await adminFetch(`/api/admin/permissions/${id}`, { method: 'DELETE' });
                     managePermissions(managingSpaceId);
-                } catch (e) { showToast('Ошибка', 'error'); }
+                } catch (e) { showToast(e.message || 'Ошибка', 'error'); }
             }
 
             async function grantPermission() {
@@ -444,7 +444,7 @@
                         method: 'POST', body: JSON.stringify({ userId, permissionType }) 
                     });
                     managePermissions(managingSpaceId);
-                } catch (e) { showToast('Ошибка', 'error'); }
+                } catch (e) { showToast(e.message || 'Ошибка', 'error'); }
             }
 
             // Экспорт функций в global scope

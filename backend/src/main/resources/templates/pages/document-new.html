@@ -128,7 +128,7 @@
             }
         } catch (e) { 
             console.error('Failed to fetch spaces:', e);
-            showToast('Ошибка при загрузке пространств', 'error');
+            showToast(e.message || 'Ошибка при загрузке пространств', 'error');
         }
     }
 
