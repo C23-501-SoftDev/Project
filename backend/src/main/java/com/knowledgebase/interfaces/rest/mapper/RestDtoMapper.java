@@ -1,5 +1,6 @@
 package com.knowledgebase.interfaces.rest.mapper;
 
+import com.knowledgebase.application.service.MarkdownService;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.model.Space;
@@ -16,21 +17,19 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
-/**
- * Маппер DTO ↔ Domain для слоя interfaces.
- *
- * Преобразует доменные объекты в DTO для HTTP-ответов.
- * Написан вручную (без MapStruct) для полного контроля над маппингом.
- */
 @Component
 public class RestDtoMapper {
 
     private final UserRepository userRepository;
     private final SpaceRepository spaceRepository;
+    private final MarkdownService markdownService;
 
-    public RestDtoMapper(UserRepository userRepository, SpaceRepository spaceRepository) {
+    public RestDtoMapper(UserRepository userRepository,
+                         SpaceRepository spaceRepository,
+                         MarkdownService markdownService) {
         this.userRepository = userRepository;
         this.spaceRepository = spaceRepository;
+        this.markdownService = markdownService;
     }
 
     // ── User ──────────────────────────────────────────────────────────────────
@@ -105,25 +104,26 @@ public class RestDtoMapper {
     // ── Document ──────────────────────────────────────────────────────────────
 
     public DocumentResponse toDocumentResponse(Document document, String content) {
+        return toDocumentResponse(document, content, null);
+    }
+
+    public DocumentResponse toDocumentResponse(Document document, String content, String contentHtml) {
         if (document == null) return null;
 
-        // Получаем название пространства
         String spaceName = null;
         if (document.getSpaceId() != null) {
-            Optional<Space> space = spaceRepository.findById(document.getSpaceId());
-            if (space.isPresent()) {
-                spaceName = space.get().getName();
-            }
+            spaceName = spaceRepository.findById(document.getSpaceId())
+                    .map(Space::getName).orElse(null);
         }
 
-        // Получаем логин автора
         String authorLogin = null;
         if (document.getAuthorId() != null) {
-            Optional<User> author = userRepository.findByIdIncludingDeleted(document.getAuthorId());
-            if (author.isPresent()) {
-                authorLogin = author.get().getLogin();
-            }
+            authorLogin = userRepository.findByIdIncludingDeleted(document.getAuthorId())
+                    .map(User::getLogin).orElse(null);
         }
+
+        String resolvedHtml = contentHtml != null ? contentHtml
+                : (content != null ? markdownService.toHtml(content) : null);
 
         return new DocumentResponse(
                 document.getId(),
@@ -134,6 +134,7 @@ public class RestDtoMapper {
                 authorLogin,
                 document.getStatus(),
                 content,
+                resolvedHtml,
                 document.getGitFilePath(),
                 document.getCreatedAt(),
                 document.getUpdatedAt()

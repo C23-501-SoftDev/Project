@@ -13,6 +13,9 @@ public interface DocumentRepository {
     Document save(Document document);
     Optional<Document> findById(Long id);
     List<Document> findBySpaceId(Long spaceId, boolean includeDeleted);
+    List<Document> findBySpaceIdPaged(Long spaceId, boolean includeDeleted, int page, int size);
+    long countBySpaceId(Long spaceId, boolean includeDeleted);
+    List<Document> findBySpaceIdIn(List<Long> spaceIds, boolean includeDeleted);
     List<Document> findByAuthorId(Long authorId);
     boolean existsById(Long id);
     boolean existsByTitleAndSpaceIdAndParentId(String title, Long spaceId, Long parentId);

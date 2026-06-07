@@ -146,6 +146,7 @@
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}')" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
                             ${canEdit && !isDeleted ? `<a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
+                            <button class="button-secondary" onclick="openExportMenu(event,${d.id})" style="padding:6px 12px;">Экспорт ▾</button>
                             ${canEdit ? (isDeleted ? `<a href="#" onclick="restoreDocument(${d.id}); return false;" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Восстановить</a>` : `<button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>`) : ''}
                         </td>
                     </tr>

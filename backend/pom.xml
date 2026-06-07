@@ -31,6 +31,9 @@
         <springdoc.version>2.8.6</springdoc.version>
         <lombok.version>1.18.32</lombok.version>
         <jacoco.version>0.8.12</jacoco.version>
+        <flexmark.version>0.64.8</flexmark.version>
+        <openhtmltopdf.version>1.0.10</openhtmltopdf.version>
+        <poi.version>5.2.5</poi.version>
     </properties>
 
     <dependencies>
@@ -165,6 +168,36 @@
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
             <optional>true</optional>
+        </dependency>
+
+        <!-- =====================================================
+             MARKDOWN / EXPORT
+             ===================================================== -->
+
+        <!-- Flexmark — Markdown → HTML (CommonMark + расширения) -->
+        <dependency>
+            <groupId>com.vladsch.flexmark</groupId>
+            <artifactId>flexmark-all</artifactId>
+            <version>${flexmark.version}</version>
+        </dependency>
+
+        <!-- OpenHTMLtoPDF — HTML → PDF через PDFBox -->
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-core</artifactId>
+            <version>${openhtmltopdf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-pdfbox</artifactId>
+            <version>${openhtmltopdf.version}</version>
+        </dependency>
+
+        <!-- Apache POI — генерация DOCX -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
         </dependency>
 
         <!-- =====================================================
