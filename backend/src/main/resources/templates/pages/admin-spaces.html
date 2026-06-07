@@ -34,6 +34,24 @@
         .select-styled.select-searchable:focus {
             outline: 2px solid #BFDBFE;
         }
+
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .sortable-header:hover {
+            background: rgba(59, 130, 246, 0.06);
+        }
+
+        .sort-indicator {
+            display: inline-block;
+            min-width: 14px;
+            margin-left: 4px;
+            font-size: 12px;
+            opacity: 0.75;
+        }
     </style>
     <div class="header" style="flex-direction: column; align-items: flex-start; gap: 10px;">
         <h1>Пространства</h1>
@@ -61,11 +79,11 @@
         <table id="spacesTable" class="data-table">
             <thead>
                 <tr>
-                    <th data-sort="id">ID</th>
-                    <th data-sort="name">Название</th>
-                    <th data-sort="description">Описание</th>
-                    <th data-sort="owner">Владелец</th>
-                    <th data-sort="status">Статус</th>
+                    <th data-sort="id" class="sortable-header">ID <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="name" class="sortable-header">Название <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="description" class="sortable-header">Описание <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="ownerLogin" class="sortable-header">Владелец <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="status" class="sortable-header">Статус <span class="sort-indicator" aria-hidden="true"></span></th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -262,7 +280,9 @@
         let state = {
             page: 0,
             size: 20,
-            totalPages: 1
+            totalPages: 1,
+            sortBy: 'createdAt',
+            sortDir: 'asc'
         };
         let editingSpaceId = null;
         let managingSpaceId = null;
@@ -303,8 +323,10 @@
                 if (typeof adminFetch !== 'function') return;
 
                 const statusFilter = document.getElementById('statusFilter').value;
-                const url = `/api/admin/spaces?page=${state.page}&size=${state.size}&status=${statusFilter}`;
+                const url = `/api/admin/spaces?page=${state.page}&size=${state.size}&status=${statusFilter}&sortBy=${encodeURIComponent(state.sortBy)}&sortDir=${encodeURIComponent(state.sortDir)}`;
                 const data = await adminFetch(url);
+                state.sortBy = data.sortBy || state.sortBy;
+                state.sortDir = data.sortDir || state.sortDir;
                 const spaces = (data.content || data.spaces || []).map(s => ({
                     ...s,
                     isDeleted: s.isDeleted || false
@@ -336,11 +358,35 @@
                     `).join('');
                 }
                 updatePagination();
+                updateSortIndicators();
                 updateUrl();
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
                 console.error('Failed to fetch spaces:', e);
             }
+        }
+
+        function updateSortIndicators() {
+            document.querySelectorAll('#spacesTable thead th[data-sort]').forEach(th => {
+                const indicator = th.querySelector('.sort-indicator');
+                const isActive = th.dataset.sort === state.sortBy;
+                th.classList.toggle('active-sort', isActive);
+                th.setAttribute('aria-sort', isActive ? (state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+                if (indicator) {
+                    indicator.textContent = isActive ? (state.sortDir === 'asc' ? '↑' : '↓') : '';
+                }
+            });
+        }
+
+        function applySort(sortBy) {
+            if (state.sortBy === sortBy) {
+                state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.sortBy = sortBy;
+                state.sortDir = 'asc';
+            }
+            state.page = 0;
+            fetchSpaces();
         }
 
         function updatePagination() {
@@ -358,6 +404,8 @@
             if (state.page > 0) params.set('page', state.page);
             const statusFilter = document.getElementById('statusFilter').value;
             if (statusFilter !== 'all') params.set('status', statusFilter);
+            params.set('sortBy', state.sortBy);
+            params.set('sortDir', state.sortDir);
             const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
             history.replaceState(null, '', newUrl);
         }
@@ -531,6 +579,14 @@
                 const opt = statusWrapper.querySelector(`.select-option[data-value="${statusParam}"]`);
                 if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
             }
+            const sortByParam = urlParams.get('sortBy');
+            const sortDirParam = urlParams.get('sortDir');
+            if (sortByParam) {
+                state.sortBy = sortByParam;
+            }
+            if (sortDirParam === 'desc' || sortDirParam === 'asc') {
+                state.sortDir = sortDirParam;
+            }
 
             await loadUsersList();
             await fetchSpaces();
@@ -549,6 +605,18 @@
                 if (state.page < state.totalPages - 1) { state.page++; fetchSpaces(); }
             });
 
+            document.querySelectorAll('#spacesTable thead th[data-sort]').forEach(th => {
+                th.setAttribute('role', 'button');
+                th.setAttribute('tabindex', '0');
+                th.addEventListener('click', () => applySort(th.dataset.sort));
+                th.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        applySort(th.dataset.sort);
+                    }
+                });
+            });
+
             document.getElementById('closeSpaceModalBtn')?.addEventListener('click', () => closeModal('spaceModal'));
             document.getElementById('saveSpaceBtn')?.addEventListener('click', saveSpace);
             document.getElementById('closePermModalBtn')?.addEventListener('click', () => closeModal('permissionsModal'));
@@ -565,6 +633,8 @@
                 state.page = 0;
                 fetchSpaces();
             });
+
+            updateSortIndicators();
         });
     })();
 </script>

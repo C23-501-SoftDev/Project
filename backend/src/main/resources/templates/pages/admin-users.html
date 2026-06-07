@@ -1,4 +1,23 @@
 <div class="admin-users-page">
+    <style>
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .sortable-header:hover {
+            background: rgba(59, 130, 246, 0.06);
+        }
+
+        .sort-indicator {
+            display: inline-block;
+            min-width: 14px;
+            margin-left: 4px;
+            font-size: 12px;
+            opacity: 0.75;
+        }
+    </style>
     <!-- Current user ID for self-editing detection -->
     <input type="hidden" id="currentUserId" th:value="${currentUser.id}">
 
@@ -40,12 +59,12 @@
         <table id="usersTable" class="data-table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Логин</th>
-                    <th>Email</th>
-                    <th>Роль</th>
-                    <th>Админ</th>
-                    <th>Статус</th>
+                    <th data-sort="id" class="sortable-header">ID <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="login" class="sortable-header">Логин <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="email" class="sortable-header">Email <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="role" class="sortable-header">Роль <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="isAdmin" class="sortable-header">Админ <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="isDeleted" class="sortable-header">Статус <span class="sort-indicator" aria-hidden="true"></span></th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -124,6 +143,7 @@
 
 <script>
     (function () {
+        const sortableFields = new Set(['id', 'login', 'email', 'role', 'isAdmin', 'isDeleted']);
         let state = {
             sortBy: 'id',
             sortDir: 'asc',
@@ -166,6 +186,8 @@
 
             try {
                 const data = await adminFetch(url);
+                state.sortBy = data.sortBy || state.sortBy;
+                state.sortDir = data.sortDir || state.sortDir;
                 const users = data.content || data.users || [];
                 state.totalElements = data.totalElements || users.length;
                 state.totalPages = data.totalPages || 1;
@@ -217,10 +239,35 @@
                 }
 
                 updatePagination();
+                updateSortIndicators();
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
                 console.error('Failed to fetch users:', e);
             }
+        }
+
+        function updateSortIndicators() {
+            document.querySelectorAll('#usersTable thead th[data-sort]').forEach(th => {
+                const indicator = th.querySelector('.sort-indicator');
+                const isActive = th.dataset.sort === state.sortBy;
+                th.setAttribute('aria-sort', isActive ? (state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+                if (indicator) {
+                    indicator.textContent = isActive ? (state.sortDir === 'asc' ? '↑' : '↓') : '';
+                }
+            });
+        }
+
+        function applySort(sortBy) {
+            if (!sortableFields.has(sortBy)) return;
+            if (state.sortBy === sortBy) {
+                state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.sortBy = sortBy;
+                state.sortDir = 'asc';
+            }
+            state.page = 0;
+            fetchUsers();
+            updateUrl();
         }
 
         function updatePagination() {
@@ -236,6 +283,8 @@
             if (state.statusFilter !== 'active') params.set('status', state.statusFilter);
             if (state.roleFilters.length > 0) params.set('roles', state.roleFilters.join(','));
             if (state.searchTerm) params.set('search', state.searchTerm);
+            params.set('sortBy', state.sortBy);
+            params.set('sortDir', state.sortDir);
             const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
             history.replaceState(null, '', newUrl);
         }
@@ -412,6 +461,10 @@
             if (rolesParam) state.roleFilters = rolesParam.split(',');
             const searchParam = urlParams.get('search');
             if (searchParam) state.searchTerm = searchParam;
+            const sortByParam = urlParams.get('sortBy');
+            if (sortByParam && sortableFields.has(sortByParam)) state.sortBy = sortByParam;
+            const sortDirParam = urlParams.get('sortDir');
+            if (sortDirParam === 'asc' || sortDirParam === 'desc') state.sortDir = sortDirParam;
 
             // Устанавливаем значения в UI
             document.getElementById('statusFilter').value = state.statusFilter;
@@ -474,6 +527,18 @@
                 if (state.page < state.totalPages - 1) { state.page++; fetchUsers(); updateUrl(); }
             });
 
+            document.querySelectorAll('#usersTable thead th[data-sort]').forEach(th => {
+                th.setAttribute('role', 'button');
+                th.setAttribute('tabindex', '0');
+                th.addEventListener('click', () => applySort(th.dataset.sort));
+                th.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        applySort(th.dataset.sort);
+                    }
+                });
+            });
+
             document.getElementById('applyFiltersBtn').addEventListener('click', () => {
                 applyUserFilters();
                 updateUrl();
@@ -490,6 +555,8 @@
             document.getElementById('saveUserBtn').addEventListener('click', saveUser);
             document.getElementById('cancelDeleteBtn').addEventListener('click', () => closeModal('deleteModal'));
             document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+
+            updateSortIndicators();
         });
     })();
             </script>

@@ -15,6 +15,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class SpaceIntegrationTest extends IntegrationTestBase {
 
+        private long createSpace(String jwt, String name, Long ownerId) throws Exception {
+                String ownerPart = ownerId == null ? "\"ownerId\":null" : "\"ownerId\":%d".formatted(ownerId);
+                String response = mockMvc.perform(post("/api/admin/spaces")
+                                                .cookie(jwtCookie(jwt))
+                                                .contentType(APPLICATION_JSON)
+                                                .content("""
+                                                                {"name":"%s","description":"desc",%s}
+                                                                """.formatted(name, ownerPart)))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+                return Long.parseLong(response.replaceAll("(?s).*(?:\"id\"\\s*:\\s*)(\\d+).*", "$1"));
+        }
+
     @Test
     void admin_canManageSpace_CRUD() throws Exception {
         User admin = persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
@@ -73,6 +88,58 @@ class SpaceIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/admin/spaces/" + spaceId)
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void admin_listSpaces_supportsDefaultAndColumnSorting() throws Exception {
+        User admin = persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
+        User ownerAlpha = persistUser("owner-alpha", "pass123", "owner-alpha@kb.local", GlobalRole.READER);
+        User ownerZeta = persistUser("owner-zeta", "pass123", "owner-zeta@kb.local", GlobalRole.READER);
+        String adminJwt = loginAndGetJwt("admin", "admin123");
+
+        String deltaName = "delta-" + uniqueLogin("kb");
+        String alphaName = "alpha-" + uniqueLogin("kb");
+        String charlieName = "charlie-" + uniqueLogin("kb");
+
+        long deltaId = createSpace(adminJwt, deltaName, ownerZeta.getId());
+        long alphaId = createSpace(adminJwt, alphaName, ownerAlpha.getId());
+        long charlieId = createSpace(adminJwt, charlieName, ownerZeta.getId());
+
+        spaceRepository.deleteById(alphaId);
+
+        mockMvc.perform(get("/api/admin/spaces?page=0&size=20&status=all")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name", is(deltaName)))
+                .andExpect(jsonPath("$.content[1].name", is(alphaName)))
+                .andExpect(jsonPath("$.content[2].name", is(charlieName)));
+
+        mockMvc.perform(get("/api/admin/spaces?page=0&size=20&status=all&sortBy=name&sortDir=asc")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name", is(alphaName)))
+                .andExpect(jsonPath("$.content[1].name", is(charlieName)))
+                .andExpect(jsonPath("$.content[2].name", is(deltaName)));
+
+        mockMvc.perform(get("/api/admin/spaces?page=0&size=20&status=all&sortBy=ownerLogin&sortDir=asc")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].ownerLogin", is("owner-alpha")))
+                .andExpect(jsonPath("$.content[1].ownerLogin", is("owner-zeta")))
+                .andExpect(jsonPath("$.content[2].ownerLogin", is("owner-zeta")));
+
+        mockMvc.perform(get("/api/admin/spaces?page=0&size=20&status=all&sortBy=status&sortDir=asc")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].isDeleted", is(false)))
+                .andExpect(jsonPath("$.content[1].isDeleted", is(false)))
+                .andExpect(jsonPath("$.content[2].isDeleted", is(true)));
+
+        mockMvc.perform(get("/api/admin/spaces?page=0&size=20&status=all&sortBy=unknown&sortDir=asc")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sortBy", is("createdAt")))
+                .andExpect(jsonPath("$.sortDir", is("asc")));
     }
 
     @Test
