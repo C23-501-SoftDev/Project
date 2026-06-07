@@ -153,30 +153,30 @@ public class DocumentController {
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal User currentUser) {
         
-        List<Document> documents;
+        List<DocumentResponse> pagedContent;
+        long totalElements;
+
         if (spaceId != null) {
             // Для конкретного пространства проверяем доступ
             if (!permissionService.canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
                 return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
             }
-            documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
+            pagedContent = documentService.getDocumentsInSpacePaged(spaceId, includeDeleted, page, size)
+                    .stream().map(doc -> mapper.toDocumentResponse(doc, null)).toList();
+            totalElements = documentService.countDocumentsInSpace(spaceId, includeDeleted);
         } else {
-            // Получить все документы, доступные пользователю (через сервис)
-            documents = documentService.getAllAccessibleDocuments(currentUser.getId(), currentUser.isAdmin(), includeDeleted);
+            List<Document> all = documentService.getAllAccessibleDocuments(
+                    currentUser.getId(), currentUser.isAdmin(), includeDeleted);
+            totalElements = all.size();
+            int from = Math.min(page * size, (int) totalElements);
+            int to = Math.min(from + size, (int) totalElements);
+            pagedContent = all.subList(from, to).stream()
+                    .map(doc -> mapper.toDocumentResponse(doc, null)).toList();
         }
 
-        // Ручная пагинация (так как сервис возвращает List)
-        int totalElements = documents.size();
         int totalPages = (int) Math.ceil((double) totalElements / size);
-        int fromIndex = Math.min(page * size, totalElements);
-        int toIndex = Math.min(fromIndex + size, totalElements);
-        
-        List<DocumentResponse> pagedResponse = documents.subList(fromIndex, toIndex).stream()
-                .map(doc -> mapper.toDocumentResponse(doc, null))
-                .toList();
-
         java.util.Map<String, Object> result = new java.util.HashMap<>();
-        result.put("content", pagedResponse);
+        result.put("content", pagedContent);
         result.put("totalElements", totalElements);
         result.put("totalPages", totalPages);
         result.put("size", size);

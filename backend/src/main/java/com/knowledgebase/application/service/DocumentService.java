@@ -462,13 +462,35 @@ public class DocumentService {
      * Возвращает иерархическую структуру документов в пространстве.
      */
     public List<DocumentTreeNode> getSpaceDocumentHierarchy(Long spaceId) {
-
         List<Document> documents = getDocumentsInSpace(spaceId, false);
-        
+        return buildHierarchy(documents);
+    }
+
+    /**
+     * Возвращает иерархии документов для нескольких пространств одним запросом к БД.
+     * Используется в PageController для устранения N+1.
+     */
+    public Map<Long, List<DocumentTreeNode>> getHierarchiesForSpaces(List<Long> spaceIds) {
+        if (spaceIds == null || spaceIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Document> allDocuments = documentRepository.findBySpaceIdIn(spaceIds, false);
+
+        Map<Long, List<Document>> bySpace = allDocuments.stream()
+                .collect(Collectors.groupingBy(Document::getSpaceId));
+
+        return spaceIds.stream()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        id -> buildHierarchy(bySpace.getOrDefault(id, List.of()))
+                ));
+    }
+
+    private List<DocumentTreeNode> buildHierarchy(List<Document> documents) {
         Map<Long, List<Document>> childrenMap = documents.stream()
                 .filter(d -> d.getParentDocumentId() != null)
                 .collect(Collectors.groupingBy(Document::getParentDocumentId));
-        
+
         return documents.stream()
                 .filter(d -> d.getParentDocumentId() == null)
                 .map(d -> buildNode(d, childrenMap))
@@ -480,6 +502,20 @@ public class DocumentService {
                 .map(child -> buildNode(child, childrenMap))
                 .collect(Collectors.toList());
         return new DocumentTreeNode(doc, children);
+    }
+
+    /**
+     * Возвращает список документов в пространстве с пагинацией на уровне БД.
+     */
+    public List<Document> getDocumentsInSpacePaged(Long spaceId, boolean includeDeleted, int page, int size) {
+        if (!spaceRepository.findById(spaceId).isPresent()) {
+            throw new SpaceNotFoundException(spaceId);
+        }
+        return documentRepository.findBySpaceIdPaged(spaceId, includeDeleted, page, size);
+    }
+
+    public long countDocumentsInSpace(Long spaceId, boolean includeDeleted) {
+        return documentRepository.countBySpaceId(spaceId, includeDeleted);
     }
 
     public static class DocumentTreeNode {

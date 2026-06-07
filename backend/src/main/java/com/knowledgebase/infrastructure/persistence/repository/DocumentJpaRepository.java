@@ -14,16 +14,28 @@ import java.util.List;
 
 @Repository
 public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, Long> {
-    
+
     List<DocumentJpaEntity> findBySpaceId(Long spaceId);
-    
+
     List<DocumentJpaEntity> findBySpaceIdAndStatusNot(Long spaceId, String status);
 
+    Page<DocumentJpaEntity> findBySpaceIdAndStatusNot(Long spaceId, String status, Pageable pageable);
+
+    Page<DocumentJpaEntity> findBySpaceId(Long spaceId, Pageable pageable);
+
+    long countBySpaceIdAndStatusNot(Long spaceId, String status);
+
+    long countBySpaceId(Long spaceId);
+
     List<DocumentJpaEntity> findByStatusNot(String status);
-    
+
     List<DocumentJpaEntity> findAllBySpaceIdIn(java.util.Set<Long> spaceIds);
-    
+
     List<DocumentJpaEntity> findAllBySpaceIdInAndStatusNot(java.util.Set<Long> spaceIds, String status);
+
+    List<DocumentJpaEntity> findBySpaceIdIn(Collection<Long> spaceIds);
+
+    List<DocumentJpaEntity> findBySpaceIdInAndStatusNot(Collection<Long> spaceIds, String status);
     
     List<DocumentJpaEntity> findByAuthorId(Long authorId);
     @org.springframework.data.jpa.repository.Query(value = "SELECT count(*) FROM documents WHERE title = ?1 AND space_id = ?2 AND parent_document_id = ?3", nativeQuery = true)
