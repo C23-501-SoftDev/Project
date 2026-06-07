@@ -1,6 +1,7 @@
 package com.knowledgebase.interfaces.rest.controller;
 
 import com.knowledgebase.application.service.DocumentService;
+import com.knowledgebase.application.service.PermissionService;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.dto.request.CreateDocumentRequest;
@@ -35,12 +36,16 @@ import java.util.List;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final PermissionService permissionService;
     private final RestDtoMapper mapper;
 
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
 
-    public DocumentController(DocumentService documentService, RestDtoMapper mapper) {
+    public DocumentController(DocumentService documentService,
+                              PermissionService permissionService,
+                              RestDtoMapper mapper) {
         this.documentService = documentService;
+        this.permissionService = permissionService;
         this.mapper = mapper;
     }
 
@@ -151,7 +156,7 @@ public class DocumentController {
         List<Document> documents;
         if (spaceId != null) {
             // Для конкретного пространства проверяем доступ
-            if (!com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.application.service.PermissionService.class).canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
+            if (!permissionService.canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
                 return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
             }
             documents = documentService.getDocumentsInSpace(spaceId, includeDeleted);
