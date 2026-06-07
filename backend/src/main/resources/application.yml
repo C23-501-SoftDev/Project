@@ -64,7 +64,7 @@ spring:
 # Сервер
 # =====================================================
 server:
-  port: 8081
+  port: 8080
   error:
     include-message: always
     include-binding-errors: always
@@ -116,7 +116,7 @@ app:
       # Максимальный размер одного файла вложения
       max-size-bytes: ${ATTACHMENT_MAX_SIZE_BYTES:10485760}
       # Разрешённые расширения файлов вложений
-      allowed-extensions: ${ATTACHMENT_ALLOWED_EXTENSIONS:md,png,jpg,jpeg,gif,pdf,txt,docx,xlsx,pptx,zip}
+      allowed-extensions: ${ATTACHMENT_ALLOWED_EXTENSIONS:md,html,png,jpg,jpeg,gif,pdf,txt,docx,xlsx,pptx,zip}
 ---
 # =====================================================
 # Профиль DEV — локальная разработка

@@ -1,5 +1,6 @@
 package com.knowledgebase.interfaces.rest.controller;
 
+import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.application.service.DocumentService;
 import com.knowledgebase.application.service.SpaceService;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -46,12 +48,8 @@ public class PageController {
     private void addAllSpacesTrees(Model model, User user) {
         var spaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), 0, 100);
         model.addAttribute("spaces", spaces);
-        var trees = spaces.stream()
-            .collect(Collectors.toMap(
-                space -> space.getId(),
-                space -> documentService.getSpaceDocumentHierarchy(space.getId())
-            ));
-        model.addAttribute("spaceTrees", trees);
+        List<Long> spaceIds = spaces.stream().map(Space::getId).collect(Collectors.toList());
+        model.addAttribute("spaceTrees", documentService.getHierarchiesForSpaces(spaceIds));
     }
 
     private void addSidebarData(Long spaceId, Model model, User user) {
