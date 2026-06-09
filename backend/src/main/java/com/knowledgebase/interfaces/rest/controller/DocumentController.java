@@ -176,31 +176,31 @@ public class DocumentController {
                 all = all.stream().filter(d -> authorId.equals(d.getAuthorId())).toList();
             }
 
-            totalElements = all.size();
+            List<Document> filteredList = new java.util.ArrayList<>(all);
+            
+            // Фильтрация по статусам
+            if (status != null && !status.isEmpty()) {
+                java.util.Set<String> statusSet = new java.util.HashSet<>(status);
+                filteredList = filteredList.stream()
+                        .filter(doc -> doc.getStatus() != null && statusSet.contains(doc.getStatus().name()))
+                        .toList();
+            }
+
+            // Фильтрация по поисковому запросу
+            if (search != null && !search.isEmpty()) {
+                String searchLower = search.toLowerCase();
+                filteredList = filteredList.stream()
+                        .filter(doc -> doc.getTitle() != null && doc.getTitle().toLowerCase().contains(searchLower))
+                        .toList();
+            }
+
+            totalElements = filteredList.size();
             int from = Math.min(page * size, (int) totalElements);
             int to = Math.min(from + size, (int) totalElements);
-            pagedContent = all.subList(from, to).stream()
+            pagedContent = filteredList.subList(from, to).stream()
                     .map(doc -> mapper.toDocumentResponse(doc, null)).toList();
         }
 
-        // Фильтрация по статусам (если указаны)
-        if (status != null && !status.isEmpty()) {
-            java.util.Set<String> statusSet = new java.util.HashSet<>(status);
-            pagedContent = pagedContent.stream()
-                    .filter(doc -> doc.status() != null && statusSet.contains(doc.status().name()))
-                    .toList();
-        }
-
-        // Фильтрация по поисковому запросу (если есть)
-        if (search != null && !search.isEmpty()) {
-            String searchLower = search.toLowerCase();
-            pagedContent = pagedContent.stream()
-                    .filter(doc -> doc.title() != null && doc.title().toLowerCase().contains(searchLower))
-                    .toList();
-        }
-
-        // Ручная пагинация (так как сервис возвращает List)
-        totalElements = pagedContent.size();
         int totalPages = (int) Math.ceil((double) totalElements / size);
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("content", pagedContent);
