@@ -237,7 +237,7 @@
                     return `
                     <tr>
                         <td>${d.id}</td>
-                        <td><strong>${escapeHtml(d.title)}</strong></td>
+                        <td><strong style="display:block; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(d.title)}">${escapeHtml(d.title)}</strong></td>
                         <td>${escapeHtml(d.spaceName || d.spaceId)}</td>
                         <td>${escapeHtml(d.authorLogin || 'Неизвестно')}</td>
                         <td>${renderStatus(d.status)}</td>
