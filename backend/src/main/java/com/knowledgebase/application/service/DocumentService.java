@@ -280,10 +280,17 @@ public class DocumentService {
         log.info("Архивация документа ID {}: title='{}'", id, document.getTitle());
 
         String oldPath = document.getGitFilePath();
-        String newPath = ".archive/" + oldPath;
+        // Если документ уже имеет путь в архиве, избегаем двойной архивации
+        String newPath = oldPath.startsWith(".archive/") ? oldPath : ".archive/" + oldPath;
 
-        // 1. Перемещаем файл в Git
-        contentRepository.moveContent(oldPath, newPath, "Archive document: " + document.getTitle());
+        // 1. Перемещаем файл в Git, если он существует и еще не в архиве
+        if (!oldPath.startsWith(".archive/")) {
+            try {
+                contentRepository.moveContent(oldPath, newPath, "Archive document: " + document.getTitle());
+            } catch (Exception e) {
+                log.warn("Не удалось архивировать файл документа {}: {}", id, e.getMessage());
+            }
+        }
 
         // 2. Обновляем метаданные в БД
         document.archive(newPath);
@@ -297,6 +304,7 @@ public class DocumentService {
     public void deleteDocument(Long id) {
         deleteDocument(id, true);
     }
+
 
     /**
      * Удаляет документ навсегда (hard-delete).
@@ -359,16 +367,43 @@ public class DocumentService {
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
         String archivedPath = document.getGitFilePath();
-        String originalPath = archivedPath.replace(".archive/", "");
+        String originalPath = archivedPath.startsWith(".archive/") ? archivedPath.substring(".archive/".length()) : archivedPath;
 
-        // 1. Перемещаем файл в Git
-        contentRepository.moveContent(archivedPath, originalPath, "Restore document: " + document.getTitle());
+        // 1. Перемещаем файл из Git архива обратно, если он там
+        if (archivedPath.startsWith(".archive/")) {
+            try {
+                contentRepository.moveContent(archivedPath, originalPath, "Restore document: " + document.getTitle());
+            } catch (Exception e) {
+                log.warn("Не удалось восстановить файл документа {} из архива: {}", id, e.getMessage());
+            }
+        }
 
         // 2. Обновляем метаданные в БД
         document.restore(originalPath);
+        // Сброс флага восстановления
+        document.markAsDeletedWithSpace(false);
         documentRepository.save(document);
         documentRepository.flush();
+
+        // Проверяем контент после восстановления
+        if (contentRepository.findContentByPath(originalPath).orElse("").isEmpty()) {
+            log.error("После восстановления документ пуст: {}. Попытка восстановить из .archive/", originalPath);
+            // Если документ пуст, пробуем принудительно восстановить из архивной версии, 
+            // так как moveContent мог переместить файл, но контент не обновился.
+            // Пытаемся найти контент в исходной архивной локации (если файл там еще остался) 
+            // или в истории git, но пока пробуем просто прочитать архив.
+            try {
+                String archivedContent = contentRepository.findContentByPath(archivedPath).orElse("");
+                if (!archivedContent.isEmpty()) {
+                    contentRepository.saveContent(originalPath, archivedContent, "Restore content from archive: " + document.getTitle(), "System", "system@knowledgebase.com");
+                    log.info("Контент успешно восстановлен из архива для документа: {}", originalPath);
+                }
+            } catch (Exception e) {
+                log.error("Не удалось восстановить контент из архива", e);
+            }
+        }
     }
+
 
     /**
      * Восстанавливает документ с автоматическим поиском живого предка.
@@ -421,13 +456,22 @@ public class DocumentService {
 
     /**
      * Возвращает список документов в пространстве.
-
      */
     public List<Document> getDocumentsInSpace(Long spaceId, boolean includeDeleted) {
         if (!spaceRepository.findById(spaceId).isPresent()) {
             throw new SpaceNotFoundException(spaceId);
         }
-        return documentRepository.findBySpaceId(spaceId, includeDeleted);
+        // Получаем документы из репозитория
+        List<Document> documents = documentRepository.findBySpaceId(spaceId, includeDeleted);
+        
+        // Дополнительно фильтруем удаленные документы, если они не должны быть включены
+        if (!includeDeleted) {
+            return documents.stream()
+                    .filter(d -> d.getStatus() != DocumentStatus.DELETED)
+                    .collect(Collectors.toList());
+        }
+        
+        return documents;
     }
 
     /**

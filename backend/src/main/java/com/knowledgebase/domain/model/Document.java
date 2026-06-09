@@ -17,6 +17,7 @@ public class Document {
     private Long parentDocumentId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean deletedWithSpace = false;
 
     private Document() {}
 
@@ -82,10 +83,19 @@ public class Document {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void markAsDeletedWithSpace(boolean deletedWithSpace) {
+        this.deletedWithSpace = deletedWithSpace;
+    }
+
+    public boolean isDeletedWithSpace() {
+        return deletedWithSpace;
+    }
+
     public void restore(String originalGitPath) {
         this.status = DocumentStatus.DRAFT;
         this.gitFilePath = originalGitPath;
         this.updatedAt = LocalDateTime.now();
+        this.deletedWithSpace = false;
     }
 
     // Getters

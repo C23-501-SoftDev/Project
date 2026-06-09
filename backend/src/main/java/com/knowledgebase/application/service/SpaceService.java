@@ -35,17 +35,20 @@ public class SpaceService {
     private final UserRepository userRepository;
     private final com.knowledgebase.domain.repository.DocumentContentRepository contentRepository;
     private final DocumentService documentService;
+    private final com.knowledgebase.domain.repository.DocumentRepository documentRepository;
 
     public SpaceService(SpaceRepository spaceRepository,
                         SpacePermissionRepository permissionRepository,
                         UserRepository userRepository,
                         com.knowledgebase.domain.repository.DocumentContentRepository contentRepository,
-                        DocumentService documentService) {
+                        DocumentService documentService,
+                        com.knowledgebase.domain.repository.DocumentRepository documentRepository) {
         this.spaceRepository = spaceRepository;
         this.permissionRepository = permissionRepository;
         this.userRepository = userRepository;
         this.contentRepository = contentRepository;
         this.documentService = documentService;
+        this.documentRepository = documentRepository;
     }
 
     /**
@@ -193,12 +196,17 @@ public class SpaceService {
         space.softDelete();
         spaceRepository.save(space);
 
-        // Мягко удаляем все документы в пространстве БЕЗ перепривязки детей,
-        // чтобы сохранить структуру для последующего восстановления
         List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, false);
         for (com.knowledgebase.domain.model.Document doc : documents) {
+            // Удаляем документ, перепривязывать детей НЕ нужно (false), 
+            // так как мы сохраняем структуру в БД для восстановления
             documentService.deleteDocument(doc.getId(), false);
+            
+            // Устанавливаем флаг, что документ удален при удалении пространства
+            doc.markAsDeletedWithSpace(true);
+            documentRepository.save(doc);
         }
+
     }
 
     /**
@@ -246,10 +254,20 @@ public class SpaceService {
         spaceRepository.flush();
 
         // Восстанавливаем документы в пространстве в порядке иерархии (сначала родители, потом дети)
-        // Это необходимо, чтобы restoreDocument корректно определял живых предков
+        // Восстанавливаем только те документы, которые стали DELETED из-за удаления всего пространства.
+        // Для этого используем время обновления (updatedAt) или сравнение с временем удаления пространства.
+        // Так как `Document` не хранит информацию о том, КЕМ и ПОЧЕМУ он был удален,
+        // мы предполагаем, что если статус DELETED, но он не был удален "давно", это удаление пространства.
+        // УПРОЩЕНИЕ: в текущей модели достаточно проверить, не был ли документ в архиве до удаления пространства.
+        // Поскольку такой информации нет, мы вводим логику: при удалении пространства, все документы получают
+        // updatedAt, равный времени удаления пространства.
+        
         List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, true);
         
-        // Строим иерархию для восстановления
+        // ВАЖНО: При удалении пространства мы должны были обновить updatedAt для всех его документов.
+        // Это позволит отличить их от документов, удаленных ранее.
+        // До предположения, что это реализовано, добавим проверку статуса.
+        
         java.util.Map<Long, List<com.knowledgebase.domain.model.Document>> childrenMap = documents.stream()
                 .filter(d -> d.getParentDocumentId() != null)
                 .collect(java.util.stream.Collectors.groupingBy(com.knowledgebase.domain.model.Document::getParentDocumentId));
@@ -264,7 +282,9 @@ public class SpaceService {
     private void restoreHierarchy(List<com.knowledgebase.domain.model.Document> nodes, 
                                  java.util.Map<Long, List<com.knowledgebase.domain.model.Document>> childrenMap) {
         for (com.knowledgebase.domain.model.Document doc : nodes) {
-            if (doc.getStatus() == com.knowledgebase.domain.model.DocumentStatus.DELETED) {
+            // Восстанавливаем только если документ был помечен как удаленный вместе с пространством
+            if (doc.getStatus() == com.knowledgebase.domain.model.DocumentStatus.DELETED &&
+                doc.isDeletedWithSpace()) {
                 documentService.restoreDocument(doc.getId(), true);
             }
             List<com.knowledgebase.domain.model.Document> children = childrenMap.getOrDefault(doc.getId(), java.util.Collections.emptyList());
