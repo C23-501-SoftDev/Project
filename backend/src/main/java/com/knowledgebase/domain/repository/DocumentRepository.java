@@ -18,6 +18,7 @@ public interface DocumentRepository {
     boolean existsByTitleAndSpaceIdAndParentId(String title, Long spaceId, Long parentId);
     Optional<Document> findBySpaceIdAndTitle(Long spaceId, String title);
     boolean existsByTitleAndSpaceIdAndNoParent(String title, Long spaceId);
+    List<com.knowledgebase.domain.model.User> findDistinctAuthorsByAccessibleSpaces(Long userId);
     List<Long> findAncestorIds(Long documentId);
     List<Document> findAll(boolean includeDeleted);
     List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted);

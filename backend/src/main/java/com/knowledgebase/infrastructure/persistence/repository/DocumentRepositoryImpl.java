@@ -162,6 +162,31 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public List<com.knowledgebase.domain.model.User> findDistinctAuthorsByAccessibleSpaces(Long userId) {
+        Set<Long> accessibleSpaceIds = spacePermissionRepository.findByUserId(userId).stream()
+                .map(com.knowledgebase.domain.model.SpacePermission::getSpaceId)
+                .collect(Collectors.toSet());
+
+        if (accessibleSpaceIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return jpaRepository.findDistinctAuthorsBySpaceIds(accessibleSpaceIds).stream()
+                .map(entity -> com.knowledgebase.domain.model.User.restore(
+                        entity.getId(), 
+                        entity.getLogin(), 
+                        null, 
+                        entity.getEmail(), 
+                        com.knowledgebase.domain.model.GlobalRole.fromDbValue(entity.getRole()), 
+                        entity.isAdmin(), 
+                        entity.isDeleted(), 
+                        entity.getCreatedAt(), 
+                        entity.getUpdatedAt()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<Long> findAncestorIds(Long documentId) {
         return jpaRepository.findAncestorIds(documentId);
     }

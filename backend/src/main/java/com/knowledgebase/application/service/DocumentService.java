@@ -508,5 +508,8 @@ public class DocumentService {
         public Document getDocument() { return document; }
         public List<DocumentTreeNode> getChildren() { return children; }
     }
-
+    public List<User> findDistinctAuthorsByAccessibleSpaces(Long userId) {
+        return documentRepository.findDistinctAuthorsByAccessibleSpaces(userId);
+    }
 }
+

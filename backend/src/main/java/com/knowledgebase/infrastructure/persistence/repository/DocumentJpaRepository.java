@@ -62,6 +62,9 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
         """, nativeQuery = true)
     List<Long> findAncestorIds(@org.springframework.data.repository.query.Param("documentId") Long documentId);
 
+    @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT u.* FROM users u JOIN documents d ON u.id = d.author_id WHERE d.space_id IN :spaceIds", nativeQuery = true)
+    List<com.knowledgebase.infrastructure.persistence.entity.UserJpaEntity> findDistinctAuthorsBySpaceIds(@org.springframework.data.repository.query.Param("spaceIds") java.util.Set<Long> spaceIds);
+
     boolean existsByParentDocumentId(Long parentId);
 }
 

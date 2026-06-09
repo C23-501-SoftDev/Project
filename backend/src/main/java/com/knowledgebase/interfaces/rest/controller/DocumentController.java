@@ -134,10 +134,6 @@ public class DocumentController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * GET /api/documents
-     * Список всех доступных пользователю документов.
-     */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
@@ -210,5 +206,22 @@ public class DocumentController {
         result.put("number", page);
 
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /api/documents/authors
+     * Возвращает список авторов для фильтрации.
+     */
+    @GetMapping("/authors")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Список авторов", description = "Возвращает список авторов документов в доступных пространствах")
+    public ResponseEntity<List<com.knowledgebase.interfaces.rest.dto.response.UserResponse>> getAuthors(
+            @AuthenticationPrincipal User currentUser) {
+        
+        List<com.knowledgebase.domain.model.User> authors = documentService.findDistinctAuthorsByAccessibleSpaces(currentUser.getId());
+        List<com.knowledgebase.interfaces.rest.dto.response.UserResponse> responses = authors.stream()
+                .map(mapper::toUserResponse)
+                .toList();
+        return ResponseEntity.ok(responses);
     }
 }

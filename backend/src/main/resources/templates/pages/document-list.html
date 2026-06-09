@@ -186,9 +186,9 @@
 
     async function fetchFilters() {
         try {
-            const [spaces, users] = await Promise.all([
+            const [spaces, authors] = await Promise.all([
                 apiFetch('/api/spaces'),
-                apiFetch('/api/admin/users?status=active&size=1000') // Предполагаем, что этот эндпоинт работает
+                apiFetch('/api/documents/authors')
             ]);
 
             const spaceOptions = document.querySelector('#spaceFilterWrapper .select-options');
@@ -201,7 +201,7 @@
             });
 
             const authorOptions = document.querySelector('#authorFilterWrapper .select-options');
-            users.content.forEach(u => {
+            authors.forEach(u => {
                 const div = document.createElement('div');
                 div.className = 'select-option';
                 div.setAttribute('data-value', u.id);
