@@ -86,12 +86,30 @@ async function selectFirstSpaceOwner(page) {
   await expect(page.locator("#spaceOwner")).not.toHaveValue("");
 }
 
+/** Дождаться загрузки опций пространства в фильтре списка документов. */
+async function waitForSpaceFilterOptions(page, minCount = 2) {
+  await expect
+    .poll(async () => page.locator("#spaceFilterWrapper .select-option").count())
+    .toBeGreaterThanOrEqual(minCount);
+}
+
+/** Установить чекбоксы фильтра статусов на странице списка документов. */
+async function setDocumentStatusFilters(page, { draft, published, deleted }) {
+  if (draft !== undefined) {
+    await page.locator('.statusFilter[value="Draft"]').setChecked(draft);
+  }
+  if (published !== undefined) {
+    await page.locator('.statusFilter[value="Published"]').setChecked(published);
+  }
+  if (deleted !== undefined) {
+    await page.locator('.statusFilter[value="Deleted"]').setChecked(deleted);
+  }
+}
+
 /** Фильтр списка документов по пространству (custom-select). */
 async function applyDocumentSpaceFilter(page, spaceId, spaceName) {
-  await expect
-    .poll(async () => page.locator("#spaceFilter-wrapper .select-option").count())
-    .toBeGreaterThan(1);
-  const wrapper = page.locator("#spaceFilter-wrapper");
+  await waitForSpaceFilterOptions(page, 2);
+  const wrapper = page.locator("#spaceFilterWrapper");
   await wrapper.locator(".select-styled").click();
   const option = wrapper.locator(`.select-option[data-value="${spaceId}"]`);
   if ((await option.count()) > 0) {
@@ -100,6 +118,27 @@ async function applyDocumentSpaceFilter(page, spaceId, spaceName) {
     await wrapper.locator(".select-option").filter({ hasText: spaceName }).click();
   }
   await page.locator("#applyFiltersBtn").click();
+}
+
+async function waitDocumentsLoaded(page) {
+  await expect(page.locator("#documentsTbody")).not.toContainText("Загрузка...", {
+    timeout: 15_000,
+  });
+}
+
+async function goToLastDocumentsPage(page) {
+  const next = page.locator("#documentsNextBtn");
+  while (await next.isEnabled()) {
+    const reload = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/documents?") &&
+        r.request().method() === "GET" &&
+        r.ok()
+    );
+    await next.click();
+    await reload;
+    await waitDocumentsLoaded(page);
+  }
 }
 
 module.exports = {
@@ -112,5 +151,9 @@ module.exports = {
   prepareUsersTableNewestFirst,
   goToLastSpacesPage,
   selectFirstSpaceOwner,
+  waitForSpaceFilterOptions,
+  setDocumentStatusFilters,
   applyDocumentSpaceFilter,
+  waitDocumentsLoaded,
+  goToLastDocumentsPage,
 };
