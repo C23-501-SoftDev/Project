@@ -1,10 +1,14 @@
 package com.knowledgebase.interfaces.rest.mapper;
 
+import com.knowledgebase.application.service.MarkdownService;
 import com.knowledgebase.domain.model.Document;
+import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.interfaces.rest.dto.response.AttachmentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
@@ -13,19 +17,19 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
-/**
- * Маппер DTO ↔ Domain для слоя interfaces.
- *
- * Преобразует доменные объекты в DTO для HTTP-ответов.
- * Написан вручную (без MapStruct) для полного контроля над маппингом.
- */
 @Component
 public class RestDtoMapper {
 
     private final UserRepository userRepository;
+    private final SpaceRepository spaceRepository;
+    private final MarkdownService markdownService;
 
-    public RestDtoMapper(UserRepository userRepository) {
+    public RestDtoMapper(UserRepository userRepository,
+                         SpaceRepository spaceRepository,
+                         MarkdownService markdownService) {
         this.userRepository = userRepository;
+        this.spaceRepository = spaceRepository;
+        this.markdownService = markdownService;
     }
 
     // ── User ──────────────────────────────────────────────────────────────────
@@ -100,17 +104,65 @@ public class RestDtoMapper {
     // ── Document ──────────────────────────────────────────────────────────────
 
     public DocumentResponse toDocumentResponse(Document document, String content) {
+        return toDocumentResponse(document, content, null);
+    }
+
+    public DocumentResponse toDocumentResponse(Document document, String content, String contentHtml) {
         if (document == null) return null;
+
+        String spaceName = null;
+        if (document.getSpaceId() != null) {
+            spaceName = spaceRepository.findById(document.getSpaceId())
+                    .map(Space::getName).orElse(null);
+        }
+
+        String authorLogin = null;
+        if (document.getAuthorId() != null) {
+            authorLogin = userRepository.findByIdIncludingDeleted(document.getAuthorId())
+                    .map(User::getLogin).orElse(null);
+        }
+
+        String resolvedHtml = contentHtml != null ? contentHtml
+                : (content != null ? markdownService.toHtml(content) : null);
+
         return new DocumentResponse(
                 document.getId(),
                 document.getTitle(),
                 document.getSpaceId(),
+                spaceName,
                 document.getAuthorId(),
+                authorLogin,
                 document.getStatus(),
                 content,
+                resolvedHtml,
                 document.getGitFilePath(),
                 document.getCreatedAt(),
                 document.getUpdatedAt()
         );
     }
+
+    public AttachmentResponse toAttachmentResponse(Attachment attachment) {
+        if (attachment == null) {
+            return null;
+        }
+
+        String uploaderLogin = null;
+        if (attachment.getUploadedBy() != null) {
+            uploaderLogin = userRepository.findByIdIncludingDeleted(attachment.getUploadedBy())
+                    .map(User::getLogin)
+                    .orElse(null);
+        }
+
+        return new AttachmentResponse(
+                attachment.getId(),
+                attachment.getDocumentId(),
+                attachment.getFilename(),
+                attachment.getContentType(),
+                attachment.getSizeBytes(),
+                attachment.getUploadedBy(),
+                uploaderLogin,
+                attachment.getUploadedAt()
+        );
+    }
 }
+

@@ -43,6 +43,8 @@ The `.env` file is pre-configured with:
 - `POSTGRES_DB=knowledge_base`
 - `POSTGRES_USER=kb_user`
 - `POSTGRES_PASSWORD=strong_password`
+- `LOG_LEVEL=INFO`
+- `LOG_FORMAT=text`
 
 **⚠️ Important:** Ensure SSH is configured for git operations inside the container:
 
@@ -84,6 +86,30 @@ You should see:
 This means the **startup script automatically configured git SSH remote** for you.
 
 Press `Ctrl+C` to exit logs.
+
+### Logging
+
+The backend writes structured application events through the centralized logger.
+
+Environment variables:
+
+- `LOG_LEVEL`: application log level for `com.knowledgebase` (`INFO` by default).
+- `LOG_LEVEL_ROOT`: root logger level (`INFO` by default, `WARN` in prod).
+- `LOG_FORMAT`: structured event payload format for application logs: `text` or `json` (`text` by default).
+
+Example:
+
+```bash
+LOG_LEVEL=DEBUG LOG_FORMAT=json docker compose --env-file .env up -d --build
+```
+
+Example log event:
+
+```text
+level=INFO timestamp=2026-06-03T10:15:30Z component=http event="HTTP request completed" action=http_request status=success request_id=... method=GET path=/api/documents status_code=200 duration_ms=42 client_ip=127.0.0.1
+```
+
+Logs include startup, database connection checks, HTTP requests, key service operations, and repository/storage errors. Do not log passwords, tokens, cookies, Authorization headers, secrets, email/login values, file paths, or request bodies.
 
 ### Step 4: Verify
 

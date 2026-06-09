@@ -1,186 +1,202 @@
 {
-  "version": 1,
-  "updatedAt": "2026-05-14",
-  "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
-  "features": [
-    {
-      "featureId": "auth-jwt-cookie",
-      "title": "JWT authentication (login + me)",
-      "status": "done",
-      "area": "backend",
-      "repo": "Project",
-      "docs": [
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.2 Создание сущности User и JWT авторизация/description.md",
-        "../../Docs/010.glossary.md",
-        "../../Docs/030.actors.md"
-      ],
-      "endpoints": [
-        "POST /api/auth/login",
-        "GET /api/auth/me"
-      ]
-    },
-    {
-      "featureId": "admin-users-crud",
-      "title": "Admin: users CRUD + change password",
-      "status": "done",
-      "area": "backend",
-      "repo": "Project",
-      "docs": [
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.4 Панель администратора (CRUD пользователей)/description.md",
-        "../../Docs/070.role-matrix.md"
-      ],
-      "endpoints": [
-        "GET /api/admin/users",
-        "GET /api/admin/users/{id}",
-        "POST /api/admin/users",
-        "PUT /api/admin/users/{id}",
-        "DELETE /api/admin/users/{id}",
-        "PUT /api/admin/users/{id}/password"
-      ]
-    },
-    {
-      "featureId": "spaces-and-permissions",
-      "title": "Spaces: create/list + grant permissions; user permissions lookup",
-      "status": "done",
-      "area": "backend",
-      "repo": "Project",
-      "docs": [
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md",
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.2 Механизм назначения прав на Пространства/description.md",
-        "../../Docs/050.entities.md"
-      ],
-      "endpoints": [
-        "GET /api/spaces",
-        "GET /api/admin/spaces",
-        "POST /api/admin/spaces",
-        "POST /api/admin/spaces/{spaceId}/permissions",
-        "GET /api/user/permissions",
-        "GET /api/user/spaces"
-      ]
-    },
-    {
-      "featureId": "admin-panel-ui",
-      "title": "Admin Panel: Users & Spaces management UI",
-      "status": "done",
-      "area": "frontend+backend",
-      "repo": "Project",
-      "docs": [
-        "../../Docs/documents/prototypes/admin-panel/index.html",
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.6 Управление списком пользователей через таблицу/description.md",
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md",
-        "../../Docs/110.ui-ux.md"
-      ],
-      "endpoints": [
-        "GET /admin/users",
-        "GET /admin/spaces",
-        "GET /admin/settings",
-        "GET/POST/PUT/DELETE /api/admin/users",
-        "GET/POST/PUT/DELETE /api/admin/spaces"
-      ],
-      "dependsOn": [
-        "admin-users-crud",
-        "spaces-and-permissions"
-      ]
-    },
-    {
-      "featureId": "global-refactor-role-model-and-user",
-      "title": "Refactor user role model: GUEST/READER/EDITOR + is_admin flag, refactor user",
-      "status": "done",
-      "area": "backend+frontend",
-      "repo": "Project",
-      "docs": [
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.2 Создание сущности User и JWT авторизация/description.md",
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.3 Реализация RBAC/description.md",
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.7 Soft-удаление и восстановление пользователей/description.md",
-        "../../Docs/070.role-matrix.md",
-        "../../Docs/120.data-model.md",
-        "../../Docs/050.entities.md"
-      ],
-      "description": "Refactor user role model from flat enum (ADMIN/EDITOR/READER) to two-component model: global role (GUEST/READER/EDITOR) + independent is_admin boolean flag. Added soft-delete with restore. Affects JWT claims, RBAC logic, security config, and all role-related UI.",
-      "endpoints": [
-        "POST /api/auth/login",
-        "GET /api/auth/me",
-        "GET /api/admin/users?includeDeleted={true|false}",
-        "GET /api/admin/users/{id}",
-        "POST /api/admin/users",
-        "PUT /api/admin/users/{id}",
-        "DELETE /api/admin/users/{id}",
-        "POST /api/admin/users/{id}/restore",
-        "PUT /api/admin/users/{id}/password",
-        "GET /api/user/permissions"
-      ],
-      "dependsOn": [
-        "auth-jwt-cookie",
-        "admin-users-crud",
-        "spaces-and-permissions"
-      ]
-    },
-    {
-      "featureId": "space-crud",
-      "title": "Spaces: Full CRUD operations for Admin",
-      "status": "pending",
-      "area": "backend",
-      "repo": "Project",
-      "docs": [
-        "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md"
-      ],
-      "endpoints": [
-        "GET /api/admin/spaces",
-        "POST /api/admin/spaces",
-        "GET /api/admin/spaces/{id}",
-        "PUT /api/admin/spaces/{id}",
-        "DELETE /api/admin/spaces/{id}"
-      ],
-      "dependsOn": [
-        "spaces-and-permissions"
-      ]
-    },
-    {
-      "featureId": "documents-crud",
-      "title": "Documents: CRUD operations with Git integration",
-      "status": "done",
-      "area": "backend",
-      "repo": "Project",
-      "docs": [
-        "../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md",
-        "../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.3 Валидация входящих данных при сохранении/description.md"
-      ],
-      "endpoints": [
-        "GET /api/documents",
-        "GET /api/documents/{id}",
-        "POST /api/documents",
-        "PUT /api/documents/{id}",
-        "DELETE /api/documents/{id}"
-      ]
-    },
-    {
-      "featureId": "document-templates",
-      "title": "Documents: Template support",
-      "status": "pending",
-      "area": "backend+frontend",
-      "repo": "Project",
-      "docs": [
-        "../../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.2 Шаблоны документов/US1.2.1 Поддержка шаблонов документов/description.md"
-      ],
-      "endpoints": [
-        "GET /api/templates"
-      ],
-      "dependsOn": [
-        "documents-crud"
-      ]
-    },
-    {
-      "featureId": "sidebar-hierarchy",
-      "title": "UI: Hierarchical document sidebar",
-      "status": "pending",
-      "area": "frontend+backend",
-      "repo": "Project",
-      "docs": [
-        "../../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md"
-      ],
-      "dependsOn": [
-        "documents-crud"
-      ]
-    }
-  ]
+    "version": 1,
+    "updatedAt": "2026-05-14",
+    "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
+    "features": [
+        {
+            "featureId": "auth-jwt-cookie",
+            "title": "JWT authentication (login + me)",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.2 Создание сущности User и JWT авторизация/description.md",
+                "../../Docs/010.glossary.md",
+                "../../Docs/030.actors.md"
+            ],
+            "endpoints": [
+                "POST /api/auth/login",
+                "GET /api/auth/me"
+            ]
+        },
+        {
+            "featureId": "admin-users-crud",
+            "title": "Admin: users CRUD + change password",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.4 Панель администратора (CRUD пользователей)/description.md",
+                "../../Docs/070.role-matrix.md"
+            ],
+            "endpoints": [
+                "GET /api/admin/users",
+                "GET /api/admin/users/{id}",
+                "POST /api/admin/users",
+                "PUT /api/admin/users/{id}",
+                "DELETE /api/admin/users/{id}",
+                "PUT /api/admin/users/{id}/password"
+            ]
+        },
+        {
+            "featureId": "spaces-and-permissions",
+            "title": "Spaces: create/list + grant permissions; user permissions lookup",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.2 Механизм назначения прав на Пространства/description.md",
+                "../../Docs/050.entities.md"
+            ],
+            "endpoints": [
+                "GET /api/spaces",
+                "GET /api/admin/spaces",
+                "POST /api/admin/spaces",
+                "POST /api/admin/spaces/{spaceId}/permissions",
+                "GET /api/user/permissions",
+                "GET /api/user/spaces"
+            ]
+        },
+        {
+            "featureId": "admin-panel-ui",
+            "title": "Admin Panel: Users & Spaces management UI",
+            "status": "done",
+            "area": "frontend+backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/prototypes/admin-panel/index.html",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.6 Управление списком пользователей через таблицу/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md",
+                "../../Docs/110.ui-ux.md"
+            ],
+            "endpoints": [
+                "GET /admin/users",
+                "GET /admin/spaces",
+                "GET /admin/settings",
+                "GET/POST/PUT/DELETE /api/admin/users",
+                "GET/POST/PUT/DELETE /api/admin/spaces"
+            ],
+            "dependsOn": [
+                "admin-users-crud",
+                "spaces-and-permissions"
+            ]
+        },
+        {
+            "featureId": "global-refactor-role-model-and-user",
+            "title": "Refactor user role model: GUEST/READER/EDITOR + is_admin flag, refactor user",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.2 Создание сущности User и JWT авторизация/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.3 Реализация RBAC/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.7 Soft-удаление и восстановление пользователей/description.md",
+                "../../Docs/070.role-matrix.md",
+                "../../Docs/120.data-model.md",
+                "../../Docs/050.entities.md"
+            ],
+            "description": "Refactor user role model from flat enum (ADMIN/EDITOR/READER) to two-component model: global role (GUEST/READER/EDITOR) + independent is_admin boolean flag. Added soft-delete with restore. Affects JWT claims, RBAC logic, security config, and all role-related UI.",
+            "endpoints": [
+                "POST /api/auth/login",
+                "GET /api/auth/me",
+                "GET /api/admin/users?includeDeleted={true|false}",
+                "GET /api/admin/users/{id}",
+                "POST /api/admin/users",
+                "PUT /api/admin/users/{id}",
+                "DELETE /api/admin/users/{id}",
+                "POST /api/admin/users/{id}/restore",
+                "PUT /api/admin/users/{id}/password",
+                "GET /api/user/permissions"
+            ],
+            "dependsOn": [
+                "auth-jwt-cookie",
+                "admin-users-crud",
+                "spaces-and-permissions"
+            ]
+        },
+        {
+            "featureId": "space-crud",
+            "title": "Spaces: Full CRUD operations for Admin",
+            "status": "pending",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md"
+            ],
+            "endpoints": [
+                "GET /api/admin/spaces",
+                "POST /api/admin/spaces",
+                "GET /api/admin/spaces/{id}",
+                "PUT /api/admin/spaces/{id}",
+                "DELETE /api/admin/spaces/{id}"
+            ],
+            "dependsOn": [
+                "spaces-and-permissions"
+            ]
+        },
+        {
+            "featureId": "documents-crud",
+            "title": "Documents: CRUD operations with Git integration",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md",
+                "../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.3 Валидация входящих данных при сохранении/description.md"
+            ],
+            "endpoints": [
+                "GET /api/documents",
+                "GET /api/documents/{id}",
+                "POST /api/documents",
+                "PUT /api/documents/{id}",
+                "DELETE /api/documents/{id}"
+            ]
+        },
+        {
+            "featureId": "document-templates",
+            "title": "Documents: Template support",
+            "status": "pending",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.2 Шаблоны документов/US1.2.1 Поддержка шаблонов документов/description.md"
+            ],
+            "endpoints": [
+                "GET /api/templates"
+            ],
+            "dependsOn": [
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "document-attachments",
+            "title": "Documents: attachment upload, list and delete",
+            "status": "pending",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [],
+            "endpoints": [
+                "GET /api/documents/{id}/attachments",
+                "POST /api/documents/{id}/attachments",
+                "DELETE /api/documents/{id}/attachments/{attachmentId}"
+            ],
+            "dependsOn": [
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "sidebar-hierarchy",
+            "title": "UI: Hierarchical document sidebar",
+            "status": "pending",
+            "area": "frontend+backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md"
+            ],
+            "dependsOn": [
+                "documents-crud"
+            ]
+        }
+    ]
 }

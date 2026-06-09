@@ -5,6 +5,7 @@ import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.infrastructure.persistence.entity.SpacePermissionJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.SpacePermissionJpaMapper;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,8 @@ import java.util.stream.Collectors;
 @Repository
 public class SpacePermissionRepositoryImpl implements SpacePermissionRepository {
 
+    private static final SystemLogger systemLog = SystemLogger.getLogger(SpacePermissionRepositoryImpl.class, "repository.space_permission");
+
     private final SpacePermissionJpaRepository jpaRepository;
     private final SpacePermissionJpaMapper mapper;
 
@@ -29,9 +32,21 @@ public class SpacePermissionRepositoryImpl implements SpacePermissionRepository 
 
     @Override
     public SpacePermission save(SpacePermission permission) {
-        SpacePermissionJpaEntity entity = mapper.toJpaEntity(permission);
-        SpacePermissionJpaEntity saved = jpaRepository.save(entity);
-        return mapper.toDomain(saved);
+        try {
+            SpacePermissionJpaEntity entity = mapper.toJpaEntity(permission);
+            SpacePermissionJpaEntity saved = jpaRepository.save(entity);
+            return mapper.toDomain(saved);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "save_space_permission",
+                    ex,
+                    "entity_id", permission == null ? null : permission.getId(),
+                    "space_id", permission == null ? null : permission.getSpaceId(),
+                    "user_id", permission == null ? null : permission.getUserId()
+            );
+            throw ex;
+        }
     }
 
     @Override
@@ -83,24 +98,67 @@ public class SpacePermissionRepositoryImpl implements SpacePermissionRepository 
 
     @Override
     public void deleteById(Long id) {
-        jpaRepository.deleteById(id);
+        try {
+            jpaRepository.deleteById(id);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "delete_space_permission",
+                    ex,
+                    "entity_id", id
+            );
+            throw ex;
+        }
     }
 
     @Override
     @Transactional
     public void deleteBySpaceIdAndUserId(Long spaceId, Long userId) {
-        jpaRepository.deleteBySpaceIdAndUserId(spaceId, userId);
+        try {
+            jpaRepository.deleteBySpaceIdAndUserId(spaceId, userId);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "delete_space_permissions_for_user",
+                    ex,
+                    "space_id", spaceId,
+                    "user_id", userId
+            );
+            throw ex;
+        }
     }
 
     @Override
     @Transactional
     public void deleteBySpaceIdAndUserIdAndPermissionType(Long spaceId, Long userId, PermissionType permissionType) {
-        jpaRepository.deleteBySpaceIdAndUserIdAndPermissionType(spaceId, userId, permissionType.name());
+        try {
+            jpaRepository.deleteBySpaceIdAndUserIdAndPermissionType(spaceId, userId, permissionType.name());
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "delete_space_permission_type",
+                    ex,
+                    "space_id", spaceId,
+                    "user_id", userId,
+                    "permission_type", permissionType
+            );
+            throw ex;
+        }
     }
 
     @Override
     @Transactional
     public void deleteBySpaceId(Long spaceId) {
-        jpaRepository.deleteBySpaceId(spaceId);
+        try {
+            jpaRepository.deleteBySpaceId(spaceId);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "delete_space_permissions",
+                    ex,
+                    "space_id", spaceId
+            );
+            throw ex;
+        }
     }
 }

@@ -19,12 +19,14 @@
     <div class="editor-metadata"
         style="padding: 12px 24px; border-bottom: 1px solid var(--border-color); background: #F9FAFB; display: flex; gap: 16px; align-items: center;">
         <div class="field" style="display:flex; align-items:center; gap:6px;">
-            <label style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Название</label>
+            <label
+                style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Название</label>
             <input type="text" id="docTitleField"
                 style="height: 40px; padding: 9px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 14px; background: #fff; color: var(--text-secondary); transition: var(--transition); outline: none; min-width: 280px;">
         </div>
         <div class="field" style="display:flex; align-items:center; gap:6px;">
-            <label style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Статус</label>
+            <label
+                style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Статус</label>
             <div class="custom-select" id="docStatusWrapper" style="width: 180px;">
                 <div class="select-styled" id="statusStyled">Черновик</div>
                 <div class="select-options">
@@ -43,7 +45,9 @@
     <div class="editor-layout">
         <div class="editor-pane">
             <div class="pane-header" style="padding-left: 24px;">
-                <span class="pane-label" style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Разметка Wiki</span>
+                <span class="pane-label"
+                    style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Разметка
+                    Wiki</span>
                 <span class="pane-hint">Ctrl+S — сохранить</span>
             </div>
             <div class="editor-toolbar">
@@ -61,13 +65,34 @@
         </div>
         <div class="preview-pane">
             <div class="pane-header">
-                <span class="pane-label" style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Предпросмотр</span>
+                <span class="pane-label"
+                    style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Предпросмотр</span>
                 <span class="pane-hint">Обновляется в реальном времени</span>
             </div>
             <div id="previewContent" class="preview-content">
                 <!-- Отрендеренный HTML -->
             </div>
         </div>
+    </div>
+
+    <div class="attachments-panel"
+        style="margin: 0 24px 24px; padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px;">
+            <div>
+                <div
+                    style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">
+                    Вложения</div>
+                <div style="font-size:13px; color:#6B7280; margin-top:4px;">Перетащите файл сюда или выберите его
+                    кнопкой ниже</div>
+            </div>
+            <button type="button" class="button-secondary" id="attachChooseBtn">Выбрать файл</button>
+        </div>
+        <div id="attachmentDropzone"
+            style="border: 2px dashed #D1D5DB; border-radius: 12px; padding: 24px; text-align: center; color: #6B7280; background: #F9FAFB; transition: border-color .15s ease, background .15s ease;">
+            Перетащите файлы для загрузки
+        </div>
+        <input type="file" id="attachmentInput" multiple hidden>
+        <div id="attachmentList" style="margin-top: 16px; display: grid; gap: 10px;"></div>
     </div>
 </div>
 
@@ -80,7 +105,12 @@
         const docId = document.getElementById('documentId').value;
         const textarea = document.getElementById('editorTextarea');
         const preview = document.getElementById('previewContent');
+        const attachmentInput = document.getElementById('attachmentInput');
+        const attachmentList = document.getElementById('attachmentList');
+        const dropzone = document.getElementById('attachmentDropzone');
+        const chooseButton = document.getElementById('attachChooseBtn');
         let currentDoc = null;
+        let canManageAttachments = false;
 
         function updateStatusBadge() {
             const status = document.getElementById('docStatusField').value;
@@ -103,10 +133,10 @@
         });
 
         // Initialize custom select toggling
-        document.getElementById('docStatusWrapper').addEventListener('click', function(e) {
+        document.getElementById('docStatusWrapper').addEventListener('click', function (e) {
             e.stopPropagation();
             this.querySelector('.select-styled').classList.toggle('active');
-            this.querySelector('.select-options').style.display = 
+            this.querySelector('.select-options').style.display =
                 this.querySelector('.select-options').style.display === 'block' ? 'none' : 'block';
         });
 
@@ -122,6 +152,114 @@
         function renderPreview() {
             preview.innerHTML = marked.parse(textarea.value);
         }
+
+        function formatFileSize(sizeBytes) {
+            if (!sizeBytes && sizeBytes !== 0) {
+                return '0 B';
+            }
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let value = sizeBytes;
+            let unitIndex = 0;
+            while (value >= 1024 && unitIndex < units.length - 1) {
+                value /= 1024;
+                unitIndex += 1;
+            }
+            return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+        }
+
+        function renderAttachments(items) {
+            if (!items || items.length === 0) {
+                attachmentList.innerHTML = '<div style="color:#6B7280; font-size:14px;">Пока нет вложений</div>';
+                return;
+            }
+
+            attachmentList.innerHTML = items.map(item => `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff;">
+                    <div style="min-width:0;">
+                        <div style="font-weight:600; word-break:break-word;">
+                            <a href="/api/attachments/${item.id}/download" style="color:#111827; text-decoration:none;">${escapeHtml(item.filename)}</a>
+                        </div>
+                        <div style="font-size:12px; color:#6B7280; margin-top:4px;">
+                            ${formatFileSize(item.sizeBytes)} · ${escapeHtml(item.contentType || 'unknown')}
+                            ${item.uploadedByLogin ? ` · ${escapeHtml(item.uploadedByLogin)}` : ''}
+                        </div>
+                    </div>
+                    ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px;">Удалить</button>` : ''}
+                </div>
+            `).join('');
+
+            attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const attachmentId = button.getAttribute('data-attachment-id');
+                    const attachmentName = button.getAttribute('data-attachment-name') || 'вложение';
+                    await deleteAttachment(attachmentId, attachmentName);
+                });
+            });
+        }
+
+        async function loadAttachments() {
+            try {
+                const items = await apiFetch(`/api/documents/${docId}/attachments`);
+                renderAttachments(items);
+            } catch (e) {
+                attachmentList.innerHTML = '<div style="color:#B91C1C; font-size:14px;">Не удалось загрузить список вложений</div>';
+            }
+        }
+
+        async function uploadAttachments(files) {
+            const fileArray = Array.from(files || []);
+            if (fileArray.length === 0) {
+                return;
+            }
+
+            const formData = new FormData();
+            fileArray.forEach(file => formData.append('files', file));
+
+            await apiFetch(`/api/documents/${docId}/attachments`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (typeof showToast === 'function') {
+                showToast('Вложения загружены');
+            }
+            attachmentInput.value = '';
+            await loadAttachments();
+        }
+
+        async function deleteAttachment(attachmentId, attachmentName) {
+            if (!window.confirm(`Удалить вложение «${attachmentName}»?`)) {
+                return;
+            }
+
+            await apiFetch(`/api/documents/${docId}/attachments/${attachmentId}`, {
+                method: 'DELETE'
+            });
+
+            if (typeof showToast === 'function') {
+                showToast('Вложение удалено');
+            }
+            await loadAttachments();
+        }
+
+        chooseButton.addEventListener('click', () => attachmentInput.click());
+        attachmentInput.addEventListener('change', (event) => uploadAttachments(event.target.files));
+        dropzone.addEventListener('click', () => attachmentInput.click());
+        dropzone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropzone.style.borderColor = '#2563EB';
+            dropzone.style.background = '#EFF6FF';
+        });
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.style.borderColor = '#D1D5DB';
+            dropzone.style.background = '#F9FAFB';
+        });
+        dropzone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropzone.style.borderColor = '#D1D5DB';
+            dropzone.style.background = '#F9FAFB';
+            uploadAttachments(event.dataTransfer.files);
+        });
 
         function wrapText(before, after) {
             const start = textarea.selectionStart, end = textarea.selectionEnd;
@@ -190,27 +328,36 @@
             try {
                 const response = await fetch(`/api/documents/${docId}`);
                 if (!response.ok) throw new Error('Ошибка загрузки документа');
-                
+
                 const doc = await response.json();
                 currentDoc = doc;
-                
+
                 document.getElementById('docTitleField').value = doc.title || '';
                 document.getElementById('headerTitle').textContent = doc.title || 'Без названия';
                 textarea.value = doc.content || '';
-                
+
                 const statusField = document.getElementById('docStatusField');
                 statusField.value = doc.status || 'DRAFT';
-                
+
                 const statusStyled = document.getElementById('statusStyled');
                 const option = document.querySelector(`#docStatusWrapper .select-option[data-value="${statusField.value}"]`);
                 if (option) {
                     statusStyled.textContent = option.textContent;
                 }
-                
+
                 document.getElementById('authorName').textContent = doc.authorName || 'Неизвестен';
-                
+
+                try {
+                    const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
+                    canManageAttachments = !!perms.canEdit;
+                } catch (e) {
+                    console.error('Failed to load permissions:', e);
+                    canManageAttachments = false;
+                }
+
                 updateStatusBadge();
                 renderPreview();
+                await loadAttachments();
             } catch (e) {
                 console.error('Failed to load document:', e);
                 // showToast assumes a global function exists, which it might given the context of other templates

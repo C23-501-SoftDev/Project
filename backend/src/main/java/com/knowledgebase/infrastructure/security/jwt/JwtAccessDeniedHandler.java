@@ -38,7 +38,7 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
                        HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
 
-        log.warn("Доступ запрещён к {}: {}", request.getRequestURI(), accessDeniedException.getMessage());
+        log.warn("Access denied: path={}", request.getRequestURI());
 
         if (isAjaxRequest(request) || isApiRequest(request)) {
             sendJsonResponse(response, request);

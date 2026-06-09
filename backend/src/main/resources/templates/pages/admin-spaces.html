@@ -290,6 +290,7 @@
                     `).join('');
                     }
                     updatePagination();
+                    updateUrl();
                 } catch (e) {
                     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
                     console.error('Failed to fetch spaces:', e);
@@ -306,6 +307,15 @@
                 if (next) next.disabled = state.page >= state.totalPages - 1;
             }
 
+            function updateUrl() {
+                const params = new URLSearchParams();
+                if (state.page > 0) params.set('page', state.page);
+                const statusFilter = document.getElementById('statusFilter').value;
+                if (statusFilter !== 'all') params.set('status', statusFilter);
+                const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                history.replaceState(null, '', newUrl);
+            }
+
             async function managePermissions(spaceId) {
                 managingSpaceId = spaceId;
                 const userWrapper = document.getElementById('permUserWrapper');
@@ -314,28 +324,27 @@
                     const options = userWrapper.querySelector('.select-options');
                     if (options) {
                         options.innerHTML = '';
-                        usersList.forEach(u => {
+                usersList.forEach(u => {
                                 if ((u.roleName || u.role) !== 'EDITOR') {
                                     window.populateCustomSelect('permUserWrapper', u.id, `${u.login} (${u.email})`);
-                                }
-
-                        });
                     }
+
+                });
+            }
                 }
                 document.getElementById('permUser').value = '';
                 document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Загрузка...</p>';
                 openModal('permissionsModal');
-                window.initCustomSelects();
-
+                    window.initCustomSelects();
                 try {
                     const perms = await adminFetch(`/api/admin/spaces/${spaceId}/permissions`);
                     const list = document.getElementById('permissionsList');
                     if (!perms || perms.length === 0) {
                         list.innerHTML = '<p style="color:#6B7280;">Нет прав доступа</p>';
-                    } else {
+                } else {
                         // Фильтруем список, чтобы не показывать право OWNER
                         const visiblePerms = perms.filter(p => p.permissionType !== 'OWNER' && p.type !== 'OWNER');
-                        
+
                         if (visiblePerms.length === 0) {
                             list.innerHTML = '<p style="color:#6B7280;">Нет назначенных прав</p>';
                         } else {
@@ -345,26 +354,26 @@
                                     <button class="button-danger" style="padding:4px 8px; font-size:12px;" onclick="window.revokePermission(${p.id})">Отозвать</button>
                                 </div>
                             `).join('');
-                        }
+                }
                     }
                 } catch (e) {
                     document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Ошибка загрузки</p>';
                 }
             }
-
+                
             async function openCreateSpaceModal() {
                 editingSpaceId = null;
                 document.getElementById('spaceModalTitle').textContent = 'Создать пространство';
                 document.getElementById('spaceName').value = '';
                 document.getElementById('spaceDesc').value = '';
                 document.getElementById('spaceOwner').value = '';
-                
+
                 const ownerWrapper = document.getElementById('spaceOwnerWrapper');
                 const styled = ownerWrapper.querySelector('.select-styled');
                 styled.textContent = '-- Выберите владельца --';
                 styled.style.color = '';
                 ownerWrapper.querySelector('.select-options').innerHTML = '';
-                
+
                 // Для владельца показываем только АДМИНОВ
                 usersList.forEach(u => {
                     if (u.admin === true || u.isAdmin === true) {
@@ -384,14 +393,14 @@
                     document.getElementById('spaceName').value = space.name;
                     document.getElementById('spaceDesc').value = space.description || '';
                     document.getElementById('spaceOwner').value = space.ownerId;
-                    
+                
                     const user = usersList.find(u => u.id == space.ownerId);
                     const ownerWrapper = document.getElementById('spaceOwnerWrapper');
                     const styled = ownerWrapper.querySelector('.select-styled');
                     styled.textContent = user ? user.login : 'Выбрать...';
                     styled.style.color = user ? 'var(--text-color)' : '';
                     ownerWrapper.querySelector('.select-options').innerHTML = '';
-                    
+
                     // Для владельца показываем только АДМИНОВ
                     usersList.forEach(u => {
                         if (u.admin === true || u.isAdmin === true) {
@@ -440,8 +449,8 @@
                 const permissionType = document.getElementById('permType').value;
                 if (!userId) return;
                 try {
-                    await adminFetch(`/api/admin/spaces/${managingSpaceId}/permissions`, { 
-                        method: 'POST', body: JSON.stringify({ userId, permissionType }) 
+                    await adminFetch(`/api/admin/spaces/${managingSpaceId}/permissions`, {
+                        method: 'POST', body: JSON.stringify({ userId, permissionType })
                     });
                     managePermissions(managingSpaceId);
                 } catch (e) { showToast('Ошибка', 'error'); }
@@ -461,23 +470,34 @@
 
             // Используем глобальный инициализатор из custom-select.js
             document.addEventListener('DOMContentLoaded', async () => {
+                // Читаем состояние из URL
+                const urlParams = new URLSearchParams(window.location.search);
+                state.page = parseInt(urlParams.get('page')) || 0;
+                const statusParam = urlParams.get('status');
+                if (statusParam) {
+                    document.getElementById('statusFilter').value = statusParam;
+                    const statusWrapper = document.getElementById('statusFilterWrapper');
+                    const opt = statusWrapper.querySelector(`.select-option[data-value="${statusParam}"]`);
+                    if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
+                }
+
                 await loadUsersList();
                 await fetchSpaces();
-                
+
                 if (typeof initCustomSelects === 'function') {
                     initCustomSelects();
                 } else {
                     // Fallback если глобальный скрипт не загрузился
                     initLocalSelects();
                 }
-                
+
                 document.getElementById('spacesPrevBtn').addEventListener('click', () => {
                     if (state.page > 0) { state.page--; fetchSpaces(); }
                 });
                 document.getElementById('spacesNextBtn').addEventListener('click', () => {
                     if (state.page < state.totalPages - 1) { state.page++; fetchSpaces(); }
                 });
-                
+
                 document.getElementById('closeSpaceModalBtn')?.addEventListener('click', () => closeModal('spaceModal'));
                 document.getElementById('saveSpaceBtn')?.addEventListener('click', saveSpace);
                 document.getElementById('closePermModalBtn')?.addEventListener('click', () => closeModal('permissionsModal'));
@@ -497,3 +517,4 @@
             });
         })();
     </script>
+

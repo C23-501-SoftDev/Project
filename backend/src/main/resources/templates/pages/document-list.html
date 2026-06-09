@@ -139,13 +139,14 @@
                     <tr>
                         <td>${d.id}</td>
                         <td><strong>${escapeHtml(d.title)}</strong></td>
-                        <td>${d.spaceId}</td>
-                        <td>${d.authorId || 'Неизвестно'}</td>
+                        <td>${escapeHtml(d.spaceName || d.spaceId)}</td>
+                        <td>${escapeHtml(d.authorLogin || 'Неизвестно')}</td>
                         <td><span class="badge ${d.status ? d.status.toLowerCase() : ''}">${d.status || 'Draft'}</span></td>
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}')" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
                             ${canEdit && !isDeleted ? `<a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
+                            <button class="button-secondary" onclick="openExportMenu(event,${d.id})" style="padding:6px 12px;">Экспорт ▾</button>
                             ${canEdit ? (isDeleted ? `<a href="#" onclick="restoreDocument(${d.id}); return false;" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Восстановить</a>` : `<button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>`) : ''}
                         </td>
                     </tr>
@@ -163,6 +164,16 @@
         document.getElementById('documentsPageInfo').textContent = `Страница ${currentPage} из ${state.totalPages || 1}`;
         document.getElementById('documentsPrevBtn').disabled = state.page <= 0;
         document.getElementById('documentsNextBtn').disabled = state.page >= state.totalPages - 1;
+    }
+
+    function updateUrl() {
+        const params = new URLSearchParams();
+        if (state.page > 0) params.set('page', state.page);
+        if (state.statusFilter) params.set('status', state.statusFilter);
+        if (state.spaceFilter) params.set('spaceId', state.spaceFilter);
+        if (state.searchTerm) params.set('q', state.searchTerm);
+        const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        history.replaceState(null, '', newUrl);
     }
 
                 window.restoreDocument = async function(id) {
@@ -198,23 +209,46 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        fetchSpaces();
-        fetchDocuments();
-        checkCreatePermission();
+                const urlParams = new URLSearchParams(window.location.search);
+                // Читаем state из URL при загрузке
+                state.page = parseInt(urlParams.get('page')) || 0;
+                state.statusFilter = urlParams.get('status') || '';
+                state.spaceFilter = urlParams.get('spaceId') || '';
+                state.searchTerm = urlParams.get('q') || '';
+
+                // Устанавливаем значения в UI
+                if (state.statusFilter) {
+                    document.getElementById('statusFilter').value = state.statusFilter;
+            const statusWrapper = document.getElementById('statusFilter-wrapper');
+                    const opt = statusWrapper.querySelector(`.select-option[data-value="${state.statusFilter}"]`);
+                    if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
+                }
+                if (state.spaceFilter) {
+                    document.getElementById('spaceFilter').value = state.spaceFilter;
+                    const spaceWrapper = document.getElementById('spaceFilter-wrapper');
+                    const opt = spaceWrapper.querySelector(`.select-option[data-value="${state.spaceFilter}"]`);
+                    if (opt) spaceWrapper.querySelector('.select-styled').textContent = opt.textContent;
+                }
+            
+                fetchSpaces();
+            fetchDocuments();
+                checkCreatePermission();
 
         document.getElementById('applyFiltersBtn').addEventListener('click', () => {
             state.statusFilter = document.getElementById('statusFilter').value;
             state.spaceFilter = document.getElementById('spaceFilter').value;
+            state.page = 0;
             fetchDocuments();
+            updateUrl();
         });
 
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             const statusWrapper = document.getElementById('statusFilter-wrapper');
             const spaceWrapper = document.getElementById('spaceFilter-wrapper');
-            
+
             document.getElementById('statusFilter').value = '';
             statusWrapper.querySelector('.select-styled').textContent = 'Все';
-            
+
             document.getElementById('spaceFilter').value = '';
             spaceWrapper.querySelector('.select-styled').textContent = 'Все пространства';
 
@@ -223,17 +257,16 @@
             state.spaceFilter = '';
             state.page = 0;
             fetchDocuments();
+            updateUrl();
         });
-
-        // Initialize per-page selector
-        // REMOVED: setupPerPageSelect
 
         document.getElementById('documentsPrevBtn').addEventListener('click', () => {
-            if (state.page > 0) { state.page--; fetchDocuments(); }
-        });
+            if (state.page > 0) { state.page--; fetchDocuments(); updateUrl(); }
+    });
         document.getElementById('documentsNextBtn').addEventListener('click', () => {
-            if (state.page < state.totalPages - 1) { state.page++; fetchDocuments(); }
+            if (state.page >= state.totalPages - 1) { state.page++; fetchDocuments(); updateUrl(); }
         });
     });
 })();
 </script>
+

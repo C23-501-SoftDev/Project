@@ -4,6 +4,7 @@ import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.infrastructure.persistence.entity.SpaceJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.SpaceJpaMapper;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -20,6 +21,8 @@ import java.util.stream.Collectors;
 @Repository
 public class SpaceRepositoryImpl implements SpaceRepository {
 
+    private static final SystemLogger systemLog = SystemLogger.getLogger(SpaceRepositoryImpl.class, "repository.space");
+
     private final SpaceJpaRepository jpaRepository;
     private final SpaceJpaMapper mapper;
 
@@ -30,9 +33,19 @@ public class SpaceRepositoryImpl implements SpaceRepository {
 
     @Override
     public Space save(Space space) {
-        SpaceJpaEntity entity = mapper.toJpaEntity(space);
-        SpaceJpaEntity saved = jpaRepository.save(entity);
-        return mapper.toDomain(saved);
+        try {
+            SpaceJpaEntity entity = mapper.toJpaEntity(space);
+            SpaceJpaEntity saved = jpaRepository.save(entity);
+            return mapper.toDomain(saved);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "save_space",
+                    ex,
+                    "entity_id", space == null ? null : space.getId()
+            );
+            throw ex;
+        }
     }
 
     @Override
@@ -103,12 +116,22 @@ public class SpaceRepositoryImpl implements SpaceRepository {
 
     @Override
     public void deleteById(Long id) {
-        // We will use SpaceService for soft delete, but keeping this for hard delete if ever needed
-        // though typically we should replace this with soft delete logic if we want consistency
-        jpaRepository.findById(id).ifPresent(entity -> {
-            entity.setDeleted(true);
-            jpaRepository.save(entity);
-        });
+        try {
+            // We will use SpaceService for soft delete, but keeping this for hard delete if ever needed
+            // though typically we should replace this with soft delete logic if we want consistency
+            jpaRepository.findById(id).ifPresent(entity -> {
+                entity.setDeleted(true);
+                jpaRepository.save(entity);
+            });
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "delete_space",
+                    ex,
+                    "entity_id", id
+            );
+            throw ex;
+        }
     }
 
     @Override

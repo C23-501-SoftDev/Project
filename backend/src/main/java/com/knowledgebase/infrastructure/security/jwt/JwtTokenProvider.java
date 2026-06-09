@@ -116,15 +116,15 @@ public class JwtTokenProvider {
             parseClaims(token);
             return true;
         } catch (ExpiredJwtException e) {
-            log.warn("JWT токен истёк: {}", e.getMessage());
+            log.warn("JWT token expired");
         } catch (UnsupportedJwtException e) {
-            log.warn("Неподдерживаемый JWT токен: {}", e.getMessage());
+            log.warn("JWT token is unsupported");
         } catch (MalformedJwtException e) {
-            log.warn("Некорректный JWT токен: {}", e.getMessage());
+            log.warn("JWT token is malformed");
         } catch (SecurityException e) {
-            log.warn("Неверная подпись JWT токена: {}", e.getMessage());
+            log.warn("JWT token signature is invalid");
         } catch (IllegalArgumentException e) {
-            log.warn("Пустой или null JWT токен: {}", e.getMessage());
+            log.warn("JWT token is empty or null");
         }
         return false;
     }

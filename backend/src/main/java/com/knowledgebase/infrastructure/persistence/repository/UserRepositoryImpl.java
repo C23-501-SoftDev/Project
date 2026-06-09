@@ -4,8 +4,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.UserRepository;
 import com.knowledgebase.infrastructure.persistence.entity.UserJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.UserJpaMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,7 +33,7 @@ import java.util.stream.Collectors;
 @Repository
 public class UserRepositoryImpl implements UserRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(UserRepositoryImpl.class);
+    private static final SystemLogger systemLog = SystemLogger.getLogger(UserRepositoryImpl.class, "repository.user");
 
     private final UserJpaRepository jpaRepository;
     private final UserJpaMapper mapper;
@@ -50,9 +49,19 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public User save(User user) {
-        UserJpaEntity entity = mapper.toJpaEntity(user);
-        UserJpaEntity saved = jpaRepository.save(entity);
-        return mapper.toDomain(saved);
+        try {
+            UserJpaEntity entity = mapper.toJpaEntity(user);
+            UserJpaEntity saved = jpaRepository.save(entity);
+            return mapper.toDomain(saved);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "save_user",
+                    ex,
+                    "entity_id", user == null ? null : user.getId()
+            );
+            throw ex;
+        }
     }
 
     @Override
@@ -157,7 +166,12 @@ public class UserRepositoryImpl implements UserRepository {
             );
             return count != null && count > 0;
         } catch (DataAccessException e) {
-            log.debug("Таблица documents не найдена при проверке пользователя {}: {}", userId, e.getMessage());
+            systemLog.debug(
+                    "Database optional dependency not available",
+                    "check_user_documents",
+                    "skipped",
+                    "user_id", userId
+            );
             return false;
         }
     }
@@ -177,7 +191,12 @@ public class UserRepositoryImpl implements UserRepository {
             );
             return count != null && count > 0;
         } catch (DataAccessException e) {
-            log.debug("Таблица versions не найдена при проверке пользователя {}: {}", userId, e.getMessage());
+            systemLog.debug(
+                    "Database optional dependency not available",
+                    "check_user_versions",
+                    "skipped",
+                    "user_id", userId
+            );
             return false;
         }
     }

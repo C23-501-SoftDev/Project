@@ -20,14 +20,21 @@ public record DocumentResponse(
     @Schema(description = "ID пространства", example = "1")
     Long spaceId,
 
+    @Schema(description = "Название пространства", example = "Общее")
+    String spaceName,
     @Schema(description = "ID автора", example = "2")
     Long authorId,
 
+    @Schema(description = "Логин автора", example = "ivanov")
+    String authorLogin,
     @Schema(description = "Статус документа", example = "DRAFT")
     DocumentStatus status,
 
     @Schema(description = "Содержимое документа (Markdown)", example = "# Текст")
     String content,
+
+    @Schema(description = "Содержимое документа (HTML, сгенерированный из Markdown)")
+    String contentHtml,
 
     @Schema(description = "Путь к файлу в Git", example = "spaces/1/101.md")
     String gitFilePath,
@@ -38,3 +45,4 @@ public record DocumentResponse(
     @Schema(description = "Дата обновления")
     LocalDateTime updatedAt
 ) {}
+

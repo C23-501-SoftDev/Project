@@ -1,7 +1,8 @@
 <div class="document-view-page">
     <input type="hidden" id="documentId" th:value="${documentId}">
-    
-    <div class="view-header" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #eee; padding-bottom:16px;">
+
+    <div class="view-header"
+        style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #eee; padding-bottom:16px;">
         <div>
             <h1 id="docTitle" style="margin:0 0 8px 0;">Загрузка...</h1>
             <div style="font-size:14px; color:#666; display: flex; align-items: center; gap: 16px;">
@@ -13,52 +14,166 @@
                 <span>Обновлено: <span id="docDate">...</span></span>
             </div>
         </div>
-        <div class="view-actions" style="display:flex; gap:12px;">
-            <a id="editLink" href="#" class="button-primary" style="text-decoration:none; display:none;">Редактировать</a>
+        <div class="view-actions" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <a id="editLink" href="#" class="button-primary"
+                style="text-decoration:none; display:none;">Редактировать</a>
+            <div style="position:relative; display:inline-block;" id="exportDropdownWrapper">
+                <button class="button-secondary" id="exportMenuBtn"
+                        style="display:flex; align-items:center; gap:6px;">
+                    Экспорт ▾
+                </button>
+                <div id="exportMenu"
+                     style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:#fff; border:1px solid #E5E7EB; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:140px; z-index:100; overflow:hidden;">
+                    <a id="exportHtml" href="#"
+                       style="display:block; padding:10px 16px; font-size:14px; color:#111827; text-decoration:none;">HTML</a>
+                    <a id="exportPdf" href="#"
+                       style="display:block; padding:10px 16px; font-size:14px; color:#111827; text-decoration:none; border-top:1px solid #F3F4F6;">PDF</a>
+                    <a id="exportDocx" href="#"
+                       style="display:block; padding:10px 16px; font-size:14px; color:#111827; text-decoration:none; border-top:1px solid #F3F4F6;">DOCX</a>
+                </div>
+            </div>
             <a href="/" class="button-secondary" style="text-decoration:none;">Назад к списку</a>
         </div>
     </div>
 
-    <div id="documentContent" class="markdown-body" style="background:#fff; padding:32px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); min-height:400px;">
+    <div id="documentContent" class="markdown-body"
+        style="background:#fff; padding:32px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); min-height:400px;">
         <!-- Отрендеренный контент -->
+    </div>
+
+    <div class="attachments-panel"
+        style="margin-top:24px; padding:20px; border:1px solid #E5E7EB; border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div
+            style="font-size:13px; font-weight:700; color:#4B5563; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:12px;">
+            Вложения</div>
+        <div id="attachmentList" style="display:grid; gap:10px; color:#6B7280;">Загрузка вложений...</div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
 <script>
-(function() {
-    const docId = document.getElementById('documentId').value;
+    (function () {
+        const docId = document.getElementById('documentId').value;
+        const attachmentList = document.getElementById('attachmentList');
+        let canManageAttachments = false;
 
-    async function loadDocument() {
-        try {
-            const doc = await apiFetch(`/api/documents/${docId}`);
-            document.getElementById('docTitle').textContent = doc.title;
-            document.getElementById('docAuthor').textContent = doc.authorId;
-            document.getElementById('docDate').textContent = doc.updatedAt || 'неизвестно';
-            
-            const statusBadge = document.getElementById('docStatus');
-            statusBadge.textContent = doc.status;
-            statusBadge.className = 'badge ' + doc.status.toLowerCase();
+        // Export → вложение
+        ['exportHtml', 'exportPdf', 'exportDocx'].forEach(id => {
+            const fmt = id.replace('export', '').toLowerCase();
+            document.getElementById(id).addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('exportMenu').style.display = 'none';
+                exportAndAttach(docId, fmt);
+            });
+        });
 
-            document.getElementById('editLink').href = `/documents/${docId}/edit`;
-            
-            // Проверка прав на отображение кнопки редактирования
-            try {
-                const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
-                if (perms.canEdit) {
-                    document.getElementById('editLink').style.display = 'inline-block';
-                }
-            } catch (e) {
-                console.error('Failed to load permissions:', e);
+        // Export dropdown toggle
+        const exportMenuBtn = document.getElementById('exportMenuBtn');
+        const exportMenu = document.getElementById('exportMenu');
+        exportMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportMenu.style.display = exportMenu.style.display === 'none' ? 'block' : 'none';
+        });
+        document.addEventListener('click', () => {
+            exportMenu.style.display = 'none';
+        });
+
+        function formatFileSize(sizeBytes) {
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let value = sizeBytes || 0;
+            let unitIndex = 0;
+            while (value >= 1024 && unitIndex < units.length - 1) {
+                value /= 1024;
+                unitIndex += 1;
             }
-            
-            document.getElementById('documentContent').innerHTML = marked.parse(doc.content || '');
-        } catch (e) {
-            document.getElementById('documentContent').innerHTML = '<p style="color:red;">Ошибка при загрузке документа.</p>';
+            return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
         }
-    }
 
-    document.addEventListener('DOMContentLoaded', loadDocument);
-})();
+        function renderAttachments(items) {
+            if (!items || items.length === 0) {
+                attachmentList.innerHTML = '<div style="color:#6B7280;">Вложений нет</div>';
+                return;
+            }
+
+            attachmentList.innerHTML = items.map(item => `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff;">
+                <div style="min-width:0;">
+                    <div style="font-weight:600; word-break:break-word;">
+                        <a href="/api/attachments/${item.id}/download" style="color:#111827; text-decoration:none;">${escapeHtml(item.filename)}</a>
+                    </div>
+                    <div style="font-size:12px; color:#6B7280; margin-top:4px;">
+                        ${formatFileSize(item.sizeBytes)} · ${escapeHtml(item.contentType || 'unknown')}
+                        ${item.uploadedByLogin ? ` · ${escapeHtml(item.uploadedByLogin)}` : ''}
+                    </div>
+                </div>
+                ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px;">Удалить</button>` : ''}
+            </div>
+        `).join('');
+
+            attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const attachmentId = button.getAttribute('data-attachment-id');
+                    const attachmentName = button.getAttribute('data-attachment-name') || 'вложение';
+                    await deleteAttachment(attachmentId, attachmentName);
+                });
+            });
+        }
+
+        window.loadAttachments = async function loadAttachments() {
+            try {
+                const items = await apiFetch(`/api/documents/${docId}/attachments`);
+                renderAttachments(items);
+            } catch (e) {
+                attachmentList.innerHTML = '<div style="color:#B91C1C;">Не удалось загрузить вложения</div>';
+            }
+        }
+
+        async function deleteAttachment(attachmentId, attachmentName) {
+            if (!window.confirm(`Удалить вложение «${attachmentName}»?`)) {
+                return;
+            }
+
+            await apiFetch(`/api/documents/${docId}/attachments/${attachmentId}`, {
+                method: 'DELETE'
+            });
+
+            if (typeof showToast === 'function') {
+                showToast('Вложение удалено');
+            }
+            await loadAttachments();
+        }
+
+        async function loadDocument() {
+            try {
+                const doc = await apiFetch(`/api/documents/${docId}`);
+                document.getElementById('docTitle').textContent = doc.title;
+                document.getElementById('docAuthor').textContent = doc.authorId;
+                document.getElementById('docDate').textContent = doc.updatedAt || 'неизвестно';
+
+                const statusBadge = document.getElementById('docStatus');
+                statusBadge.textContent = doc.status;
+                statusBadge.className = 'badge ' + doc.status.toLowerCase();
+
+                document.getElementById('editLink').href = `/documents/${docId}/edit`;
+
+                // Проверка прав на отображение кнопки редактирования
+                try {
+                    const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
+                    if (perms.canEdit) {
+                        document.getElementById('editLink').style.display = 'inline-block';
+                    }
+                    canManageAttachments = !!perms.canEdit;
+                } catch (e) {
+                    console.error('Failed to load permissions:', e);
+                    canManageAttachments = false;
+                }
+
+                document.getElementById('documentContent').innerHTML = doc.contentHtml || '';
+                await loadAttachments();
+            } catch (e) {
+                document.getElementById('documentContent').innerHTML = '<p style="color:red;">Ошибка при загрузке документа.</p>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadDocument);
+    })();
 </script>

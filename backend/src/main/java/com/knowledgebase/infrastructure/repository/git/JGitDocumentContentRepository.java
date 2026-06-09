@@ -1,10 +1,9 @@
 package com.knowledgebase.infrastructure.repository.git;
 
 import com.knowledgebase.domain.repository.DocumentContentRepository;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
@@ -15,13 +14,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
 
-/**
- * Реализация хранилища контента на основе JGit.
- */
 @Repository
 public class JGitDocumentContentRepository implements DocumentContentRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(JGitDocumentContentRepository.class);
+    private static final SystemLogger log = SystemLogger.getLogger(JGitDocumentContentRepository.class, "repository.git_content");
 
     private final String gitRepoPath;
 
@@ -45,12 +41,12 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
                         .setMessage(commitMessage)
                         .setAuthor(authorName, authorEmail)
                         .call();
-                
-                log.debug("Сохранен контент и создан коммит для файла: {}", gitFilePath);
+
+                log.debug("Git content operation completed", "save_content", "success");
             }
-        } catch (IOException | GitAPIException e) {
-            log.error("Ошибка при сохранении контента в Git: {}", gitFilePath, e);
-            throw new RuntimeException("Ошибка Git-хранилища", e);
+        } catch (IOException | GitAPIException ex) {
+            log.error("Git content operation failed", "save_content", ex);
+            throw new RuntimeException("Git storage error", ex);
         }
     }
 
@@ -58,13 +54,14 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
     public Optional<String> findContentByPath(String gitFilePath) {
         Path filePath = Paths.get(gitRepoPath, gitFilePath);
         if (!Files.exists(filePath)) {
-            log.warn("Файл не найден в Git-репозитории: {}", filePath);
+            log.warn("Git content not found", "find_content", "not_found");
             return Optional.empty();
         }
+
         try {
             return Optional.of(Files.readString(filePath));
-        } catch (IOException e) {
-            log.error("Ошибка при чтении контента из Git: {}", gitFilePath, e);
+        } catch (IOException ex) {
+            log.error("Git content operation failed", "find_content", ex);
             return Optional.empty();
         }
     }
@@ -74,25 +71,24 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
         try (Git git = Git.open(new File(gitRepoPath))) {
             Path source = Paths.get(gitRepoPath, oldPath);
             Path target = Paths.get(gitRepoPath, newPath);
-            
+
             if (Files.exists(source)) {
                 Files.createDirectories(target.getParent());
                 Files.move(source, target);
-                
-                // В JGit удаление старого пути и добавление нового
+
                 git.rm().addFilepattern(oldPath).call();
                 git.add().addFilepattern(newPath).call();
-                
+
                 git.commit()
                         .setMessage(commitMessage)
                         .call();
-                log.debug("Файл перемещен в Git: {} -> {}", oldPath, newPath);
+                log.debug("Git content operation completed", "move_content", "success");
             } else {
-                log.warn("Попытка переместить несуществующий файл в Git: {}", oldPath);
+                log.warn("Git content not found", "move_content", "not_found");
             }
-        } catch (IOException | GitAPIException e) {
-            log.error("Ошибка при перемещении файла в Git: {} -> {}", oldPath, newPath, e);
-            throw new RuntimeException("Ошибка Git-хранилища", e);
+        } catch (IOException | GitAPIException ex) {
+            log.error("Git content operation failed", "move_content", ex);
+            throw new RuntimeException("Git storage error", ex);
         }
     }
 
@@ -103,13 +99,13 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
             if (Files.exists(filePath)) {
                 git.rm().addFilepattern(gitFilePath).call();
                 git.commit().setMessage(commitMessage).call();
-                log.debug("Файл удален из Git: {}", gitFilePath);
+                log.debug("Git content operation completed", "delete_content", "success");
             } else {
-                log.warn("Попытка удалить несуществующий файл из Git: {}", gitFilePath);
+                log.warn("Git content not found", "delete_content", "not_found");
             }
-        } catch (IOException | GitAPIException e) {
-            log.error("Ошибка при удалении файла из Git: {}", gitFilePath, e);
-            throw new RuntimeException("Ошибка Git-хранилища", e);
+        } catch (IOException | GitAPIException ex) {
+            log.error("Git content operation failed", "delete_content", ex);
+            throw new RuntimeException("Git storage error", ex);
         }
     }
 }

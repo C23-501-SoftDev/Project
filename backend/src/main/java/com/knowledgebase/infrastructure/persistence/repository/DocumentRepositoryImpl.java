@@ -2,30 +2,51 @@ package com.knowledgebase.infrastructure.persistence.repository;
 
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.repository.DocumentRepository;
+import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.infrastructure.persistence.entity.DocumentJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.DocumentJpaMapper;
+import com.knowledgebase.infrastructure.logging.SystemLogger;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Repository
 public class DocumentRepositoryImpl implements DocumentRepository {
 
+    private static final SystemLogger systemLog = SystemLogger.getLogger(DocumentRepositoryImpl.class, "repository.document");
+
     private final DocumentJpaRepository jpaRepository;
     private final DocumentJpaMapper mapper;
+    private final SpacePermissionRepository spacePermissionRepository;
 
-    public DocumentRepositoryImpl(DocumentJpaRepository jpaRepository, DocumentJpaMapper mapper) {
+    public DocumentRepositoryImpl(DocumentJpaRepository jpaRepository,
+                                  DocumentJpaMapper mapper,
+                                  SpacePermissionRepository spacePermissionRepository) {
         this.jpaRepository = jpaRepository;
         this.mapper = mapper;
+        this.spacePermissionRepository = spacePermissionRepository;
     }
 
     @Override
     public Document save(Document document) {
-        DocumentJpaEntity entity = mapper.toEntity(document);
-        DocumentJpaEntity savedEntity = jpaRepository.save(entity);
-        return mapper.toDomain(savedEntity);
+        try {
+            DocumentJpaEntity entity = mapper.toEntity(document);
+            DocumentJpaEntity savedEntity = jpaRepository.save(entity);
+            return mapper.toDomain(savedEntity);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "save_document",
+                    ex,
+                    "entity_id", document == null ? null : document.getId()
+            );
+            throw ex;
+        }
     }
 
     @Override
@@ -40,6 +61,39 @@ public class DocumentRepositoryImpl implements DocumentRepository {
             entities = jpaRepository.findBySpaceId(spaceId);
         } else {
             entities = jpaRepository.findBySpaceIdAndStatusNot(spaceId, "Deleted");
+        }
+        return entities.stream().map(mapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Document> findBySpaceIdPaged(Long spaceId, boolean includeDeleted, int page, int size) {
+        var pageable = PageRequest.of(page, size);
+        if (includeDeleted) {
+            return jpaRepository.findBySpaceId(spaceId, pageable).stream()
+                    .map(mapper::toDomain).collect(Collectors.toList());
+        }
+        return jpaRepository.findBySpaceIdAndStatusNot(spaceId, "Deleted", pageable).stream()
+                .map(mapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public long countBySpaceId(Long spaceId, boolean includeDeleted) {
+        if (includeDeleted) {
+            return jpaRepository.countBySpaceId(spaceId);
+        }
+        return jpaRepository.countBySpaceIdAndStatusNot(spaceId, "Deleted");
+    }
+
+    @Override
+    public List<Document> findBySpaceIdIn(List<Long> spaceIds, boolean includeDeleted) {
+        if (spaceIds == null || spaceIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<DocumentJpaEntity> entities;
+        if (includeDeleted) {
+            entities = jpaRepository.findBySpaceIdIn(spaceIds);
+        } else {
+            entities = jpaRepository.findBySpaceIdInAndStatusNot(spaceIds, "Deleted");
         }
         return entities.stream().map(mapper::toDomain).collect(Collectors.toList());
     }
@@ -82,17 +136,12 @@ public class DocumentRepositoryImpl implements DocumentRepository {
 
     @Override
     public List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted) {
-        // Получаем ID пространств, доступных пользователю
-        List<com.knowledgebase.domain.model.SpacePermission> permissions = 
-            com.knowledgebase.application.ApplicationContextHolder.getBean(com.knowledgebase.domain.repository.SpacePermissionRepository.class)
-            .findByUserId(userId);
-        
-        java.util.Set<Long> accessibleSpaceIds = permissions.stream()
+        Set<Long> accessibleSpaceIds = spacePermissionRepository.findByUserId(userId).stream()
                 .map(com.knowledgebase.domain.model.SpacePermission::getSpaceId)
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
 
         if (accessibleSpaceIds.isEmpty()) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
 
         List<DocumentJpaEntity> entities;
@@ -101,7 +150,7 @@ public class DocumentRepositoryImpl implements DocumentRepository {
         } else {
             entities = jpaRepository.findAllBySpaceIdInAndStatusNot(accessibleSpaceIds, "Deleted");
         }
-        
+
         return entities.stream().map(mapper::toDomain).collect(Collectors.toList());
     }
 
@@ -112,7 +161,17 @@ public class DocumentRepositoryImpl implements DocumentRepository {
 
     @Override
     public void deleteById(Long id) {
-        jpaRepository.deleteById(id);
+        try {
+            jpaRepository.deleteById(id);
+        } catch (RuntimeException ex) {
+            systemLog.error(
+                    "Database operation failed",
+                    "delete_document",
+                    ex,
+                    "entity_id", id
+            );
+            throw ex;
+        }
     }
 
     @Override
