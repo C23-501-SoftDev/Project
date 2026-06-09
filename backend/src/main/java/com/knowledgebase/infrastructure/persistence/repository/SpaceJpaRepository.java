@@ -28,6 +28,8 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
 
     Page<SpaceJpaEntity> findByOwnerId(Long ownerId, Pageable pageable);
 
+    List<SpaceJpaEntity> findByIsDeletedFalse(org.springframework.data.domain.Sort sort);
+
     Page<SpaceJpaEntity> findByIsDeletedFalse(Pageable pageable);
 
     Page<SpaceJpaEntity> findByIsDeletedTrue(Pageable pageable);

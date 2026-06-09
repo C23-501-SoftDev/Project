@@ -296,13 +296,11 @@ public class SpaceController {
     })
     public ResponseEntity<List<SpaceResponse>> getMySpaces(
             @AuthenticationPrincipal User currentUser,
-            @RequestParam(required = false) com.knowledgebase.domain.model.PermissionType requiredAccess,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(required = false) com.knowledgebase.domain.model.PermissionType requiredAccess) {
 
         boolean isAdmin = currentUser.isAdmin();
         List<Space> spaces = spaceService.getSpacesForUser(
-                currentUser.getId(), isAdmin, requiredAccess, page, size);
+                currentUser.getId(), isAdmin, requiredAccess);
 
         List<SpaceResponse> response = spaces.stream()
                 .map(mapper::toSpaceResponse)

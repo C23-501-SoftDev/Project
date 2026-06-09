@@ -341,8 +341,15 @@ public class SpaceService {
      * @param size      размер страницы
      * @return список доступных пространств
      */
-    public List<Space> getSpacesForUser(Long userId, boolean isAdmin, int page, int size) {
-        return getSpacesForUser(userId, isAdmin, null, page, size);
+    /**
+     * Возвращает пространства, доступные пользователю.
+     *
+     * @param userId    ID текущего пользователя
+     * @param isAdmin   true если пользователь ADMIN
+     * @return список доступных пространств
+     */
+    public List<Space> getSpacesForUser(Long userId, boolean isAdmin) {
+        return getSpacesForUser(userId, isAdmin, null);
     }
 
     /**
@@ -350,17 +357,14 @@ public class SpaceService {
      *
      * @param userId         ID текущего пользователя
      * @param isAdmin        true если пользователь ADMIN
-     * @param requiredAccess минимально требуемый тип права (может быть null для любого доступа)
-     * @param page           номер страницы
-     * @param size           размер страницы
+     * @param requiredAccess минимально требуемый тип права
      * @return список доступных пространств
      */
-    public List<Space> getSpacesForUser(Long userId, boolean isAdmin, PermissionType requiredAccess, int page, int size) {
+    public List<Space> getSpacesForUser(Long userId, boolean isAdmin, PermissionType requiredAccess) {
         if (userId == null) {
             return java.util.Collections.emptyList();
         }
 
-        // Проверяем роль пользователя
         com.knowledgebase.domain.model.User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
             return java.util.Collections.emptyList();
@@ -368,34 +372,26 @@ public class SpaceService {
 
         com.knowledgebase.domain.model.GlobalRole role = user.getRole();
 
-        // Если запрашивается доступ на запись (WRITE/OWNER), то ADMIN-READER должен видеть только разрешенные пространства,
-        // так же как и обычный READER. ADMIN-EDITOR по-прежнему видит всё.
         if (isAdmin && role != com.knowledgebase.domain.model.GlobalRole.GUEST) {
             if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
                 if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
-                    // Для ADMIN с ролью READER при запросе WRITE проверяем явные права
                     return findSpacesByExplicitPermissions(userId, requiredAccess);
                 }
             }
-            return spaceRepository.findAll(page, size);
+            return spaceRepository.findAllActive();
         }
 
-        // EDITOR всегда может писать во все пространства
         if (role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
-            return spaceRepository.findAll(page, size);
+            return spaceRepository.findAllActive();
         }
 
-        // READER и GUEST: только пространства с явными правами, если требуется доступ выше READ
-        // Если требуется просто READ, READER видит всё.
         if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
             if (requiredAccess == null || requiredAccess == PermissionType.READ) {
-                return spaceRepository.findAll(page, size);
+                return spaceRepository.findAllActive();
             }
-            // Если READER запрашивает WRITE/OWNER - только явные права
             return findSpacesByExplicitPermissions(userId, requiredAccess);
         }
 
-        // В остальных случаях (GUEST) — только по записям в разрешениях
         return findSpacesByExplicitPermissions(userId, requiredAccess);
     }
 
