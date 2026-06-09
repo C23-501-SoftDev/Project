@@ -656,6 +656,33 @@ body {
     color: var(--text-color);
 }
 
+.preview-content h1 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 24px 0 12px;
+    color: var(--text-color);
+    letter-spacing: -0.02em;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.preview-content h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 20px 0 10px;
+    color: var(--text-color);
+    letter-spacing: -0.01em;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 6px;
+}
+
+.preview-content h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 16px 0 8px;
+    color: var(--text-color);
+}
+
 .preview-content pre {
     background: #f1f5f9;
     border: 1px solid var(--border-color);
