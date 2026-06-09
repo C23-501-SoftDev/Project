@@ -143,6 +143,8 @@ public class DocumentController {
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
     public ResponseEntity<?> getDocuments(
             @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) java.util.List<String> status,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "false") boolean includeDeleted,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -168,6 +170,24 @@ public class DocumentController {
                     .map(doc -> mapper.toDocumentResponse(doc, null)).toList();
         }
 
+        // Фильтрация по статусам (если указаны)
+        if (status != null && !status.isEmpty()) {
+            java.util.Set<String> statusSet = new java.util.HashSet<>(status);
+            pagedContent = pagedContent.stream()
+                    .filter(doc -> doc.status() != null && statusSet.contains(doc.status().name()))
+                    .toList();
+        }
+
+        // Фильтрация по поисковому запросу (если есть)
+        if (search != null && !search.isEmpty()) {
+            String searchLower = search.toLowerCase();
+            pagedContent = pagedContent.stream()
+                    .filter(doc -> doc.title() != null && doc.title().toLowerCase().contains(searchLower))
+                    .toList();
+        }
+
+        // Ручная пагинация (так как сервис возвращает List)
+        totalElements = pagedContent.size();
         int totalPages = (int) Math.ceil((double) totalElements / size);
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("content", pagedContent);

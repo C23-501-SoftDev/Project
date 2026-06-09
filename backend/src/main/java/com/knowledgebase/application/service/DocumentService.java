@@ -62,18 +62,9 @@ public class DocumentService {
      * @param title    заголовок
      * @param content  содержимое Markdown
      * @param spaceId  ID пространства
-     * @param authorId ID автора
-     * @return созданный документ
-     */
-    /**
-     * Создаёт новый документ.
-     * Сначала сохраняет метаданные в БД, затем контент в Git.
-     *
-     * @param title    заголовок
-     * @param content  содержимое Markdown
-     * @param spaceId  ID пространства
      * @param parentId ID родительского документа
      * @param authorId ID автора
+     * @param templateId ID шаблона (опционально)
      * @return созданный документ
      */
     @Transactional
@@ -90,11 +81,11 @@ public class DocumentService {
         User author = userRepository.findById(authorId)
                 .orElseThrow(() -> new UserNotFoundException(authorId));
 
-        String actualContent = content;
+        String actualContent = content != null ? content : "";
         if (templateId != null) {
             actualContent = templateRepository.findById(templateId)
                 .map(com.knowledgebase.domain.model.Template::getContent)
-                .orElse(content);
+                .orElse(actualContent);
             actualContent = requirementNumberService.numberRequirements(actualContent, spaceId, templateId);
         }
 
@@ -258,17 +249,32 @@ public class DocumentService {
 
     /**
      * Удаляет документ (переводит в статус DELETED и перемещает файл в .archive/).
+     * Дочерние документы привязываются к родителю удаляемого документа.
+     *
+     * @param id ID документа
+     * @param reparentChildren если true, дочерние документы перепривязываются к родителю (используется при обычном удалении)
      */
     @Transactional
-    public void deleteDocument(Long id) {
-        if (documentRepository.hasChildren(id)) {
-            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
-        }
+    public void deleteDocument(Long id, boolean reparentChildren) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
             log.info("Документ ID {} уже удален", id);
             return;
+        }
+
+        if (reparentChildren) {
+            // Перепривязываем дочерние документы к родителю текущего документа
+            Long newParentId = document.getParentDocumentId();
+            List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                    .filter(d -> id.equals(d.getParentDocumentId()))
+                    .toList();
+            
+            for (Document child : children) {
+                child.setParentDocumentId(newParentId);
+                documentRepository.save(child);
+                log.debug("Дочерний документ ID {} перепривязан к новому родителю ID {}", child.getId(), newParentId);
+            }
         }
 
         log.info("Архивация документа ID {}: title='{}'", id, document.getTitle());
@@ -282,6 +288,14 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.archive(newPath);
         documentRepository.save(document);
+    }
+
+    /**
+     * Удаляет документ с перепривязкой дочерних документов.
+     */
+    @Transactional
+    public void deleteDocument(Long id) {
+        deleteDocument(id, true);
     }
 
     /**
@@ -305,9 +319,12 @@ public class DocumentService {
 
     /**
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
+     *
+     * @param id ID документа
+     * @param keepHierarchy если true, сохраняет текущего родителя (используется при восстановлении пространства)
      */
     @Transactional
-    public void restoreDocument(Long id) {
+    public void restoreDocument(Long id, boolean keepHierarchy) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() != DocumentStatus.DELETED) {
@@ -324,6 +341,21 @@ public class DocumentService {
                 "Нельзя восстановить документ в удаленном (неактивном) пространстве");
         }
 
+        // Проверяем родителя при восстановлении
+        if (!keepHierarchy && document.getParentDocumentId() != null) {
+            Document parent = documentRepository.findById(document.getParentDocumentId()).orElse(null);
+            if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
+                // Ищем первого неудаленного предка
+                Long newParentId = findFirstActiveAncestor(document.getParentDocumentId());
+                document.setParentDocumentId(newParentId);
+                log.info("Родитель документа ID {} удален. Установлен новый предок ID {}", id, newParentId);
+            }
+        }
+        
+        // При восстановлении пространства (keepHierarchy=true) мы НЕ должны менять родителя,
+        // но текущий код в deleteDocument перепривязывает детей к дедушке!
+        // Это и есть причина потери иерархии при удалении.
+
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
         String archivedPath = document.getGitFilePath();
@@ -335,6 +367,29 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.restore(originalPath);
         documentRepository.save(document);
+        documentRepository.flush();
+    }
+
+    /**
+     * Восстанавливает документ с автоматическим поиском живого предка.
+     */
+    @Transactional
+    public void restoreDocument(Long id) {
+        restoreDocument(id, false);
+    }
+
+    private Long findFirstActiveAncestor(Long parentId) {
+        if (parentId == null) {
+            return null;
+        }
+        Document parent = documentRepository.findById(parentId).orElse(null);
+        if (parent == null) {
+            return null;
+        }
+        if (parent.getStatus() != DocumentStatus.DELETED) {
+            return parent.getId();
+        }
+        return findFirstActiveAncestor(parent.getParentDocumentId());
     }
 
     /**

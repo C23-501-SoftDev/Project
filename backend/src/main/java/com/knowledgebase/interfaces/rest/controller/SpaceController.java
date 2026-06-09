@@ -62,12 +62,28 @@ public class SpaceController {
     // ── Административные эндпоинты ─────────────────────────────────────────
 
     /**
+     * GET /api/admin/spaces/space-owners
+     * Список администраторов, владеющих пространствами (только ADMIN).
+     */
+    @GetMapping("/api/admin/spaces/space-owners")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Владельцы пространств", description = "Возвращает список администраторов, владеющих пространствами с учётом статуса")
+    public ResponseEntity<List<com.knowledgebase.interfaces.rest.dto.response.UserResponse>> getAdminSpaceOwners(
+            @RequestParam(defaultValue = "active") String status) {
+        List<com.knowledgebase.domain.model.User> owners = spaceService.getAdminSpaceOwners(status);
+        List<com.knowledgebase.interfaces.rest.dto.response.UserResponse> response = owners.stream()
+                .map(mapper::toUserResponse)
+                .toList();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * GET /api/admin/spaces
      * Список всех пространств (только ADMIN).
      */
     @GetMapping("/api/admin/spaces")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "[ADMIN] Все пространства", description = "Возвращает список всех пространств системы")
+    @Operation(summary = "[ADMIN] Все пространства", description = "Возвращает список пространств с фильтрацией по статусу (active/inactive/all)")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Список пространств"),
         @ApiResponse(responseCode = "403", description = "Доступ запрещён")
@@ -75,11 +91,12 @@ public class SpaceController {
     public ResponseEntity<java.util.Map<String, Object>> getAllSpaces(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long ownerId) {
 
         String filterStatus = (status == null || status.isEmpty()) ? "active" : status;
-        List<Space> spaces = spaceService.getSpacesByStatus(filterStatus, page, size);
-        long totalCount = spaceService.countSpacesByStatus(filterStatus);
+        List<Space> spaces = spaceService.getSpacesByStatusAndOwner(filterStatus, ownerId, page, size);
+        long totalCount = spaceService.countSpacesByStatusAndOwner(filterStatus, ownerId);
         int totalPages = (int) Math.ceil((double) totalCount / size);
         List<SpaceResponse> content = spaces.stream()
                 .map(mapper::toSpaceResponse)

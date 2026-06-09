@@ -362,7 +362,7 @@
                 console.error('Failed to load document:', e);
                 // showToast assumes a global function exists, which it might given the context of other templates
                 if (typeof showToast === 'function') {
-                    showToast('Ошибка при загрузке документа', 'error');
+                    showToast(e.message || 'Ошибка при загрузке документа', 'error');
                 }
             }
         }

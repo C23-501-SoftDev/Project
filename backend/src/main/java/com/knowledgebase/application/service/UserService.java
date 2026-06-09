@@ -160,13 +160,16 @@ public class UserService {
      */
     @Transactional
     public User deleteUser(Long userId) {
+        // Запрещаем удаление системного администратора (ID=1)
+        if (userId.equals(1L)) {
+            throw new AccessDeniedException("Удаление системного администратора запрещено");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
-        // Если пользователь владеет какими-то пространствами, передаем их системному администратору (ID=1)
-        if (!userId.equals(1L)) {
-            spaceService.transferOwnership(userId, 1L);
-        }
+        // Передаем владение пространствами системному администратору (ID=1)
+        spaceService.transferOwnership(userId, 1L);
 
         // Выполняем soft-delete через доменный метод
         user.softDelete();
@@ -249,5 +252,42 @@ public class UserService {
      */
     public long countUsersIncludingDeleted() {
         return userRepository.countAll();
+    }
+
+    /**
+     * Возвращает список пользователей с применением всех фильтров и пагинацией.
+     *
+     * @param page номер страницы (0-based)
+     * @param size размер страницы
+     * @param sortBy поле сортировки
+     * @param sortDir направление сортировки
+     * @param statusFilter статус: "active", "deleted", "all"
+     * @param roles фильтр по ролям (null или пустой = без фильтра)
+     * @param isAdmin фильтр по статусу админа (null или пустой = без фильтра)
+     * @param search поиск по логину/email (null или пустой = без фильтра)
+     * @return список пользователей
+     */
+    public List<User> getUsersWithFilters(int page, int size, String sortBy, String sortDir,
+                                          String statusFilter, List<String> roles, List<String> isAdmin, String search) {
+        Boolean includeDeleted = switch (statusFilter) {
+            case "deleted" -> false;
+            case "all" -> true;
+            default -> null;
+        };
+
+        return userRepository.findAllWithFilters(page, size, sortBy, sortDir, includeDeleted, roles, isAdmin, search);
+    }
+
+    /**
+     * Возвращает общее количество пользователей с применением фильтров.
+     */
+    public long countUsersWithFilters(String statusFilter, List<String> roles, List<String> isAdmin, String search) {
+        Boolean includeDeleted = switch (statusFilter) {
+            case "deleted" -> false;
+            case "all" -> true;
+            default -> null;
+        };
+
+        return userRepository.countWithFilters(includeDeleted, roles, isAdmin, search);
     }
 }

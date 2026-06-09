@@ -21,4 +21,5 @@ public interface DocumentRepository {
     List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted);
     void deleteById(Long id);
     boolean hasChildren(Long id);
+    void flush();
 }
