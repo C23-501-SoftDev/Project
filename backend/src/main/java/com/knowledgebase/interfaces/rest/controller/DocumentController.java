@@ -143,6 +143,7 @@ public class DocumentController {
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
     public ResponseEntity<?> getDocuments(
             @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) Long authorId,
             @RequestParam(required = false) java.util.List<String> status,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "false") boolean includeDeleted,
@@ -157,12 +158,24 @@ public class DocumentController {
             if (!permissionService.canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
-            pagedContent = documentService.getDocumentsInSpacePaged(spaceId, includeDeleted, page, size)
+            if (authorId != null && !currentUser.isAdmin()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            pagedContent = documentService.getDocumentsInSpacePaged(spaceId, authorId, includeDeleted, page, size)
                     .stream().map(doc -> mapper.toDocumentResponse(doc, null)).toList();
-            totalElements = documentService.countDocumentsInSpace(spaceId, includeDeleted);
+            totalElements = documentService.countDocumentsInSpace(spaceId, authorId, includeDeleted);
         } else {
             List<Document> all = documentService.getAllAccessibleDocuments(
                     currentUser.getId(), currentUser.isAdmin(), includeDeleted);
+            
+            // Фильтрация по автору (добавлено)
+            if (authorId != null) {
+                if (!currentUser.isAdmin()) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
+                all = all.stream().filter(d -> authorId.equals(d.getAuthorId())).toList();
+            }
+
             totalElements = all.size();
             int from = Math.min(page * size, (int) totalElements);
             int to = Math.min(from + size, (int) totalElements);

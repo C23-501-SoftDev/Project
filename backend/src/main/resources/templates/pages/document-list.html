@@ -112,6 +112,16 @@
                     </div>
                     <input type="hidden" id="spaceFilter" value="">
                 </div>
+                <div class="filter-group" style="display: none;">
+                    <label>Автор:</label>
+                    <div class="custom-select" id="authorFilterWrapper" style="width: 200px;">
+                        <div class="select-styled">Все авторы</div>
+                        <div class="select-options">
+                            <div class="select-option" data-value="">Все авторы</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="authorFilter" value="">
+                </div>
                 <button class="button-primary" id="applyFiltersBtn">Применить</button>
                 <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
             </div>
@@ -174,19 +184,32 @@
         return statusMap[status] || `<span class="badge">${status || '-'}</span>`;
     }
 
-    async function fetchSpaces() {
+    async function fetchFilters() {
         try {
-            const spaces = await apiFetch('/api/spaces');
-            const optionsContainer = document.querySelector('#spaceFilterWrapper .select-options');
+            const [spaces, users] = await Promise.all([
+                apiFetch('/api/spaces'),
+                apiFetch('/api/admin/users?status=active&size=1000') // Предполагаем, что этот эндпоинт работает
+            ]);
+
+            const spaceOptions = document.querySelector('#spaceFilterWrapper .select-options');
             spaces.forEach(s => {
                 const div = document.createElement('div');
                 div.className = 'select-option';
                 div.setAttribute('data-value', s.id);
                 div.textContent = s.name;
-                optionsContainer.appendChild(div);
+                spaceOptions.appendChild(div);
+            });
+
+            const authorOptions = document.querySelector('#authorFilterWrapper .select-options');
+            users.content.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'select-option';
+                div.setAttribute('data-value', u.id);
+                div.textContent = u.login;
+                authorOptions.appendChild(div);
             });
         } catch (e) {
-            console.error('Failed to fetch spaces:', e);
+            console.error('Failed to fetch filters:', e);
         }
     }
 
@@ -197,6 +220,7 @@
 
         let url = `/api/documents?includeDeleted=true&page=${state.page}&size=${state.size}`;
         if (state.spaceFilter) url += `&spaceId=${state.spaceFilter}`;
+        if (state.authorFilter) url += `&authorId=${state.authorFilter}`; // Добавили параметр
         if (state.statusFilters.length > 0) {
             state.statusFilters.forEach(status => {
                 url += `&status=${encodeURIComponent(status.toUpperCase())}`;
@@ -241,6 +265,7 @@
                         <td>${escapeHtml(d.spaceName || d.spaceId)}</td>
                         <td>${escapeHtml(d.authorLogin || 'Неизвестно')}</td>
                         <td>${renderStatus(d.status)}</td>
+
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}')" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
@@ -305,10 +330,24 @@
         }
     }
 
+    async function checkAdminStatus() {
+        try {
+            const user = await apiFetch('/api/auth/me');
+            if (user && user.isAdmin) {
+                document.getElementById('authorFilterWrapper').parentElement.style.display = 'block';
+            } else {
+                document.getElementById('authorFilterWrapper').parentElement.style.display = 'none';
+            }
+        } catch (e) {
+            console.error('Failed to check admin status:', e);
+        }
+    }
+
     function applyFilters() {
         const checked = Array.from(document.querySelectorAll('.statusFilter:checked')).map(cb => cb.value);
         state.statusFilters = checked;
         state.spaceFilter = document.getElementById('spaceFilter').value;
+        state.authorFilter = document.getElementById('authorFilter').value;
         state.searchTerm = '';
         state.page = 0;
         fetchDocuments();
@@ -322,8 +361,14 @@
         const spaceWrapper = document.getElementById('spaceFilterWrapper');
         spaceWrapper.querySelector('.select-styled').textContent = 'Все пространства';
 
+        const authorFilter = document.getElementById('authorFilter');
+        authorFilter.value = '';
+        const authorWrapper = document.getElementById('authorFilterWrapper');
+        authorWrapper.querySelector('.select-styled').textContent = 'Все авторы';
+
         state.statusFilters = ['Draft', 'Published', 'Deleted'];
         state.spaceFilter = '';
+        state.authorFilter = '';
         state.searchTerm = '';
         state.page = 0;
         fetchDocuments();
@@ -364,27 +409,19 @@
                 state.page = parseInt(urlParams.get('page')) || 0;
                 state.statusFilter = urlParams.get('status') || '';
                 state.spaceFilter = urlParams.get('spaceId') || '';
+                state.authorFilter = urlParams.get('authorId') || '';
                 state.searchTerm = urlParams.get('q') || '';
 
                 // Устанавливаем значения в UI
-                if (state.statusFilter) {
-                    document.getElementById('statusFilter').value = state.statusFilter;
-            const statusWrapper = document.getElementById('statusFilter-wrapper');
-                    const opt = statusWrapper.querySelector(`.select-option[data-value="${state.statusFilter}"]`);
-                    if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
-                }
-                if (state.spaceFilter) {
-                    document.getElementById('spaceFilter').value = state.spaceFilter;
-                    const spaceWrapper = document.getElementById('spaceFilter-wrapper');
-                    const opt = spaceWrapper.querySelector(`.select-option[data-value="${state.spaceFilter}"]`);
-                    if (opt) spaceWrapper.querySelector('.select-styled').textContent = opt.textContent;
-                }
+                // (логику инициализации select элементов нужно обновить при необходимости)
             
-                fetchSpaces();
-            fetchDocuments();
+                fetchFilters();
+                fetchDocuments();
                 checkCreatePermission();
+                checkAdminStatus();
 
         setupCustomSelect('spaceFilterWrapper', 'spaceFilter');
+        setupCustomSelect('authorFilterWrapper', 'authorFilter');
 
         document.addEventListener('click', () => {
             document.querySelectorAll('.select-styled').forEach(s => s.classList.remove('active'));

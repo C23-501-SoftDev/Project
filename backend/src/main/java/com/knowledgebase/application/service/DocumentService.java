@@ -477,16 +477,22 @@ public class DocumentService {
     }
 
     /**
-     * Возвращает список документов в пространстве с пагинацией на уровне БД.
+     * Возвращает список документов в пространстве (возможно, с фильтрацией по автору) с пагинацией на уровне БД.
      */
-    public List<Document> getDocumentsInSpacePaged(Long spaceId, boolean includeDeleted, int page, int size) {
+    public List<Document> getDocumentsInSpacePaged(Long spaceId, Long authorId, boolean includeDeleted, int page, int size) {
         if (!spaceRepository.findById(spaceId).isPresent()) {
             throw new SpaceNotFoundException(spaceId);
+        }
+        if (authorId != null) {
+            return documentRepository.findBySpaceIdAndAuthorIdPaged(spaceId, authorId, includeDeleted, page, size);
         }
         return documentRepository.findBySpaceIdPaged(spaceId, includeDeleted, page, size);
     }
 
-    public long countDocumentsInSpace(Long spaceId, boolean includeDeleted) {
+    public long countDocumentsInSpace(Long spaceId, Long authorId, boolean includeDeleted) {
+        if (authorId != null) {
+            return documentRepository.countBySpaceIdAndAuthorId(spaceId, authorId, includeDeleted);
+        }
         return documentRepository.countBySpaceId(spaceId, includeDeleted);
     }
 

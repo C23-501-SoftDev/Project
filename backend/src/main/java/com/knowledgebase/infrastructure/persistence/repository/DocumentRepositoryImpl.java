@@ -72,6 +72,26 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public List<Document> findBySpaceIdAndAuthorIdPaged(Long spaceId, Long authorId, boolean includeDeleted, int page, int size) {
+        var pageable = PageRequest.of(page, size);
+        if (includeDeleted) {
+            return jpaRepository.findBySpaceIdAndAuthorId(spaceId, authorId, pageable).stream()
+                    .map(mapper::toDomain).collect(Collectors.toList());
+        }
+        return jpaRepository.findBySpaceIdAndAuthorIdAndStatusNot(spaceId, authorId, "Deleted", pageable).stream()
+                .map(mapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public long countBySpaceIdAndAuthorId(Long spaceId, Long authorId, boolean includeDeleted) {
+        if (includeDeleted) {
+            return jpaRepository.countBySpaceIdAndAuthorId(spaceId, authorId);
+        }
+        return jpaRepository.countBySpaceIdAndAuthorIdAndStatusNot(spaceId, authorId, "Deleted");
+    }
+
+
+    @Override
     public List<Document> findBySpaceIdIn(List<Long> spaceIds, boolean includeDeleted) {
         if (spaceIds == null || spaceIds.isEmpty()) {
             return Collections.emptyList();
