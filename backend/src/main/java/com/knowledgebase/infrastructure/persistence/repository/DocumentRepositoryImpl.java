@@ -1,10 +1,17 @@
 package com.knowledgebase.infrastructure.persistence.repository;
 
 import com.knowledgebase.domain.model.Document;
+import com.knowledgebase.domain.model.DocumentStatus;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.infrastructure.persistence.entity.DocumentJpaEntity;
 import com.knowledgebase.infrastructure.persistence.mapper.DocumentJpaMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
@@ -128,6 +135,60 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     @Override
     public boolean existsByTitleAndSpaceIdAndNoParent(String title, Long spaceId) {
         return jpaRepository.countByTitleAndSpaceIdAndNoParent(title, spaceId) > 0;
+    }
+
+    @Override
+    public Page<Document> searchByTitle(String query,
+                                        LocalDateTime effectiveFrom,
+                                        LocalDateTime effectiveTo,
+                                        Pageable pageable) {
+        return jpaRepository.searchByTitle(query, effectiveFrom, effectiveTo, pageable).map(mapper::toDomain);
+    }
+
+    @Override
+    public Page<Document> searchByTitleInSpaces(Collection<Long> spaceIds,
+                                                String query,
+                                                LocalDateTime effectiveFrom,
+                                                LocalDateTime effectiveTo,
+                                                Pageable pageable) {
+        return jpaRepository.searchByTitleInSpaces(spaceIds, query, effectiveFrom, effectiveTo, pageable)
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    public Page<Document> findBySpaceIdAndStatusPaged(Long spaceId, DocumentStatus status, Pageable pageable) {
+        return jpaRepository.findBySpaceIdAndStatus(spaceId, status.getDbValue(), pageable).map(mapper::toDomain);
+    }
+
+    @Override
+    public long countBySpaceIdAndStatus(Long spaceId, DocumentStatus status) {
+        return jpaRepository.countBySpaceIdAndStatus(spaceId, status.getDbValue());
+    }
+
+    @Override
+    public Page<Document> findByStatusPaged(DocumentStatus status, Pageable pageable) {
+        return jpaRepository.findByStatus(status.getDbValue(), pageable).map(mapper::toDomain);
+    }
+
+    @Override
+    public long countByStatus(DocumentStatus status) {
+        return jpaRepository.countByStatus(status.getDbValue());
+    }
+
+    @Override
+    public Page<Document> findBySpaceIdsAndStatusPaged(Collection<Long> spaceIds, DocumentStatus status, Pageable pageable) {
+        if (spaceIds == null || spaceIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return jpaRepository.findBySpaceIdInAndStatus(spaceIds, status.getDbValue(), pageable).map(mapper::toDomain);
+    }
+
+    @Override
+    public long countBySpaceIdsAndStatus(Collection<Long> spaceIds, DocumentStatus status) {
+        if (spaceIds == null || spaceIds.isEmpty()) {
+            return 0;
+        }
+        return jpaRepository.countBySpaceIdInAndStatus(spaceIds, status.getDbValue());
     }
 
     @Override

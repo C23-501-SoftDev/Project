@@ -78,11 +78,57 @@ async function goToLastSpacesPage(page) {
   }
 }
 
+/** Открыть searchable custom-select и ввести текст в поле фильтра. */
+async function filterCustomSelect(page, wrapperId, query) {
+  const wrapper = page.locator(`#${wrapperId}`);
+  await wrapper.locator(".select-styled").click();
+  const filter = wrapper.locator(".select-filter");
+  await expect(filter).toBeVisible();
+  await filter.fill(query);
+}
+
+/** Дождаться результатов серверного поиска в custom-select. */
+async function waitForCustomSelectOptions(page, wrapperId, minCount = 1) {
+  await expect
+    .poll(async () =>
+      page
+        .locator(`#${wrapperId} .select-option:not(.select-message)`)
+        .count()
+    )
+    .toBeGreaterThanOrEqual(minCount);
+}
+
+function isAdminUsersResponse(url, method) {
+  return (
+    method === "GET" &&
+    url.includes("/api/admin/users") &&
+    !url.match(/\/api\/admin\/users\/\d+(\?|$)/)
+  );
+}
+
+/** Выбрать владельца через поиск по части логина (серверный поиск). */
+async function selectSpaceOwnerBySearch(page, loginPart) {
+  const searchResponse = page.waitForResponse(
+    (r) => isAdminUsersResponse(r.url(), r.request().method()) && r.ok()
+  );
+  await filterCustomSelect(page, "spaceOwnerWrapper", loginPart);
+  await searchResponse;
+  await waitForCustomSelectOptions(page, "spaceOwnerWrapper", 1);
+  const wrapper = page.locator("#spaceOwnerWrapper");
+  await wrapper.locator(".select-option:not(.select-message)").first().click();
+  await expect(page.locator("#spaceOwner")).not.toHaveValue("");
+}
+
 /** Выбрать первого доступного владельца при создании пространства. */
 async function selectFirstSpaceOwner(page) {
+  const listResponse = page.waitForResponse(
+    (r) => isAdminUsersResponse(r.url(), r.request().method()) && r.ok()
+  );
   const wrapper = page.locator("#spaceOwnerWrapper");
   await wrapper.locator(".select-styled").click();
-  await wrapper.locator(".select-option").first().click();
+  await listResponse;
+  await waitForCustomSelectOptions(page, "spaceOwnerWrapper", 1);
+  await wrapper.locator(".select-option:not(.select-message)").first().click();
   await expect(page.locator("#spaceOwner")).not.toHaveValue("");
 }
 
@@ -150,6 +196,9 @@ module.exports = {
   goToLastUsersPage,
   prepareUsersTableNewestFirst,
   goToLastSpacesPage,
+  filterCustomSelect,
+  waitForCustomSelectOptions,
+  selectSpaceOwnerBySearch,
   selectFirstSpaceOwner,
   waitForSpaceFilterOptions,
   setDocumentStatusFilters,

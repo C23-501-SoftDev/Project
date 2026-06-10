@@ -75,12 +75,32 @@ public class AdminUserController {
             @Parameter(description = "Направление сортировки", example = "desc")
             @RequestParam(defaultValue = "desc") String sortDir,
 
+            @Parameter(description = "Включить удалённых пользователей", example = "false")
+            @RequestParam(defaultValue = "false") boolean includeDeleted,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String term) {
             @Parameter(description = "Фильтр по статусу: active, deleted, all", example = "active")
             @RequestParam(defaultValue = "active") String status,
 
             @Parameter(description = "Фильтр по ролям (можно указать несколько)", example = "READER,EDITOR")
             @RequestParam(required = false) List<String> roles,
 
+        // Поддерживаем разные имена параметра поиска, отдаём приоритет q -> search -> query -> term
+        String raw = q != null && !q.isBlank() ? q : (search != null && !search.isBlank() ? search : (query != null && !query.isBlank() ? query : term));
+        if (raw != null && !raw.isBlank()) {
+            String normalized = raw.trim();
+            boolean includeDeletedForSearch = includeDeleted; // preserve request param
+            users = userService.searchUsers(normalized, page, size, includeDeletedForSearch);
+            total = userService.countSearchUsers(normalized, includeDeletedForSearch);
+        } else if (includeDeleted) {
+            users = userService.getAllUsersIncludingDeleted(page, size, sortBy, sortDir);
+            total = userService.countUsersIncludingDeleted();
+        } else {
+            users = userService.getAllUsers(page, size, sortBy, sortDir);
+            total = userService.countUsers();
+        }
             @Parameter(description = "Фильтр по статусу администратора (true/false, можно указать несколько)", example = "true")
             @RequestParam(required = false) List<String> isAdmin,
 
@@ -94,6 +114,26 @@ public class AdminUserController {
                 .map(mapper::toUserResponse)
                 .toList();
 
+        return ResponseEntity.ok(PageResponse.of(userResponses, page, size, total));
+    }
+
+    /**
+     * GET /api/admin/users/search
+     * Поиск пользователей по части логина или ФИО.
+     */
+    @GetMapping("/search")
+    @Operation(summary = "Поиск пользователей", description = "Поиск по логину или ФИО (частичный, case-insensitive)")
+    public ResponseEntity<PageResponse<UserResponse>> searchUsers(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        // По умолчанию поиск не включает удалённых, можно добавить ?includeDeleted=true при необходимости
+        boolean includeDeletedForSearch = false;
+        List<User> users = userService.searchUsers(q, page, size, includeDeletedForSearch);
+        long total = userService.countSearchUsers(q, includeDeletedForSearch);
+
+        List<UserResponse> userResponses = users.stream().map(mapper::toUserResponse).toList();
         return ResponseEntity.ok(PageResponse.of(userResponses, page, size, total));
     }
 

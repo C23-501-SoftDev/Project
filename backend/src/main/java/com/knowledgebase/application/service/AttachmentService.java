@@ -27,6 +27,23 @@ import java.util.UUID;
 
 /**
  * Сервис управления вложениями документов.
+ *
+ * <p>Отвечает за валидацию, сохранение, удаление и выдачу вложений. Сервис
+ * использует {@code AttachmentRepository} для работы с метаданными и
+ * {@code AttachmentFileStorageRepository} для хранения/чтения файлов. Также
+ * обращается к {@code DocumentService} для проверки существования документа
+ * и {@code PermissionService} для проверки прав доступа.</p>
+ *
+ * <p>Исключения:
+ * <ul>
+ *   <li>{@link com.knowledgebase.domain.exception.AttachmentNotFoundException} —
+ *   когда запрошенное вложение не найдено;</li>
+ *   <li>{@link com.knowledgebase.domain.exception.AttachmentValidationException} —
+ *   при ошибках валидации или IO;</li>
+ *   <li>{@link com.knowledgebase.domain.exception.DocumentNotFoundException} —
+ *   когда документ не найден.</li>
+ * </ul>
+ * </p>
  */
 @Service
 @Transactional(readOnly = true)
@@ -76,6 +93,20 @@ public class AttachmentService {
                 .orElseThrow(() -> new AttachmentNotFoundException(attachmentId));
     }
 
+    /**
+     * Загружает и сохраняет список файлов как вложения для указанного документа.
+     * <p>Проверяет существование документа, валидацию входных файлов (наличие,
+     * размер, расширение), сохраняет файлы во внешнем файловом хранилище и
+     * сохраняет метаданные во {@code AttachmentRepository}. В случае ошибки
+     * сохраняет уже записанные файлы и пробрасывает исключение.</p>
+     *
+     * @param documentId id документа
+     * @param files список файлов для загрузки
+     * @param uploadedBy id пользователя, загрузившего файлы
+     * @return список сохранённых объектов {@link Attachment}
+     * @throws DocumentNotFoundException если документ не найден
+     * @throws AttachmentValidationException при ошибке валидации или IO
+     */
     @Transactional
     public List<Attachment> uploadAttachments(Long documentId, List<MultipartFile> files, Long uploadedBy) {
         Document document = documentService.getDocumentById(documentId);
@@ -118,6 +149,15 @@ public class AttachmentService {
         }
     }
 
+    /**
+     * Удаляет вложение: проверяет принадлежность вложения указанному документу,
+     * удаляет запись из репозитория и удаляет файл из файлового хранилища.
+     *
+     * @param documentId id документа
+     * @param attachmentId id вложения
+     * @throws AttachmentNotFoundException если вложение не найдено или не принадлежит документу
+     * @throws AttachmentValidationException если при удалении файла в хранилище произошла ошибка
+     */
     @Transactional
     public void deleteAttachment(Long documentId, Long attachmentId) {
         documentService.getDocumentById(documentId);
@@ -135,6 +175,14 @@ public class AttachmentService {
         }
     }
 
+    /**
+     * Возвращает метаданные вложения с проверкой принадлежности к документу.
+     *
+     * @param documentId id документа
+     * @param attachmentId id вложения
+     * @return найденное {@link Attachment}
+     * @throws AttachmentNotFoundException если вложение отсутствует или не принадлежит документу
+     */
     public Attachment getAttachment(Long documentId, Long attachmentId) {
         documentService.getDocumentById(documentId);
         Attachment attachment = getAttachmentById(attachmentId);
@@ -146,6 +194,14 @@ public class AttachmentService {
         return attachment;
     }
 
+    /**
+     * Открывает ресурс вложения для скачивания.
+     *
+     * @param attachmentId id вложения
+     * @return {@link AttachmentDownloadData} с метаданными и SPRING {@link Resource}
+     * @throws AttachmentNotFoundException если вложение не найдено
+     * @throws AttachmentValidationException при ошибке открытия файла в хранилище
+     */
     public AttachmentDownloadData downloadAttachment(Long attachmentId) {
         Attachment attachment = getAttachmentById(attachmentId);
         try {
@@ -156,12 +212,17 @@ public class AttachmentService {
         }
     }
 
+    /** Проверяет, что список файлов не пустой. */
     private void validateFiles(List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             throw new AttachmentValidationException("Необходимо выбрать хотя бы один файл для загрузки");
         }
     }
 
+    /**
+     * Проверяет единичный файл: не пустой, размер и расширение.
+     * @throws AttachmentValidationException при нарушении ограничений
+     */
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new AttachmentValidationException("Файл не может быть пустым");
@@ -177,11 +238,13 @@ public class AttachmentService {
         }
     }
 
+    /** Формирует уникальный путь для хранения файла во внешнем хранилище. */
     private String buildStoragePath(Long documentId, String originalFilename) {
         String safeName = originalFilename.replaceAll("[\\\\/:*?\"<>|\\s]+", "_");
         return String.join("/", "attachments", "document-" + documentId, UUID.randomUUID() + "-" + safeName);
     }
 
+    /** Нормализует и валидирует исходное имя файла. */
     private String normalizeOriginalFilename(String originalFilename) {
         if (originalFilename == null || originalFilename.isBlank()) {
             throw new AttachmentValidationException("Имя файла не может быть пустым");
@@ -211,6 +274,7 @@ public class AttachmentService {
         return extensions;
     }
 
+    /** Форматирует допустимые расширения в строку, например ".jpg, .png". */
     private String formatAllowedExtensions() {
         return allowedExtensions.stream()
                 .sorted()
@@ -224,6 +288,10 @@ public class AttachmentService {
         return String.format(Locale.ROOT, "%.1f MB", megabytes);
     }
 
+    /**
+     * Пытается удалить список ранее сохранённых путей — используется при откате
+     * после ошибки загрузки нескольких файлов.
+     */
     private void cleanupStoredFiles(List<String> storedPaths) {
         for (String storedPath : storedPaths) {
             try {
@@ -234,5 +302,8 @@ public class AttachmentService {
         }
     }
 
+    /**
+     * DTO: содержит метаданные вложения и {@link Resource} для передачи в ответе.
+     */
     public record AttachmentDownloadData(Attachment attachment, Resource resource) {}
 }

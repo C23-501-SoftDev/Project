@@ -6,12 +6,17 @@ import com.knowledgebase.domain.exception.SpaceNotFoundException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
+import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.knowledgebase.domain.repository.TemplateRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import org.slf4j.Logger;
@@ -19,8 +24,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Set;
+
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -37,19 +48,27 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final DocumentContentRepository contentRepository;
     private final SpaceRepository spaceRepository;
+    private final SpacePermissionRepository permissionRepository;
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
     private final RequirementNumberService requirementNumberService;
 
+    private static final int MAX_SEARCH_QUERY_LENGTH = 200;
+    private static final int MAX_SEARCH_PAGE_SIZE = 50;
+    private static final LocalDateTime SEARCH_MIN_DATE = LocalDateTime.of(1970, 1, 1, 0, 0);
+    private static final LocalDateTime SEARCH_MAX_DATE = LocalDateTime.of(9999, 12, 31, 23, 59, 59, 999_999_999);
+
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
                            SpaceRepository spaceRepository,
+                           SpacePermissionRepository permissionRepository,
                            TemplateRepository templateRepository,
                            UserRepository userRepository,
                            RequirementNumberService requirementNumberService) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
+        this.permissionRepository = permissionRepository;
         this.templateRepository = templateRepository;
         this.userRepository = userRepository;
         this.requirementNumberService = requirementNumberService;
@@ -475,6 +494,71 @@ public class DocumentService {
     }
 
     /**
+     * Ищет документы по заголовку с учётом прав доступа.
+     */
+    public Page<Document> searchDocumentsByTitle(String query,
+                                                 LocalDate dateFrom,
+                                                 LocalDate dateTo,
+                                                 Long userId,
+                                                 boolean isAdmin,
+                                                 int page,
+                                                 int size) {
+        validateSearchParameters(query, dateFrom, dateTo, page, size);
+
+        Pageable pageable = PageRequest.of(page, size);
+        String normalizedQuery = query != null ? query.trim() : "";
+        LocalDateTime effectiveFrom = dateFrom != null ? dateFrom.atStartOfDay() : SEARCH_MIN_DATE;
+        LocalDateTime effectiveTo = dateTo != null ? dateTo.atTime(LocalTime.MAX) : SEARCH_MAX_DATE;
+
+        if (userId == null) {
+            return Page.empty(pageable);
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return Page.empty(pageable);
+        }
+
+        GlobalRole role = user.getRole();
+        if (isAdmin && role != GlobalRole.GUEST) {
+            return documentRepository.searchByTitle(normalizedQuery, effectiveFrom, effectiveTo, pageable);
+        }
+
+        if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
+            return documentRepository.searchByTitle(normalizedQuery, effectiveFrom, effectiveTo, pageable);
+        }
+
+        Set<Long> accessibleSpaceIds = permissionRepository.findByUserId(userId).stream()
+                .map(SpacePermission::getSpaceId)
+                .collect(Collectors.toSet());
+
+        if (accessibleSpaceIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        return documentRepository.searchByTitleInSpaces(accessibleSpaceIds, normalizedQuery, effectiveFrom, effectiveTo, pageable);
+    }
+
+    private void validateSearchParameters(String query, LocalDate dateFrom, LocalDate dateTo, int page, int size) {
+        String normalizedQuery = query != null ? query.trim() : "";
+        if (normalizedQuery.isBlank() && dateFrom == null && dateTo == null) {
+            throw new IllegalArgumentException("Укажите поисковую строку или хотя бы одну дату");
+        }
+        if (dateFrom != null && dateTo != null && dateFrom.isAfter(dateTo)) {
+            throw new IllegalArgumentException("Дата начала не может быть позже даты окончания");
+        }
+        if (!normalizedQuery.isBlank() && normalizedQuery.length() > MAX_SEARCH_QUERY_LENGTH) {
+            throw new IllegalArgumentException("Поисковая строка не может превышать " + MAX_SEARCH_QUERY_LENGTH + " символов");
+        }
+        if (page < 0) {
+            throw new IllegalArgumentException("Номер страницы не может быть отрицательным");
+        }
+        if (size < 1 || size > MAX_SEARCH_PAGE_SIZE) {
+            throw new IllegalArgumentException("Размер страницы должен быть от 1 до " + MAX_SEARCH_PAGE_SIZE);
+        }
+    }
+
+    /**
      * Возвращает иерархическую структуру документов в пространстве.
      */
     public List<DocumentTreeNode> getSpaceDocumentHierarchy(Long spaceId) {
@@ -538,6 +622,106 @@ public class DocumentService {
             return documentRepository.countBySpaceIdAndAuthorId(spaceId, authorId, includeDeleted);
         }
         return documentRepository.countBySpaceId(spaceId, includeDeleted);
+    }
+
+    /**
+     * Возвращает страницу документов с комбинированными фильтрами (логика И).
+     * Фильтры по пространству и статусу применяются одновременно.
+     */
+    public DocumentPage listDocuments(Long spaceId,
+                                      String statusParam,
+                                      boolean includeDeleted,
+                                      int page,
+                                      int size,
+                                      Long userId,
+                                      boolean isAdmin) {
+        DocumentStatus statusFilter = parseStatusFilter(statusParam);
+        Pageable pageable = PageRequest.of(page, size);
+
+        if (spaceId != null) {
+            if (!spaceRepository.findById(spaceId).isPresent()) {
+                throw new SpaceNotFoundException(spaceId);
+            }
+            if (statusFilter != null) {
+                Page<Document> result = documentRepository.findBySpaceIdAndStatusPaged(spaceId, statusFilter, pageable);
+                return toDocumentPage(result, size);
+            }
+            List<Document> content = documentRepository.findBySpaceIdPaged(spaceId, includeDeleted, page, size);
+            long totalElements = documentRepository.countBySpaceId(spaceId, includeDeleted);
+            return toDocumentPage(content, totalElements, size);
+        }
+
+        Set<Long> accessibleSpaceIds = resolveAccessibleSpaceIds(userId, isAdmin);
+        if (accessibleSpaceIds != null && accessibleSpaceIds.isEmpty()) {
+            return DocumentPage.empty();
+        }
+
+        if (statusFilter != null) {
+            Page<Document> result = accessibleSpaceIds == null
+                    ? documentRepository.findByStatusPaged(statusFilter, pageable)
+                    : documentRepository.findBySpaceIdsAndStatusPaged(accessibleSpaceIds, statusFilter, pageable);
+            return toDocumentPage(result, size);
+        }
+
+        List<Document> all = getAllAccessibleDocuments(userId, isAdmin, includeDeleted);
+        long totalElements = all.size();
+        int from = Math.min(page * size, (int) totalElements);
+        int to = Math.min(from + size, (int) totalElements);
+        List<Document> content = from >= to ? Collections.emptyList() : all.subList(from, to);
+        return toDocumentPage(content, totalElements, size);
+    }
+
+    public static DocumentStatus parseStatusFilter(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        String normalized = status.trim();
+        try {
+            return DocumentStatus.valueOf(normalized.toUpperCase());
+        } catch (IllegalArgumentException ignored) {
+            return DocumentStatus.fromDbValue(normalized);
+        }
+    }
+
+    /**
+     * @return null — доступ ко всем пространствам; пустой набор — нет доступа; иначе ограниченный набор ID.
+     */
+    private Set<Long> resolveAccessibleSpaceIds(Long userId, boolean isAdmin) {
+        if (userId == null) {
+            return Collections.emptySet();
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return Collections.emptySet();
+        }
+
+        GlobalRole role = user.getRole();
+        if (isAdmin && role != GlobalRole.GUEST) {
+            return null;
+        }
+        if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
+            return null;
+        }
+
+        return permissionRepository.findByUserId(userId).stream()
+                .map(SpacePermission::getSpaceId)
+                .collect(Collectors.toSet());
+    }
+
+    private DocumentPage toDocumentPage(Page<Document> page, int size) {
+        return toDocumentPage(page.getContent(), page.getTotalElements(), size);
+    }
+
+    private DocumentPage toDocumentPage(List<Document> content, long totalElements, int size) {
+        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 0;
+        return new DocumentPage(content, totalElements, totalPages);
+    }
+
+    public record DocumentPage(List<Document> content, long totalElements, int totalPages) {
+        public static DocumentPage empty() {
+            return new DocumentPage(Collections.emptyList(), 0, 0);
+        }
     }
 
     public static class DocumentTreeNode {

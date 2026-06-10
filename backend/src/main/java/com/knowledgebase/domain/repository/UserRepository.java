@@ -146,6 +146,20 @@ public interface UserRepository {
     boolean hasVersions(Long userId);
 
     /**
+     * Поиск пользователей по части логина или части ФИО (case-insensitive).
+     * Возвращает только активных пользователей (is_deleted = false).
+     * @param query часть логина или ФИО
+     * @param page номер страницы (0-based)
+     * @param size размер страницы
+     * @return список пользователей
+     */
+    List<User> search(String query, int page, int size, boolean includeDeleted);
+
+    /**
+     * Возвращает общее количество результатов поиска (для пагинации).
+     * @param query запрос поиска
+     */
+    long countSearch(String query, boolean includeDeleted);
     /**
      * Находит активных пользователей по списку ID.
      * @param ids список ID пользователей

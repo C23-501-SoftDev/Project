@@ -29,9 +29,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import java.util.Map;
 
 
 /**
@@ -92,6 +93,19 @@ public class SpaceController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+
+        String filterStatus = (status == null || status.isEmpty()) ? "active" : status;
+        String normalizedSortBy = normalizeSpaceSortBy(sortBy);
+        String normalizedSortDir = normalizeSortDir(sortDir);
+
+        List<Space> spaces = spaceService.getSpacesByStatus(filterStatus, 0, Integer.MAX_VALUE);
+        long totalCount = spaceService.countSpacesByStatus(filterStatus);
+        int effectiveSize = Math.max(size, 1);
+        int totalPages = (int) Math.ceil((double) totalCount / effectiveSize);
+
+        List<SpaceResponse> sortedContent = spaces.stream()
             @RequestParam(required = false) Long ownerId) {
 
         String filterStatus = (status == null || status.isEmpty()) ? "active" : status;
@@ -100,13 +114,49 @@ public class SpaceController {
         int totalPages = (int) Math.ceil((double) totalCount / size);
         List<SpaceResponse> content = spaces.stream()
                 .map(mapper::toSpaceResponse)
+                .sorted(buildSpaceComparator(normalizedSortBy, normalizedSortDir))
                 .toList();
-        java.util.Map<String, Object> response = new java.util.HashMap<>();
+
+        int fromIndex = (int) Math.min((long) page * effectiveSize, sortedContent.size());
+        int toIndex = Math.min(fromIndex + effectiveSize, sortedContent.size());
+        List<SpaceResponse> content = sortedContent.subList(fromIndex, toIndex);
+
+        Map<String, Object> response = new HashMap<>();
         response.put("content", content);
         response.put("totalPages", totalPages);
         response.put("totalElements", totalCount);
         response.put("number", page);
+        response.put("sortBy", normalizedSortBy);
+        response.put("sortDir", normalizedSortDir);
         return ResponseEntity.ok(response);
+    }
+
+    private Comparator<SpaceResponse> buildSpaceComparator(String sortBy, String sortDir) {
+        Comparator<SpaceResponse> comparator = switch (sortBy) {
+            case "id" -> Comparator.comparing(SpaceResponse::id, Comparator.nullsLast(Comparator.naturalOrder()));
+            case "name" -> Comparator.comparing(SpaceResponse::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "description" -> Comparator.comparing(SpaceResponse::description, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "ownerLogin" -> Comparator.comparing(SpaceResponse::ownerLogin, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "status" -> Comparator.comparing(SpaceResponse::isDeleted);
+            case "updatedAt" -> Comparator.comparing(SpaceResponse::updatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+            case "createdAt" -> Comparator.comparing(SpaceResponse::createdAt, Comparator.nullsLast(Comparator.naturalOrder()));
+            default -> Comparator.comparing(SpaceResponse::createdAt, Comparator.nullsLast(Comparator.naturalOrder()));
+        };
+
+        if ("desc".equalsIgnoreCase(sortDir)) {
+            comparator = comparator.reversed();
+        }
+
+        return comparator;
+    }
+
+    private String normalizeSpaceSortBy(String sortBy) {
+        List<String> allowedSorts = List.of("id", "name", "description", "ownerLogin", "status", "createdAt", "updatedAt");
+        return allowedSorts.contains(sortBy) ? sortBy : "createdAt";
+    }
+
+    private String normalizeSortDir(String sortDir) {
+        return "desc".equalsIgnoreCase(sortDir) ? "desc" : "asc";
     }
 
     /**

@@ -111,6 +111,67 @@ test("@documents DOC03: space filter narrows list to one space", async ({
   await adminApi.dispose();
 });
 
+test("@documents DOC04a: space and status filters combine with AND", async ({
+  browser,
+  baseURL,
+}) => {
+  const adminApi = await createAdminApi(baseURL);
+  const spaceA = await createSpace(adminApi, baseURL, `E2E and A ${uniqueSuffix()}`);
+  const spaceB = await createSpace(adminApi, baseURL, `E2E and B ${uniqueSuffix()}`);
+  const draftInA = `E2E and draft A ${uniqueSuffix()}`;
+  const publishedInA = `E2E and pub A ${uniqueSuffix()}`;
+  const publishedInB = `E2E and pub B ${uniqueSuffix()}`;
+
+  const draftRes = await createDocument(adminApi, baseURL, {
+    title: draftInA,
+    spaceId: spaceA.id,
+  });
+  expect(draftRes.ok()).toBeTruthy();
+  const pubARes = await createDocument(adminApi, baseURL, {
+    title: publishedInA,
+    spaceId: spaceA.id,
+  });
+  expect(pubARes.ok()).toBeTruthy();
+  const pubA = await pubARes.json();
+  expect(
+    (
+      await adminApi.put(`${baseURL}/api/documents/${pubA.id}`, {
+        data: { status: "PUBLISHED" },
+      })
+    ).ok()
+  ).toBeTruthy();
+
+  const pubBRes = await createDocument(adminApi, baseURL, {
+    title: publishedInB,
+    spaceId: spaceB.id,
+  });
+  expect(pubBRes.ok()).toBeTruthy();
+  const pubB = await pubBRes.json();
+  expect(
+    (
+      await adminApi.put(`${baseURL}/api/documents/${pubB.id}`, {
+        data: { status: "PUBLISHED" },
+      })
+    ).ok()
+  ).toBeTruthy();
+
+  const { context, page } = await newBrowserPageFromApi(browser, adminApi);
+  await page.goto("/");
+  await expect(page.locator("#documentsTbody")).toContainText(draftInA, {
+    timeout: 15_000,
+  });
+
+  await applyDocumentSpaceFilter(page, spaceA.id, spaceA.name);
+  await selectCustomOptionByText(page, "statusFilter-wrapper", "Опубликовано");
+  await page.locator("#applyFiltersBtn").click();
+  await expect(page.locator("#documentsTbody")).toContainText(publishedInA);
+  await expect(page.locator("#documentsTbody")).not.toContainText(draftInA);
+  await expect(page.locator("#documentsTbody")).not.toContainText(publishedInB);
+
+  await context.close();
+  await adminApi.dispose();
+});
+
 test("@documents DOC04: clear filters restores full list for space", async ({
   browser,
   baseURL,

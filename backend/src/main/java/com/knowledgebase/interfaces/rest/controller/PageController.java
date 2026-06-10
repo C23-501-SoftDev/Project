@@ -5,6 +5,8 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.application.service.DocumentService;
 import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -132,10 +135,35 @@ public class PageController {
     }
 
     @GetMapping("/search")
-    public String search(@RequestParam String q, @AuthenticationPrincipal User user, Model model) {
-        model.addAttribute("pageTitle", "Поиск: " + q);
+    public String search(@RequestParam(required = false) String q,
+                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                         @AuthenticationPrincipal User user,
+                         Model model) {
+        String normalizedQuery = q != null ? q.trim() : "";
+        var searchPage = documentService.searchDocumentsByTitle(q, dateFrom, dateTo, user.getId(), user.isAdmin(), 0, 20);
+
+        model.addAttribute("searchResults", searchPage.getContent().stream()
+            .map(document -> new DocumentResponse(
+                document.getId(),
+                document.getTitle(),
+                document.getSpaceId(),
+                spaceRepository.findById(document.getSpaceId()).map(space -> space.getName()).orElse(null),
+                document.getAuthorId(),
+                null,
+                document.getStatus(),
+                null,
+                null,
+                document.getGitFilePath(),
+                document.getCreatedAt(),
+                document.getUpdatedAt()))
+            .toList());
+        model.addAttribute("pageTitle", normalizedQuery.isBlank() ? "Поиск по дате" : "Поиск: " + normalizedQuery);
         model.addAttribute("currentUser", user);
-        model.addAttribute("searchQuery", q);
+        model.addAttribute("searchQuery", normalizedQuery);
+        model.addAttribute("searchDateFrom", dateFrom);
+        model.addAttribute("searchDateTo", dateTo);
+        model.addAttribute("searchTotalElements", searchPage.getTotalElements());
         model.addAttribute("content", "pages/search-results");
         return "layout";
     }

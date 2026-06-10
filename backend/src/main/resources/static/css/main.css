@@ -10,9 +10,9 @@
     --text-color: #0f172a;
     --text-secondary: #475569;
     --border-color: #e2e8f0;
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 16px;
@@ -50,7 +50,9 @@ body {
 }
 
 /* Shared typography for form controls */
-.form-input, .select-styled, .select-option {
+.form-input,
+.select-styled,
+.select-option {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 }
 
@@ -67,7 +69,8 @@ body {
     outline: none;
 }
 
-.form-input:focus, .form-select:focus {
+.form-input:focus,
+.form-select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--primary-light);
     background: #fff;
@@ -88,6 +91,7 @@ body {
     user-select: none;
     width: 100%;
 }
+
 .select-styled {
     width: 100%;
     background: #fff;
@@ -102,16 +106,49 @@ body {
     font-size: 14px;
     transition: var(--transition);
 }
+
 .select-styled::after {
     content: '';
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
     border-top: 5px solid var(--secondary-color);
 }
+
 .select-styled.active {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--primary-light);
 }
+
+.select-panel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-top: 4px;
+    z-index: 1000;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+.select-search {
+    padding: 6px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.select-filter {
+    display: block;
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
 .select-options {
     display: none;
     position: absolute;
@@ -123,25 +160,62 @@ body {
     border-radius: var(--radius-md);
     margin-top: 4px;
     z-index: 1000;
-    max-height: 200px;
+    max-height: 260px;
     overflow-y: auto;
     box-shadow: var(--shadow-md);
     padding: 4px;
 }
+
+.select-panel .select-options {
+    display: block;
+    position: static;
+    border: none;
+    border-radius: 0;
+    margin-top: 0;
+    box-shadow: none;
+    max-height: 220px;
+}
+
 .select-option {
     padding: 8px 12px;
     cursor: pointer;
     border-radius: var(--radius-sm);
     color: var(--text-color);
     font-size: 14px;
+    white-space: nowrap;
 }
+
 .select-option:hover {
     background: #f1f5f9;
 }
 
+.select-option[style*="display: none"] {
+    display: none !important;
+}
+
+.select-option.select-message {
+    cursor: default;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.select-option.select-message:hover {
+    background: transparent;
+}
+
+.select-styled.select-searchable {
+    cursor: text;
+    min-height: 28px;
+}
+
+.select-styled.select-searchable:focus {
+    outline: 2px solid #BFDBFE;
+}
+
 
 /* Base styles for form inputs and selects */
-.form-input, .form-select {
+.form-input,
+.form-select {
     width: 100%;
     padding: 9px 14px;
     border: 1px solid var(--border-color);
@@ -153,7 +227,8 @@ body {
     outline: none;
 }
 
-.form-input:focus, .form-select:focus {
+.form-input:focus,
+.form-select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--primary-light);
 }
@@ -173,7 +248,7 @@ body {
 }
 
 .navbar-search {
-    flex: 0 1 420px;
+    flex: 0 1 620px;
 }
 
 .navbar-menu {
@@ -220,8 +295,8 @@ body {
     align-items: center;
 }
 
-.navbar-search input[type="text"] {
-    width: 280px;
+.navbar-search .search-query {
+    width: 220px;
     height: 40px;
     padding: 9px 14px;
     border: 1px solid var(--border-color);
@@ -233,13 +308,27 @@ body {
     outline: none;
 }
 
-.navbar-search input[type="text"]:focus {
+.navbar-search .search-query:focus,
+.navbar-search .search-date:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--primary-light);
 }
 
+.navbar-search .search-date {
+    width: 142px;
+    height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    background: #fff;
+    color: var(--text-secondary);
+    transition: var(--transition);
+    outline: none;
+}
+
 .navbar-search .button-primary {
-    width: 140px;
+    width: 110px;
     height: 40px;
     padding: 0 16px;
     font-size: 14px;
@@ -397,7 +486,8 @@ body {
     border: 1px solid var(--border-color);
 }
 
-.data-table th, .data-table td {
+.data-table th,
+.data-table td {
     padding: 14px 20px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
@@ -448,9 +538,20 @@ body {
     text-overflow: ellipsis;
 }
 
-.badge.published { background: #dcfce7; color: #166534; }
-.badge.draft { background: #fef3c7; color: #92400e; }
-.badge.deleted { background: #fee2e2; color: #991b1b; }
+.badge.published {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge.draft {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge.deleted {
+    background: #fee2e2;
+    color: #991b1b;
+}
 
 /* Filter Bar */
 .filter-bar {
@@ -480,7 +581,8 @@ body {
     letter-spacing: 0.03em;
 }
 
-.filter-group input, .filter-group select {
+.filter-group input,
+.filter-group select {
     padding: 10px 14px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -491,7 +593,8 @@ body {
     min-width: 180px;
 }
 
-.filter-group input:focus, .filter-group select:focus {
+.filter-group input:focus,
+.filter-group select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--primary-light);
     background: #fff;
@@ -514,12 +617,25 @@ body {
     min-width: 200px;
 }
 
-.toast.show { display: block; animation: slideUpFade 0.3s ease forwards; }
-.toast.error { background: var(--danger-color); }
+.toast.show {
+    display: block;
+    animation: slideUpFade 0.3s ease forwards;
+}
+
+.toast.error {
+    background: var(--danger-color);
+}
 
 @keyframes slideUpFade {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Wiki Editor Styles - Minimal & Clean */
@@ -724,8 +840,16 @@ body {
     border-color: #a5b4fc;
 }
 
-.space-list { list-style: none; padding: 0; margin: 0; }
-.space-item { margin-bottom: 8px; list-style: none; }
+.space-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.space-item {
+    margin-bottom: 8px;
+    list-style: none;
+}
 
 .document-tree {
     list-style: none;
@@ -828,8 +952,15 @@ body {
 }
 
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .login-card h1 {
@@ -937,4 +1068,3 @@ body {
     text-decoration: underline;
     color: var(--primary-hover);
 }
-

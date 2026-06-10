@@ -184,6 +184,29 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
+    public List<User> search(String query, int page, int size, boolean includeDeleted) {
+        String q = query == null ? "" : query.trim();
+        Pageable pageable = PageRequest.of(page, size);
+        if (includeDeleted) {
+            return jpaRepository.searchByLoginOrFullNameIncludingDeleted(q, pageable)
+                    .stream()
+                    .map(mapper::toDomain)
+                    .collect(Collectors.toList());
+        } else {
+            return jpaRepository.searchByLoginOrFullName(q, pageable)
+                    .stream()
+                    .map(mapper::toDomain)
+                    .collect(Collectors.toList());
+        }
+    }
+
+    @Override
+    public long countSearch(String query, boolean includeDeleted) {
+        String q = query == null ? "" : query.trim();
+        if (includeDeleted) {
+            return jpaRepository.countByLoginOrFullNameIncludingDeleted(q);
+        }
+        return jpaRepository.countByLoginOrFullName(q);
     public List<User> findActiveByIds(List<Long> ids) {
         if (ids.isEmpty()) return java.util.Collections.emptyList();
         return jpaRepository.findByIdInAndIsDeletedFalse(ids)

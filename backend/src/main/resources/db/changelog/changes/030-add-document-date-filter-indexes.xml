@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="030-add-document-date-filter-indexes" author="knowledgebase-dev">
+        <comment>Индексы для ускорения фильтрации поиска по дате создания и изменения</comment>
+
+        <sql>
+            CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at);
+        </sql>
+
+        <sql>
+            CREATE INDEX IF NOT EXISTS idx_documents_updated_at ON documents(updated_at);
+        </sql>
+
+        <rollback>
+            <sql>DROP INDEX IF EXISTS idx_documents_created_at;</sql>
+            <sql>DROP INDEX IF EXISTS idx_documents_updated_at;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

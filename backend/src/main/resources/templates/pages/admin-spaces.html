@@ -1,4 +1,23 @@
 <div class="admin-spaces-page">
+    <style>
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .sortable-header:hover {
+            background: rgba(59, 130, 246, 0.06);
+        }
+
+        .sort-indicator {
+            display: inline-block;
+            min-width: 14px;
+            margin-left: 4px;
+            font-size: 12px;
+            opacity: 0.75;
+        }
+    </style>
     <div class="header" style="flex-direction: column; align-items: flex-start; gap: 10px;">
         <h1>Пространства</h1>
         <button class="button-primary" id="createBtn" onclick="openCreateSpaceModal()">+ Создать пространство</button>
@@ -7,6 +26,8 @@
     <div class="filter-bar" style="margin-bottom: 20px;">
         <div class="filter-group">
             <label>Статус:</label>
+            <div class="custom-select" id="statusFilterWrapper" data-target="statusFilter" style="width: 180px;">
+                <div class="select-styled">Все</div>
             <div class="custom-select" id="statusFilterWrapper" style="width: 180px;" data-target="statusFilter">
                 <div class="select-styled">Активные</div>
                 <div class="select-options">
@@ -35,11 +56,11 @@
         <table id="spacesTable" class="data-table">
             <thead>
                 <tr>
-                    <th data-sort="id">ID</th>
-                    <th data-sort="name">Название</th>
-                    <th data-sort="description">Описание</th>
-                    <th data-sort="owner">Владелец</th>
-                    <th data-sort="status">Статус</th>
+                    <th data-sort="id" class="sortable-header">ID <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="name" class="sortable-header">Название <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="description" class="sortable-header">Описание <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="ownerLogin" class="sortable-header">Владелец <span class="sort-indicator" aria-hidden="true"></span></th>
+                    <th data-sort="status" class="sortable-header">Статус <span class="sort-indicator" aria-hidden="true"></span></th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -52,9 +73,11 @@
     </div>
 
     <div class="pagination" id="spacesPagination" style="margin-top: 20px;">
-        <button class="button-secondary" id="spacesPrevBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Назад</button>
+        <button class="button-secondary" id="spacesPrevBtn" disabled
+            style="padding: 6px 12px; margin: 0 5px;">Назад</button>
         <span id="spacesPageInfo" style="margin: 0 10px;">Страница 1 из 1</span>
-        <button class="button-secondary" id="spacesNextBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
+        <button class="button-secondary" id="spacesNextBtn" disabled
+            style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
     </div>
     <div class="states">
         <p id="spacesEmptyMsg" style="display:none; text-align:center;">Пространства не найдены</p>
@@ -88,7 +111,9 @@
             <div class="form-group">
                 <label>Владелец (пользователь)</label>
                 <input type="hidden" id="spaceOwner">
-                <div class="custom-select" id="spaceOwnerWrapper" data-target="spaceOwner">
+                <div class="custom-select" id="spaceOwnerWrapper" data-target="spaceOwner" data-searchable="true"
+                    data-search-list-source="/api/admin/users" data-search-source="/api/admin/users/search"
+                    data-search-filter="adminOnly">
                     <div class="select-styled">-- Выберите владельца --</div>
                     <div class="select-options"></div>
                 </div>
@@ -119,7 +144,9 @@
         <div class="form-group">
             <label>Пользователь</label>
             <input type="hidden" id="permUser">
-            <div class="custom-select" id="permUserWrapper" data-target="permUser">
+            <div class="custom-select" id="permUserWrapper" data-target="permUser" data-searchable="true"
+                data-search-list-source="/api/admin/users" data-search-source="/api/admin/users/search"
+                data-search-filter="nonEditor">
                 <div class="select-styled">-- Выберите пользователя --</div>
                 <div class="select-options"></div>
             </div>
@@ -148,6 +175,87 @@
     </div>
 </div>
 
+<script th:src="@{/js/custom-select.js}"></script>
+<script>
+    (function () {
+        function resetUserPicker(wrapperId, placeholder) {
+            window.clearCustomSelectOptions(wrapperId);
+            window.setCustomSelectValue(wrapperId, '', placeholder);
+            window.resetCustomSelectFilter(document.getElementById(wrapperId));
+            window.refreshCustomSelect(wrapperId);
+            if (typeof window.loadCustomSelectOptions === 'function') {
+                window.loadCustomSelectOptions(wrapperId);
+            }
+        }
+
+        let state = {
+            page: 0,
+            size: 20,
+            totalPages: 1,
+            sortBy: 'createdAt',
+            sortDir: 'asc'
+        };
+        let editingSpaceId = null;
+        let managingSpaceId = null;
+        let restoringSpaceId = null;
+        let pendingAction = null;
+
+        async function restoreSpace(id) {
+            restoringSpaceId = id;
+            openModal('restoreConfirmModal');
+        }
+
+        async function confirmRestore() {
+            try {
+                await adminFetch(`/api/admin/spaces/${restoringSpaceId}/restore`, { method: 'POST' });
+                showToast('Восстановлено');
+                closeModal('restoreConfirmModal');
+                fetchSpaces();
+            } catch (e) { showToast('Ошибка восстановления', 'error'); }
+        }
+
+        async function fetchSpaces() {
+            const tbody = document.getElementById('spacesTbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Загрузка...</td></tr>';
+
+            try {
+                if (typeof adminFetch !== 'function') return;
+
+                const statusFilter = document.getElementById('statusFilter').value;
+                const url = `/api/admin/spaces?page=${state.page}&size=${state.size}&status=${statusFilter}&sortBy=${encodeURIComponent(state.sortBy)}&sortDir=${encodeURIComponent(state.sortDir)}`;
+                const data = await adminFetch(url);
+                state.sortBy = data.sortBy || state.sortBy;
+                state.sortDir = data.sortDir || state.sortDir;
+                const spaces = (data.content || data.spaces || []).map(s => ({
+                    ...s,
+                    isDeleted: s.isDeleted || false
+                }));
+
+                state.totalPages = data.totalPages || 1;
+
+                if (spaces.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Пространства не найдены</td></tr>';
+                } else {
+                    tbody.innerHTML = spaces.map(s => `
+                        <tr>
+                            <td>${escapeHtml(s.id)}</td>
+                            <td>${escapeHtml(s.name || '')}</td>
+                            <td>${escapeHtml(s.description || '')}</td>
+                            <td>${escapeHtml(s.ownerLogin || '')}</td>
+                            <td>
+                                <span class="badge ${s.isDeleted ? 'inactive' : 'active'}">${s.isDeleted ? 'Удалён' : 'Активен'}</span>
+                            </td>
+                            <td class="actions">
+                                ${!s.isDeleted ? `<button class="button-secondary" onclick="window.managePermissions(${s.id})">Права</button>` : ''}
+                                ${s.isDeleted
+                            ? `<button class="button-primary" onclick="window.restoreSpace(${s.id})">Восстановить</button>`
+                            : `<button class="button-secondary" onclick="window.editSpace(${s.id})">Редактировать</button>
+                                       <button class="button-danger" onclick="window.deleteSpace(${s.id})">Удалить</button>`
+                        }
+                            </td>
+                        </tr>
+                    `).join('');
     <script>
         (function () {
             function attachSelectHandlers(wrapper) {
@@ -277,7 +385,84 @@
                     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
                     console.error('Failed to fetch spaces:', e);
                 }
+                updatePagination();
+                updateSortIndicators();
+                updateUrl();
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
+                console.error('Failed to fetch spaces:', e);
             }
+        }
+
+        function updateSortIndicators() {
+            document.querySelectorAll('#spacesTable thead th[data-sort]').forEach(th => {
+                const indicator = th.querySelector('.sort-indicator');
+                const isActive = th.dataset.sort === state.sortBy;
+                th.classList.toggle('active-sort', isActive);
+                th.setAttribute('aria-sort', isActive ? (state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+                if (indicator) {
+                    indicator.textContent = isActive ? (state.sortDir === 'asc' ? '↑' : '↓') : '';
+                }
+            });
+        }
+
+        function applySort(sortBy) {
+            if (state.sortBy === sortBy) {
+                state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.sortBy = sortBy;
+                state.sortDir = 'asc';
+            }
+            state.page = 0;
+            fetchSpaces();
+        }
+
+        function updatePagination() {
+            const currentPage = state.page + 1;
+            const info = document.getElementById('spacesPageInfo');
+            if (info) info.textContent = `Страница ${currentPage} из ${state.totalPages || 1}`;
+            const prev = document.getElementById('spacesPrevBtn');
+            if (prev) prev.disabled = state.page <= 0;
+            const next = document.getElementById('spacesNextBtn');
+            if (next) next.disabled = state.page >= state.totalPages - 1;
+        }
+
+        function updateUrl() {
+            const params = new URLSearchParams();
+            if (state.page > 0) params.set('page', state.page);
+            const statusFilter = document.getElementById('statusFilter').value;
+            if (statusFilter !== 'all') params.set('status', statusFilter);
+            params.set('sortBy', state.sortBy);
+            params.set('sortDir', state.sortDir);
+            const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            history.replaceState(null, '', newUrl);
+        }
+
+        async function managePermissions(spaceId) {
+            managingSpaceId = spaceId;
+            resetUserPicker('permUserWrapper', '-- Выберите пользователя --');
+            document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Загрузка...</p>';
+            openModal('permissionsModal');
+            const permFilter = document.querySelector('#permUserWrapper .select-filter');
+            if (permFilter) permFilter.focus();
+            try {
+                const perms = await adminFetch(`/api/admin/spaces/${spaceId}/permissions`);
+                const list = document.getElementById('permissionsList');
+                if (!perms || perms.length === 0) {
+                    list.innerHTML = '<p style="color:#6B7280;">Нет прав доступа</p>';
+                } else {
+                    // Фильтруем список, чтобы не показывать право OWNER
+                    const visiblePerms = perms.filter(p => p.permissionType !== 'OWNER' && p.type !== 'OWNER');
+
+                    if (visiblePerms.length === 0) {
+                        list.innerHTML = '<p style="color:#6B7280;">Нет назначенных прав</p>';
+                    } else {
+                        list.innerHTML = visiblePerms.map(p => `
+                                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #E5E7EB;">
+                                    <span>${escapeHtml(p.userLogin || 'User')} — <strong>${escapeHtml(p.permissionType || 'READ')}</strong></span>
+                                    <button class="button-danger" style="padding:4px 8px; font-size:12px;" onclick="window.revokePermission(${p.id})">Отозвать</button>
+                                </div>
+                            `).join('');
 
             function updatePagination() {
                 const currentPage = state.page + 1;
@@ -349,10 +534,165 @@
                             }).join('');
                         }
                     }
-                } catch (e) {
-                    document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Ошибка загрузки</p>';
                 }
+            } catch (e) {
+                document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Ошибка загрузки</p>';
             }
+        }
+
+        async function openCreateSpaceModal() {
+            editingSpaceId = null;
+            document.getElementById('spaceModalTitle').textContent = 'Создать пространство';
+            document.getElementById('spaceName').value = '';
+            document.getElementById('spaceDesc').value = '';
+            resetUserPicker('spaceOwnerWrapper', '-- Выберите владельца --');
+            openModal('spaceModal');
+            const ownerFilter = document.querySelector('#spaceOwnerWrapper .select-filter');
+            if (ownerFilter) ownerFilter.focus();
+        }
+
+        async function editSpace(id) {
+            editingSpaceId = id;
+            try {
+                const space = await adminFetch(`/api/admin/spaces/${id}`);
+                document.getElementById('spaceModalTitle').textContent = 'Редактировать пространство';
+                document.getElementById('spaceName').value = space.name;
+                document.getElementById('spaceDesc').value = space.description || '';
+                resetUserPicker('spaceOwnerWrapper', '-- Выберите владельца --');
+                let ownerLabel = space.ownerLogin || '';
+                if (!ownerLabel && space.ownerId) {
+                    try {
+                        const owner = await adminFetch(`/api/admin/users/${space.ownerId}`);
+                        ownerLabel = owner.login ? `${owner.login} (${owner.email || ''})` : '';
+                    } catch (e) { /* keep empty */ }
+                }
+                window.setCustomSelectValue('spaceOwnerWrapper', space.ownerId, ownerLabel || 'Выбрать...');
+                openModal('spaceModal');
+            } catch (e) { showToast('Ошибка загрузки', 'error'); }
+        }
+
+        async function saveSpace() {
+            const name = document.getElementById('spaceName').value.trim();
+            const description = document.getElementById('spaceDesc').value.trim();
+            const ownerId = document.getElementById('spaceOwner').value;
+            if (!name || !ownerId) { showToast('Заполните обязательные поля', 'error'); return; }
+
+            try {
+                const method = editingSpaceId ? 'PUT' : 'POST';
+                const url = editingSpaceId ? `/api/admin/spaces/${editingSpaceId}` : '/api/admin/spaces';
+                await adminFetch(url, { method, body: JSON.stringify({ name, description, ownerId }) });
+                showToast('Успешно сохранено');
+                closeModal('spaceModal');
+                fetchSpaces();
+            } catch (e) { showToast('Ошибка сохранения', 'error'); }
+        }
+
+        async function deleteSpace(id) {
+            try {
+                await adminFetch(`/api/admin/spaces/${id}`, { method: 'DELETE' });
+                showToast('Удалено');
+                fetchSpaces();
+            } catch (e) { showToast('Ошибка удаления', 'error'); }
+        }
+
+        async function revokePermission(id) {
+            try {
+                await adminFetch(`/api/admin/permissions/${id}`, { method: 'DELETE' });
+                managePermissions(managingSpaceId);
+            } catch (e) { showToast('Ошибка', 'error'); }
+        }
+
+        async function grantPermission() {
+            const userId = document.getElementById('permUser').value;
+            const permissionType = document.getElementById('permType').value;
+            if (!userId) return;
+            try {
+                await adminFetch(`/api/admin/spaces/${managingSpaceId}/permissions`, {
+                    method: 'POST', body: JSON.stringify({ userId, permissionType })
+                });
+                managePermissions(managingSpaceId);
+            } catch (e) { showToast('Ошибка', 'error'); }
+        }
+
+        // Экспорт функций в global scope
+        window.fetchSpaces = fetchSpaces;
+        window.managePermissions = managePermissions;
+        window.editSpace = editSpace;
+        window.deleteSpace = deleteSpace;
+        window.openCreateSpaceModal = openCreateSpaceModal;
+        window.saveSpace = saveSpace;
+        window.restoreSpace = restoreSpace;
+        window.confirmRestore = confirmRestore;
+        window.revokePermission = revokePermission;
+        window.grantPermission = grantPermission;
+
+        // Используем глобальный инициализатор из custom-select.js
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Читаем состояние из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            state.page = parseInt(urlParams.get('page')) || 0;
+            const statusParam = urlParams.get('status');
+            if (statusParam) {
+                document.getElementById('statusFilter').value = statusParam;
+                const statusWrapper = document.getElementById('statusFilterWrapper');
+                const opt = statusWrapper.querySelector(`.select-option[data-value="${statusParam}"]`);
+                if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
+            }
+            const sortByParam = urlParams.get('sortBy');
+            const sortDirParam = urlParams.get('sortDir');
+            if (sortByParam) {
+                state.sortBy = sortByParam;
+            }
+            if (sortDirParam === 'desc' || sortDirParam === 'asc') {
+                state.sortDir = sortDirParam;
+            }
+
+            await fetchSpaces();
+
+            if (typeof initCustomSelects === 'function') {
+                initCustomSelects();
+            }
+
+            document.getElementById('spacesPrevBtn').addEventListener('click', () => {
+                if (state.page > 0) { state.page--; fetchSpaces(); }
+            });
+            document.getElementById('spacesNextBtn').addEventListener('click', () => {
+                if (state.page < state.totalPages - 1) { state.page++; fetchSpaces(); }
+            });
+
+            document.querySelectorAll('#spacesTable thead th[data-sort]').forEach(th => {
+                th.setAttribute('role', 'button');
+                th.setAttribute('tabindex', '0');
+                th.addEventListener('click', () => applySort(th.dataset.sort));
+                th.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        applySort(th.dataset.sort);
+                    }
+                });
+            });
+
+            document.getElementById('closeSpaceModalBtn')?.addEventListener('click', () => closeModal('spaceModal'));
+            document.getElementById('saveSpaceBtn')?.addEventListener('click', saveSpace);
+            document.getElementById('closePermModalBtn')?.addEventListener('click', () => closeModal('permissionsModal'));
+            document.getElementById('grantPermBtn')?.addEventListener('click', grantPermission);
+            document.getElementById('cancelRestoreBtn')?.addEventListener('click', () => closeModal('restoreConfirmModal'));
+            document.getElementById('confirmRestoreBtn')?.addEventListener('click', confirmRestore);
+            document.getElementById('applyFiltersBtn')?.addEventListener('click', () => {
+                state.page = 0;
+                fetchSpaces();
+            });
+            document.getElementById('clearFiltersBtn')?.addEventListener('click', () => {
+                document.getElementById('statusFilter').value = 'all';
+                document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Все';
+                state.page = 0;
+                fetchSpaces();
+            });
+
+            updateSortIndicators();
+        });
+    })();
+</script>
 
             async function openCreateSpaceModal() {
                 editingSpaceId = null;

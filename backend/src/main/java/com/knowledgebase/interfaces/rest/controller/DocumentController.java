@@ -7,6 +7,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.dto.request.CreateDocumentRequest;
 import com.knowledgebase.interfaces.rest.dto.request.UpdateDocumentRequest;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.dto.response.PageResponse;
 import com.knowledgebase.interfaces.rest.mapper.RestDtoMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,8 +21,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -36,9 +39,11 @@ public class DocumentController {
     private final PermissionService permissionService;
     private final RestDtoMapper mapper;
 
+    private static final int MAX_SEARCH_PAGE_SIZE = 50;
+
     public DocumentController(DocumentService documentService,
-                               PermissionService permissionService,
-                               RestDtoMapper mapper) {
+                              PermissionService permissionService,
+                              RestDtoMapper mapper) {
         this.documentService = documentService;
         this.permissionService = permissionService;
         this.mapper = mapper;
@@ -139,6 +144,7 @@ public class DocumentController {
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
     public ResponseEntity<?> getDocuments(
             @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) Long authorId,
             @RequestParam(required = false) java.util.List<String> status,
             @RequestParam(required = false) String search,
@@ -146,6 +152,10 @@ public class DocumentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal User currentUser) {
+
+        if (spaceId != null
+                && !permissionService.canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
         
         List<DocumentResponse> pagedContent;
         long totalElements;
@@ -197,11 +207,23 @@ public class DocumentController {
                     .map(doc -> mapper.toDocumentResponse(doc, null)).toList();
         }
 
-        int totalPages = (int) Math.ceil((double) totalElements / size);
+        var documentPage = documentService.listDocuments(
+                spaceId,
+                status,
+                includeDeleted,
+                page,
+                size,
+                currentUser.getId(),
+                currentUser.isAdmin());
+
+        List<DocumentResponse> pagedContent = documentPage.content().stream()
+                .map(doc -> mapper.toDocumentResponse(doc, null))
+                .toList();
+
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("content", pagedContent);
-        result.put("totalElements", totalElements);
-        result.put("totalPages", totalPages);
+        result.put("totalElements", documentPage.totalElements());
+        result.put("totalPages", documentPage.totalPages());
         result.put("size", size);
         result.put("number", page);
 
@@ -209,6 +231,45 @@ public class DocumentController {
     }
 
     /**
+     * GET /api/documents/search?q=...
+     * Поиск документов по заголовку.
+     */
+    @GetMapping("/search")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Поиск документов", description = "Ищет документы по заголовку с учётом прав доступа")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Поиск выполнен успешно"),
+        @ApiResponse(responseCode = "400", description = "Некорректная поисковая строка или размер страницы")
+    })
+    public ResponseEntity<PageResponse<DocumentResponse>> searchDocuments(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal User currentUser) {
+
+        if (page < 0) {
+            throw new IllegalArgumentException("Номер страницы не может быть отрицательным");
+        }
+        if (size < 1 || size > MAX_SEARCH_PAGE_SIZE) {
+            throw new IllegalArgumentException("Размер страницы должен быть от 1 до " + MAX_SEARCH_PAGE_SIZE);
+        }
+
+        var searchPage = documentService.searchDocumentsByTitle(
+                q,
+                dateFrom,
+                dateTo,
+                currentUser.getId(),
+                currentUser.isAdmin(),
+                page,
+                size);
+
+        List<DocumentResponse> content = searchPage.getContent().stream()
+                .map(document -> mapper.toDocumentResponse(document, null))
+                .toList();
+
+        return ResponseEntity.ok(PageResponse.of(content, page, size, searchPage.getTotalElements()));
      * GET /api/documents/authors
      * Возвращает список авторов для фильтрации.
      */

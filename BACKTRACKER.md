@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-05-26
+**Дата обновления:** 2026-06-07
 
 ---
 
@@ -44,7 +44,7 @@
 | GET | `/api/documents?page=0&size=20&sortBy=title&sortDir=asc` | Список документов с пагинацией | ❌ |
 | GET | `/api/documents?spaceId={id}` | Фильтрация документов по пространству | ✅ |
 | GET | `/api/documents?status=Published` | Фильтрация по статусу | ❌ |
-| POST | `/api/documents/search` | Поиск документов по названию/тексту с фильтрацией по дате | ❌ |
+| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск документов по названию | ✅ |
 
 **Данные для SSR-страницы:**
 - Список последних документов (title, author, updatedAt, status)
@@ -160,9 +160,9 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск по названию | ❌ |
+| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск по названию | ✅ |
 | GET | `/api/documents/search?q=запрос&spaceId={id}` | Поиск в конкретном пространстве | ❌ |
-| GET | `/api/documents/search?q=запрос&dateFrom=...&dateTo=...` | Поиск + фильтрация по дате | ❌ |
+| GET | `/api/documents/search?q=запрос&dateFrom=...&dateTo=...` | Поиск + фильтрация по дате | ✅ |
 | GET | `/api/documents/search?q=запрос&status=Published` | Поиск + фильтрация по статусу | ❌ |
 
 **Формат ответа поиска:**
@@ -229,7 +229,7 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/admin/spaces` | Все пространства системы | ✅ |
+| GET | `/api/admin/spaces?page=0&size=20&status=active|deleted|all&sortBy=id|name|description|ownerLogin|status|createdAt|updatedAt&sortDir=asc|desc` | Все пространства системы с сортировкой по заголовку таблицы | ✅ |
 | POST | `/api/admin/spaces` | Создание пространства (`{ name, description, ownerId }`) | ✅ |
 | GET | `/api/admin/spaces/{id}` | Детали пространства | ✅ |
 | PUT | `/api/admin/spaces/{id}` | Обновление пространства | ✅ |

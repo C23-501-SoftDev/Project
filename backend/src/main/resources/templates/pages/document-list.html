@@ -220,6 +220,7 @@
 
         let url = `/api/documents?includeDeleted=true&page=${state.page}&size=${state.size}`;
         if (state.spaceFilter) url += `&spaceId=${state.spaceFilter}`;
+        if (state.statusFilter) url += `&status=${encodeURIComponent(state.statusFilter)}`;
         if (state.authorFilter) url += `&authorId=${state.authorFilter}`; // Добавили параметр
         if (state.statusFilters.length > 0) {
             state.statusFilters.forEach(status => {
