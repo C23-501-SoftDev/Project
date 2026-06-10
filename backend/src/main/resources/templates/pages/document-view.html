@@ -17,6 +17,8 @@
         <div class="view-actions" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
             <a id="editLink" href="#" class="button-primary"
                 style="text-decoration:none; display:none;">Редактировать</a>
+            <a id="createChildLink" href="#" class="button-secondary"
+                style="text-decoration:none; display:none;">+ Дочерний документ</a>
             <div style="position:relative; display:inline-block;" id="exportDropdownWrapper">
                 <button class="button-secondary" id="exportMenuBtn"
                         style="display:flex; align-items:center; gap:6px;">
@@ -160,6 +162,8 @@
                     const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
                     if (perms.canEdit) {
                         document.getElementById('editLink').style.display = 'inline-block';
+                        document.getElementById('createChildLink').href = `/documents/new?spaceId=${doc.spaceId}&parentId=${docId}`;
+                        document.getElementById('createChildLink').style.display = 'inline-block';
                     }
                     canManageAttachments = !!perms.canEdit;
                 } catch (e) {
@@ -168,6 +172,8 @@
                 }
 
                 document.getElementById('documentContent').innerHTML = doc.contentHtml || '';
+                // Запоминаем spaceId для кнопки создания в хедере
+                document.querySelector('.document-view-page').dataset.spaceId = doc.spaceId;
                 await loadAttachments();
             } catch (e) {
                 document.getElementById('documentContent').innerHTML = '<p style="color:red;">Ошибка при загрузке документа.</p>';

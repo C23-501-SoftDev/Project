@@ -117,13 +117,66 @@
             // Если передан spaceId в URL, выбираем его автоматически
             const urlParams = new URLSearchParams(window.location.search);
             const preselectedSpaceId = urlParams.get('spaceId');
+            const preselectedParentId = urlParams.get('parentId');
+            
+            if (preselectedParentId && !preselectedSpaceId) {
+                // Если передан parentId без spaceId — загружаем родительский документ, чтобы узнать spaceId
+                try {
+                    const parentDoc = await apiFetch(`/api/documents/${preselectedParentId}`);
+                    if (parentDoc && parentDoc.spaceId) {
+                        const parentSpace = spaces.find(s => s.id == parentDoc.spaceId);
+                        if (parentSpace) {
+                            spaceWrapper.querySelector('.select-styled').textContent = parentSpace.name;
+                            spaceWrapper.querySelector('.select-styled').style.color = 'var(--text-color)';
+                            document.getElementById('docSpace').value = parentDoc.spaceId;
+                            await fetchParentDocuments(parentDoc.spaceId, preselectedParentId);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch parent doc:', e);
+                }
+            }
+            
             if (preselectedSpaceId) {
                 const space = spaces.find(s => s.id == preselectedSpaceId);
                 if (space) {
                     spaceWrapper.querySelector('.select-styled').textContent = space.name;
                     spaceWrapper.querySelector('.select-styled').style.color = 'var(--text-color)';
                     document.getElementById('docSpace').value = space.id;
-                    fetchParentDocuments(space.id);
+                    await fetchParentDocuments(space.id, preselectedParentId);
+                } else if (preselectedParentId) {
+                    // Спейс не найден по spaceId, но есть parentId — попробуем подтянуть parent
+                    try {
+                        const parentDoc = await apiFetch(`/api/documents/${preselectedParentId}`);
+                        if (parentDoc && parentDoc.spaceId) {
+                            const parentSpace = spaces.find(s => s.id == parentDoc.spaceId);
+                            if (parentSpace) {
+                                spaceWrapper.querySelector('.select-styled').textContent = parentSpace.name;
+                                spaceWrapper.querySelector('.select-styled').style.color = 'var(--text-color)';
+                                document.getElementById('docSpace').value = parentDoc.spaceId;
+                                await fetchParentDocuments(parentDoc.spaceId, preselectedParentId);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch parent doc:', e);
+                    }
+                }
+            } else if (preselectedParentId) {
+                // Есть только parentId, без spaceId
+                try {
+                    const parentDoc = await apiFetch(`/api/documents/${preselectedParentId}`);
+                    if (parentDoc && parentDoc.spaceId) {
+                        const parentSpace = spaces.find(s => s.id == parentDoc.spaceId);
+                        if (parentSpace) {
+                            spaceWrapper.querySelector('.select-styled').textContent = parentSpace.name;
+                            spaceWrapper.querySelector('.select-styled').style.color = 'var(--text-color)';
+                            document.getElementById('docSpace').value = parentDoc.spaceId;
+                            await fetchParentDocuments(parentDoc.spaceId, preselectedParentId);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch parent doc:', e);
                 }
             }
         } catch (e) { 
@@ -142,7 +195,7 @@
         } catch (e) { console.error(e); }
     }
 
-            async function fetchParentDocuments(spaceId) {
+    async function fetchParentDocuments(spaceId, preselectedParentId) {
         try {
             const data = await apiFetch(`/api/documents?spaceId=${spaceId}`);
             // Обработка возможного объекта ответа с полем content, если пагинация активна
@@ -150,9 +203,22 @@
             const parentWrapper = document.getElementById('docParentWrapper');
             parentWrapper.querySelector('.select-options').innerHTML = '';
             addOption('docParentWrapper', '', 'Без родителя (корневой)');
+            
+            let foundParent = false;
             documents.forEach(d => addOption('docParentWrapper', d.id, d.title));
-            document.getElementById('docParent').value = '';
-            parentWrapper.querySelector('.select-styled').textContent = 'Без родителя (корневой)';
+            
+            if (preselectedParentId) {
+                const parentOption = parentWrapper.querySelector(`.select-option[data-value="${preselectedParentId}"]`);
+                if (parentOption) {
+                    parentOption.click();
+                    foundParent = true;
+                }
+            }
+            
+            if (!foundParent) {
+                document.getElementById('docParent').value = '';
+                parentWrapper.querySelector('.select-styled').textContent = 'Без родителя (корневой)';
+            }
         } catch (e) { console.error(e); }
     }
 

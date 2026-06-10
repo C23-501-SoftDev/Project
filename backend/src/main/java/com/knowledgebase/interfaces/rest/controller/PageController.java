@@ -83,7 +83,11 @@ public class PageController {
     }
 
     @GetMapping("/documents/new")
-    public String newDocument(@RequestParam(required = false) Long spaceId, @AuthenticationPrincipal User user, Model model) {
+    public String newDocument(
+            @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) Long parentId,
+            @AuthenticationPrincipal User user,
+            Model model) {
         var writableSpaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), com.knowledgebase.domain.model.PermissionType.WRITE);
         
         // Оставляем проверку на пустоту, но теперь список полный
@@ -91,9 +95,37 @@ public class PageController {
             return "redirect:/";
         }
 
-        // Если spaceId передан, проверяем права на запись в это конкретное пространство
-        if (spaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
-            return "redirect:/spaces/" + spaceId;
+        // Определяем фактический spaceId: если передан parentId, пытаемся получить spaceId из родительского документа
+        Long effectiveSpaceId = spaceId;
+        if (parentId != null) {
+            if (effectiveSpaceId == null) {
+                try {
+                    var parentDoc = documentService.getDocumentById(parentId);
+                    effectiveSpaceId = parentDoc.getSpaceId();
+                } catch (Exception e) {
+                    // Родительский документ не найден — игнорируем parentId
+                    parentId = null;
+                }
+            }
+            // Проверяем, что родительский документ существует в указанном или определённом spaceId
+            if (effectiveSpaceId != null) {
+                try {
+                    var parentDoc = documentService.getDocumentById(parentId);
+                    if (!parentDoc.getSpaceId().equals(effectiveSpaceId)) {
+                        parentId = null; // родитель из другого пространства — игнорируем
+                    }
+                } catch (Exception e) {
+                    parentId = null;
+                }
+            }
+        }
+
+        // Проверка прав на запись
+        if (effectiveSpaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), effectiveSpaceId)) {
+            if (spaceId != null) {
+                return "redirect:/spaces/" + effectiveSpaceId;
+            }
+            // Если spaceId не задан, просто пропускаем (пользователь выберет другой спейс)
         }
 
         model.addAttribute("pageTitle", "Создание документа");

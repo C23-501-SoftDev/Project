@@ -4,7 +4,10 @@
         <h1 th:unless="${currentSpace != null}">Пространство</h1>
     </div>
 
-    <h2>Документы</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 style="margin:0;">Документы</h2>
+       <a id="createDocInSpaceBtn" href="#" class="button-primary" style="text-decoration:none; display:none;">+ Создать документ</a>
+    </div>
 
     <div style="overflow-x:auto;">
         <table id="documentsTable" class="data-table">
@@ -36,6 +39,15 @@ window.addEventListener('DOMContentLoaded', async function() {
         try {
             const docs = await apiFetch(requestUrl);
             const perms = await apiFetch(`/api/user/permissions?spaceId=${spaceId}`);
+            const createBtn = document.getElementById('createDocInSpaceBtn');
+            if (createBtn) {
+                if (perms.canEdit) {
+                    createBtn.href = `/documents/new?spaceId=${spaceId}`;
+                    createBtn.style.display = '';
+                } else {
+                    createBtn.style.display = 'none';
+                }
+            }
             tbody.innerHTML = '';
             
             if (!docs || (Array.isArray(docs) && docs.length === 0)) {

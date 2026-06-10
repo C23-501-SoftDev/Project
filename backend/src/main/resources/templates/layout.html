@@ -72,15 +72,49 @@
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
             const createBtn = document.getElementById('headerCreateDocBtn');
-            if (createBtn) {
-                try {
-                    const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=1');
-                    if (spaces && spaces.length > 0) {
-                        createBtn.style.display = '';
+            if (!createBtn) return;
+
+            // Пытаемся найти контекст: spaceId и documentId
+            let spaceId = null;
+            let documentId = null;
+
+            // 1. Ищем на корневом элементе страницы data-space-id (space-view или document-view)
+            const pageRoot = document.querySelector('[data-space-id]');
+            if (pageRoot) {
+                spaceId = pageRoot.dataset.spaceId;
+            }
+
+            // 2. Ищем скрытый input #documentId (document-view, document-edit)
+            const docInput = document.getElementById('documentId');
+            if (docInput) {
+                documentId = docInput.value;
+                // Если data-space-id не нашли, пробуем получить spaceId через API (если загружена страница с документом)
+                if (!spaceId && documentId) {
+                    try {
+                        const doc = await apiFetch(`/api/documents/${documentId}`);
+                        if (doc && doc.spaceId) {
+                            spaceId = doc.spaceId;
+                        }
+                    } catch (e) {
+                        // Не удалось — оставляем spaceId = null
                     }
-                } catch (e) {
-                    console.error('Failed to check create permission:', e);
                 }
+            }
+
+            try {
+                const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=1');
+                if (spaces && spaces.length > 0) {
+                    createBtn.style.display = '';
+                    // Формируем ссылку с контекстом
+                    let url = '/documents/new';
+                    const params = [];
+                    if (spaceId) params.push('spaceId=' + encodeURIComponent(spaceId));
+                    if (documentId) params.push('parentId=' + encodeURIComponent(documentId));
+                    if (params.length > 0) url += '?' + params.join('&');
+                    createBtn.href = url;
+                }
+            } catch (e) {
+                console.error('Failed to check create permission:', e);
             }
         });
     </script>
