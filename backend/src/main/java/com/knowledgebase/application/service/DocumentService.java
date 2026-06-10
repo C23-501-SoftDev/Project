@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -516,6 +517,106 @@ public class DocumentService {
 
     public long countDocumentsInSpace(Long spaceId, boolean includeDeleted) {
         return documentRepository.countBySpaceId(spaceId, includeDeleted);
+    }
+
+    /**
+     * Возвращает страницу документов с комбинированными фильтрами (логика И).
+     * Фильтры по пространству и статусу применяются одновременно.
+     */
+    public DocumentPage listDocuments(Long spaceId,
+                                      String statusParam,
+                                      boolean includeDeleted,
+                                      int page,
+                                      int size,
+                                      Long userId,
+                                      boolean isAdmin) {
+        DocumentStatus statusFilter = parseStatusFilter(statusParam);
+        Pageable pageable = PageRequest.of(page, size);
+
+        if (spaceId != null) {
+            if (!spaceRepository.findById(spaceId).isPresent()) {
+                throw new SpaceNotFoundException(spaceId);
+            }
+            if (statusFilter != null) {
+                Page<Document> result = documentRepository.findBySpaceIdAndStatusPaged(spaceId, statusFilter, pageable);
+                return toDocumentPage(result, size);
+            }
+            List<Document> content = documentRepository.findBySpaceIdPaged(spaceId, includeDeleted, page, size);
+            long totalElements = documentRepository.countBySpaceId(spaceId, includeDeleted);
+            return toDocumentPage(content, totalElements, size);
+        }
+
+        Set<Long> accessibleSpaceIds = resolveAccessibleSpaceIds(userId, isAdmin);
+        if (accessibleSpaceIds != null && accessibleSpaceIds.isEmpty()) {
+            return DocumentPage.empty();
+        }
+
+        if (statusFilter != null) {
+            Page<Document> result = accessibleSpaceIds == null
+                    ? documentRepository.findByStatusPaged(statusFilter, pageable)
+                    : documentRepository.findBySpaceIdsAndStatusPaged(accessibleSpaceIds, statusFilter, pageable);
+            return toDocumentPage(result, size);
+        }
+
+        List<Document> all = getAllAccessibleDocuments(userId, isAdmin, includeDeleted);
+        long totalElements = all.size();
+        int from = Math.min(page * size, (int) totalElements);
+        int to = Math.min(from + size, (int) totalElements);
+        List<Document> content = from >= to ? Collections.emptyList() : all.subList(from, to);
+        return toDocumentPage(content, totalElements, size);
+    }
+
+    public static DocumentStatus parseStatusFilter(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        String normalized = status.trim();
+        try {
+            return DocumentStatus.valueOf(normalized.toUpperCase());
+        } catch (IllegalArgumentException ignored) {
+            return DocumentStatus.fromDbValue(normalized);
+        }
+    }
+
+    /**
+     * @return null — доступ ко всем пространствам; пустой набор — нет доступа; иначе ограниченный набор ID.
+     */
+    private Set<Long> resolveAccessibleSpaceIds(Long userId, boolean isAdmin) {
+        if (userId == null) {
+            return Collections.emptySet();
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return Collections.emptySet();
+        }
+
+        GlobalRole role = user.getRole();
+        if (isAdmin && role != GlobalRole.GUEST) {
+            return null;
+        }
+        if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
+            return null;
+        }
+
+        return permissionRepository.findByUserId(userId).stream()
+                .map(SpacePermission::getSpaceId)
+                .collect(Collectors.toSet());
+    }
+
+    private DocumentPage toDocumentPage(Page<Document> page, int size) {
+        return toDocumentPage(page.getContent(), page.getTotalElements(), size);
+    }
+
+    private DocumentPage toDocumentPage(List<Document> content, long totalElements, int size) {
+        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 0;
+        return new DocumentPage(content, totalElements, totalPages);
+    }
+
+    public record DocumentPage(List<Document> content, long totalElements, int totalPages) {
+        public static DocumentPage empty() {
+            return new DocumentPage(Collections.emptyList(), 0, 0);
+        }
     }
 
     public static class DocumentTreeNode {

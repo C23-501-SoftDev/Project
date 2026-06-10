@@ -98,6 +98,7 @@
         // Загружаем документы с поддержкой пагинации
         let url = `/api/documents?includeDeleted=true&page=${state.page}&size=${state.size}`;
         if (state.spaceFilter) url += `&spaceId=${state.spaceFilter}`;
+        if (state.statusFilter) url += `&status=${encodeURIComponent(state.statusFilter)}`;
 
         try {
             const data = await apiFetch(url);

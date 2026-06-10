@@ -23,9 +23,21 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
 
     Page<DocumentJpaEntity> findBySpaceId(Long spaceId, Pageable pageable);
 
+    Page<DocumentJpaEntity> findBySpaceIdAndStatus(Long spaceId, String status, Pageable pageable);
+
+    long countBySpaceIdAndStatus(Long spaceId, String status);
+
     long countBySpaceIdAndStatusNot(Long spaceId, String status);
 
     long countBySpaceId(Long spaceId);
+
+    Page<DocumentJpaEntity> findByStatus(String status, Pageable pageable);
+
+    long countByStatus(String status);
+
+    Page<DocumentJpaEntity> findBySpaceIdInAndStatus(Collection<Long> spaceIds, String status, Pageable pageable);
+
+    long countBySpaceIdInAndStatus(Collection<Long> spaceIds, String status);
 
     List<DocumentJpaEntity> findByStatusNot(String status);
 

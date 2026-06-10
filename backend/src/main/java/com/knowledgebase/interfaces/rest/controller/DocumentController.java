@@ -148,37 +148,34 @@ public class DocumentController {
     @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
     public ResponseEntity<?> getDocuments(
             @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "false") boolean includeDeleted,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal User currentUser) {
-        
-        List<DocumentResponse> pagedContent;
-        long totalElements;
 
-        if (spaceId != null) {
-            // Для конкретного пространства проверяем доступ
-            if (!permissionService.canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
-                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
-            }
-            pagedContent = documentService.getDocumentsInSpacePaged(spaceId, includeDeleted, page, size)
-                    .stream().map(doc -> mapper.toDocumentResponse(doc, null)).toList();
-            totalElements = documentService.countDocumentsInSpace(spaceId, includeDeleted);
-        } else {
-            List<Document> all = documentService.getAllAccessibleDocuments(
-                    currentUser.getId(), currentUser.isAdmin(), includeDeleted);
-            totalElements = all.size();
-            int from = Math.min(page * size, (int) totalElements);
-            int to = Math.min(from + size, (int) totalElements);
-            pagedContent = all.subList(from, to).stream()
-                    .map(doc -> mapper.toDocumentResponse(doc, null)).toList();
+        if (spaceId != null
+                && !permissionService.canRead(currentUser.getId(), currentUser.isAdmin(), spaceId)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
         }
 
-        int totalPages = (int) Math.ceil((double) totalElements / size);
+        var documentPage = documentService.listDocuments(
+                spaceId,
+                status,
+                includeDeleted,
+                page,
+                size,
+                currentUser.getId(),
+                currentUser.isAdmin());
+
+        List<DocumentResponse> pagedContent = documentPage.content().stream()
+                .map(doc -> mapper.toDocumentResponse(doc, null))
+                .toList();
+
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("content", pagedContent);
-        result.put("totalElements", totalElements);
-        result.put("totalPages", totalPages);
+        result.put("totalElements", documentPage.totalElements());
+        result.put("totalPages", documentPage.totalPages());
         result.put("size", size);
         result.put("number", page);
 
