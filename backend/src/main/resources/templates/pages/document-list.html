@@ -262,7 +262,7 @@
                         <td>${escapeHtml(d.authorLogin || 'Неизвестно')}</td>
                         <td>${renderStatus(d.status)}</td>
 
-                        <td>${d.updatedAt || '-'}</td>
+                        <td>${formatDate(d.updatedAt)}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}')" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
                             ${canEdit && !isDeleted ? `<a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
@@ -416,6 +416,22 @@
             applyFilters();
             updateUrl();
         });
+
+        document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+            clearFilters();
+            updateUrl();
+        });
+
+        document.getElementById('documentsPrevBtn').addEventListener('click', () => {
+            if (state.page > 0) { state.page--; fetchDocuments(); updateUrl(); }
+    });
+        document.getElementById('documentsNextBtn').addEventListener('click', () => {
+            if (state.page < state.totalPages - 1) { state.page++; fetchDocuments(); updateUrl(); }
+        });
+    });
+})();
+</script>
+
 
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             clearFilters();
