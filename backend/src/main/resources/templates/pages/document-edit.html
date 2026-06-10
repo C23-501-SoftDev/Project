@@ -347,7 +347,7 @@
                     statusStyled.textContent = option.textContent;
                 }
 
-                document.getElementById('authorName').textContent = doc.authorName || 'Неизвестен';
+                document.getElementById('authorName').textContent = doc.authorLogin || 'Неизвестен';
 
                 try {
                     const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
@@ -386,3 +386,5 @@
         loadDocument();
     })();
 </script>
+
+
