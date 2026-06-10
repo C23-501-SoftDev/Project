@@ -1,40 +1,5 @@
 <div class="admin-spaces-page">
     <style>
-        .select-filter {
-            display: block;
-            width: calc(100% - 12px);
-            margin: 6px;
-            padding: 6px 8px;
-            border: 1px solid #D1D5DB;
-            border-radius: 4px;
-        }
-
-        .select-options {
-            max-height: 260px;
-            overflow: auto;
-            padding: 6px 0;
-        }
-
-        .select-option {
-            white-space: nowrap;
-            padding: 6px 12px;
-            cursor: pointer;
-        }
-
-        .select-option[style*="display: none"] {
-            display: none !important;
-        }
-
-        .select-styled.select-searchable {
-            cursor: text;
-            min-height: 28px;
-            padding: 6px 8px;
-        }
-
-        .select-styled.select-searchable:focus {
-            outline: 2px solid #BFDBFE;
-        }
-
         .sortable-header {
             cursor: pointer;
             user-select: none;
@@ -61,7 +26,7 @@
     <div class="filter-bar" style="margin-bottom: 20px;">
         <div class="filter-group">
             <label>Статус:</label>
-            <div class="custom-select" id="statusFilterWrapper" style="width: 180px;">
+            <div class="custom-select" id="statusFilterWrapper" data-target="statusFilter" style="width: 180px;">
                 <div class="select-styled">Все</div>
                 <div class="select-options">
                     <div class="select-option" data-value="active">Активные</div>
@@ -134,7 +99,9 @@
             <div class="form-group">
                 <label>Владелец (пользователь)</label>
                 <input type="hidden" id="spaceOwner">
-                <div class="custom-select" id="spaceOwnerWrapper" data-target="spaceOwner" data-searchable="true">
+                <div class="custom-select" id="spaceOwnerWrapper" data-target="spaceOwner" data-searchable="true"
+                    data-search-list-source="/api/admin/users" data-search-source="/api/admin/users/search"
+                    data-search-filter="adminOnly">
                     <div class="select-styled">-- Выберите владельца --</div>
                     <div class="select-options"></div>
                 </div>
@@ -165,7 +132,9 @@
         <div class="form-group">
             <label>Пользователь</label>
             <input type="hidden" id="permUser">
-            <div class="custom-select" id="permUserWrapper" data-target="permUser" data-searchable="true">
+            <div class="custom-select" id="permUserWrapper" data-target="permUser" data-searchable="true"
+                data-search-list-source="/api/admin/users" data-search-source="/api/admin/users/search"
+                data-search-filter="nonEditor">
                 <div class="select-styled">-- Выберите пользователя --</div>
                 <div class="select-options"></div>
             </div>
@@ -197,84 +166,14 @@
 <script th:src="@{/js/custom-select.js}"></script>
 <script>
     (function () {
-        function initLocalSelects() {
-            document.querySelectorAll('.custom-select').forEach(wrapper => {
-                if (wrapper.dataset.initialized) return;
-                wrapper.dataset.initialized = 'true';
-
-                const styled = wrapper.querySelector('.select-styled');
-                const optionsDiv = wrapper.querySelector('.select-options');
-                if (!styled || !optionsDiv) return;
-
-                styled.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    document.querySelectorAll('.select-options').forEach(el => {
-                        if (el !== optionsDiv) el.style.display = 'none';
-                    });
-                    document.querySelectorAll('.select-styled').forEach(el => {
-                        if (el !== styled) el.classList.remove('active');
-                    });
-
-                    const isOpen = optionsDiv.style.display === 'block';
-                    optionsDiv.style.display = isOpen ? 'none' : 'block';
-                    styled.classList.toggle('active', !isOpen);
-                });
-
-                optionsDiv.querySelectorAll('.select-option').forEach(option => {
-                    option.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const value = option.dataset.value;
-                        const text = option.textContent;
-                        styled.textContent = text;
-                        styled.style.color = 'var(--text-color)';
-                        const targetId = wrapper.dataset.target;
-                        const targetInput = document.getElementById(targetId);
-                        if (targetInput) targetInput.value = value;
-                        optionsDiv.style.display = 'none';
-                        styled.classList.remove('active');
-                    });
-                });
-            });
-
-            if (!window.selectCloseListenerAdded) {
-                window.addEventListener('click', () => {
-                    document.querySelectorAll('.select-options').forEach(el => el.style.display = 'none');
-                    document.querySelectorAll('.select-styled').forEach(el => el.classList.remove('active'));
-                });
-                window.selectCloseListenerAdded = true;
+        function resetUserPicker(wrapperId, placeholder) {
+            window.clearCustomSelectOptions(wrapperId);
+            window.setCustomSelectValue(wrapperId, '', placeholder);
+            window.resetCustomSelectFilter(document.getElementById(wrapperId));
+            window.refreshCustomSelect(wrapperId);
+            if (typeof window.loadCustomSelectOptions === 'function') {
+                window.loadCustomSelectOptions(wrapperId);
             }
-        }
-
-        function populateLocalSelect(wrapperId, value, text, onSelect) {
-            const wrapper = document.getElementById(wrapperId);
-            if (!wrapper) return;
-            const optionsDiv = wrapper.querySelector('.select-options');
-            if (!optionsDiv) return;
-            const option = document.createElement('div');
-            option.className = 'select-option';
-            option.textContent = text;
-            option.dataset.value = value;
-            option.dataset.search = text;
-            option.tabIndex = 0;
-            option.addEventListener('keydown', (ev) => {
-                if (ev.key === 'Enter' || ev.key === ' ') {
-                    ev.preventDefault();
-                    option.click();
-                }
-            });
-            option.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const styled = wrapper.querySelector('.select-styled');
-                styled.textContent = text;
-                styled.style.color = 'var(--text-color)';
-                const targetId = wrapper.dataset.target;
-                const targetInput = document.getElementById(targetId);
-                if (targetInput) targetInput.value = value;
-                optionsDiv.style.display = 'none';
-                styled.classList.remove('active');
-                if (onSelect) onSelect(value);
-            });
-            optionsDiv.appendChild(option);
         }
 
         let state = {
@@ -287,7 +186,6 @@
         let editingSpaceId = null;
         let managingSpaceId = null;
         let restoringSpaceId = null;
-        let usersList = [];
         let pendingAction = null;
 
         async function restoreSpace(id) {
@@ -302,16 +200,6 @@
                 closeModal('restoreConfirmModal');
                 fetchSpaces();
             } catch (e) { showToast('Ошибка восстановления', 'error'); }
-        }
-
-        async function loadUsersList() {
-            try {
-                if (typeof adminFetch !== 'function') return;
-                const data = await adminFetch('/api/admin/users?page=0&size=1000&includeDeleted=false');
-                usersList = data.content || data.users || [];
-            } catch (e) {
-                console.error('Failed to load users:', e);
-            }
         }
 
         async function fetchSpaces() {
@@ -412,27 +300,11 @@
 
         async function managePermissions(spaceId) {
             managingSpaceId = spaceId;
-            const userWrapper = document.getElementById('permUserWrapper');
-            if (userWrapper) {
-                userWrapper.querySelector('.select-styled').textContent = '-- Выберите пользователя --';
-                const options = userWrapper.querySelector('.select-options');
-                if (options) {
-                    options.innerHTML = '';
-                    usersList.forEach(u => {
-                        if ((u.roleName || u.role) !== 'EDITOR') {
-                            window.populateCustomSelect('permUserWrapper', u.id, `${u.login} (${u.email})`);
-                        }
-
-                    });
-                }
-            }
-            document.getElementById('permUser').value = '';
+            resetUserPicker('permUserWrapper', '-- Выберите пользователя --');
             document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Загрузка...</p>';
             openModal('permissionsModal');
-            window.initCustomSelects();
-            // focus editable select for quick typing
-            const permStyled = document.getElementById('permUserWrapper')?.querySelector('.select-styled');
-            if (permStyled && permStyled.contentEditable === 'true') permStyled.focus();
+            const permFilter = document.querySelector('#permUserWrapper .select-filter');
+            if (permFilter) permFilter.focus();
             try {
                 const perms = await adminFetch(`/api/admin/spaces/${spaceId}/permissions`);
                 const list = document.getElementById('permissionsList');
@@ -463,25 +335,10 @@
             document.getElementById('spaceModalTitle').textContent = 'Создать пространство';
             document.getElementById('spaceName').value = '';
             document.getElementById('spaceDesc').value = '';
-            document.getElementById('spaceOwner').value = '';
-
-            const ownerWrapper = document.getElementById('spaceOwnerWrapper');
-            const styled = ownerWrapper.querySelector('.select-styled');
-            styled.textContent = '-- Выберите владельца --';
-            styled.style.color = '';
-            ownerWrapper.querySelector('.select-options').innerHTML = '';
-
-            // Для владельца показываем только АДМИНОВ
-            usersList.forEach(u => {
-                if (u.admin === true || u.isAdmin === true) {
-                    window.populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
-                }
-            });
-
+            resetUserPicker('spaceOwnerWrapper', '-- Выберите владельца --');
             openModal('spaceModal');
-            window.initCustomSelects();
-            const ownerStyled = document.getElementById('spaceOwnerWrapper')?.querySelector('.select-styled');
-            if (ownerStyled && ownerStyled.contentEditable === 'true') ownerStyled.focus();
+            const ownerFilter = document.querySelector('#spaceOwnerWrapper .select-filter');
+            if (ownerFilter) ownerFilter.focus();
         }
 
         async function editSpace(id) {
@@ -491,24 +348,16 @@
                 document.getElementById('spaceModalTitle').textContent = 'Редактировать пространство';
                 document.getElementById('spaceName').value = space.name;
                 document.getElementById('spaceDesc').value = space.description || '';
-                document.getElementById('spaceOwner').value = space.ownerId;
-
-                const user = usersList.find(u => u.id == space.ownerId);
-                const ownerWrapper = document.getElementById('spaceOwnerWrapper');
-                const styled = ownerWrapper.querySelector('.select-styled');
-                styled.textContent = user ? user.login : 'Выбрать...';
-                styled.style.color = user ? 'var(--text-color)' : '';
-                ownerWrapper.querySelector('.select-options').innerHTML = '';
-
-                // Для владельца показываем только АДМИНОВ
-                usersList.forEach(u => {
-                    if (u.admin === true || u.isAdmin === true) {
-                        window.populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
-                    }
-                });
-
+                resetUserPicker('spaceOwnerWrapper', '-- Выберите владельца --');
+                let ownerLabel = space.ownerLogin || '';
+                if (!ownerLabel && space.ownerId) {
+                    try {
+                        const owner = await adminFetch(`/api/admin/users/${space.ownerId}`);
+                        ownerLabel = owner.login ? `${owner.login} (${owner.email || ''})` : '';
+                    } catch (e) { /* keep empty */ }
+                }
+                window.setCustomSelectValue('spaceOwnerWrapper', space.ownerId, ownerLabel || 'Выбрать...');
                 openModal('spaceModal');
-                window.initCustomSelects();
             } catch (e) { showToast('Ошибка загрузки', 'error'); }
         }
 
@@ -588,14 +437,10 @@
                 state.sortDir = sortDirParam;
             }
 
-            await loadUsersList();
             await fetchSpaces();
 
             if (typeof initCustomSelects === 'function') {
                 initCustomSelects();
-            } else {
-                // Fallback если глобальный скрипт не загрузился
-                initLocalSelects();
             }
 
             document.getElementById('spacesPrevBtn').addEventListener('click', () => {
