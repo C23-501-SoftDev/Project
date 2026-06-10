@@ -61,7 +61,24 @@ async function apiFetch(url, options = {}) {
     try {
         const response = await fetch(url, defaultOptions);
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const contentType = response.headers.get('content-type');
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    const errorBody = await response.json();
+                    if (errorBody.message) {
+                        errorMessage = errorBody.message;
+                    }
+                    if (errorBody.fieldErrors && errorBody.fieldErrors.length > 0) {
+                        const fieldMessages = errorBody.fieldErrors
+                            .map(fe => fe.message)
+                            .join('; ');
+                        errorMessage = errorMessage + '. ' + fieldMessages;
+                    }
+                } catch (e) {
+                }
+            }
+            throw new Error(errorMessage);
         }
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -74,6 +91,28 @@ async function apiFetch(url, options = {}) {
             showToast(error.message || 'Request failed', 'error');
         }
         throw error;
+    }
+}
+
+async function deleteDocument(id) {
+    try {
+        await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });
+        if (typeof showToast === 'function') showToast('Документ удален');
+        // Reload to update the tree sidebar
+        setTimeout(() => location.reload(), 1000);
+    } catch (e) {
+        console.error('Delete failed:', e);
+    }
+}
+
+async function restoreDocument(id) {
+    try {
+        await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
+        if (typeof showToast === 'function') showToast('Документ восстановлен');
+        // Reload to update the tree sidebar
+        setTimeout(() => location.reload(), 1000);
+    } catch (e) {
+        console.error('Restore failed:', e);
     }
 }
 
@@ -92,7 +131,7 @@ function showToast(message, type = 'success') {
     }
     setTimeout(() => {
         toast.className = 'toast';
-    }, 2000);
+    }, 5000);
 }
 
 // ── Export → attachment ───────────────────────────────────────────────────────

@@ -13,6 +13,20 @@
 - DB: локальный PostgreSQL (рабочий `kb_user` / `knowledge_base`)
 - E2E workspace: `Project/tests/E2E`
 - Base URL: `http://localhost:8081` (переопределение: `E2E_BASE_URL=http://localhost:8081 npm test`)
+- Браузер: только **Chromium** (`npx playwright install chromium` локально; в Docker — то же через compose)
+
+### Docker (profile `e2e`)
+
+Поднять приложение, затем прогон тестов в одноразовом контейнере:
+
+```bash
+cd Project
+docker compose --env-file .env up -d
+make e2e-run
+# или: docker compose --env-file .env --profile e2e run --rm e2e
+```
+
+Сервис `e2e` подключается к уже работающему `app` (`E2E_BASE_URL=http://app:8080`), ставит зависимости npm и **только Chromium** (`playwright install --with-deps chromium`).
 
 ## Наборы тестов
 

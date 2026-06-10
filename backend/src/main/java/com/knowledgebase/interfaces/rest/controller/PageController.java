@@ -46,7 +46,7 @@ public class PageController {
     }
 
     private void addAllSpacesTrees(Model model, User user) {
-        var spaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), 0, 100);
+        var spaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin());
         model.addAttribute("spaces", spaces);
         List<Long> spaceIds = spaces.stream().map(Space::getId).collect(Collectors.toList());
         model.addAttribute("spaceTrees", documentService.getHierarchiesForSpaces(spaceIds));
@@ -87,9 +87,9 @@ public class PageController {
 
     @GetMapping("/documents/new")
     public String newDocument(@RequestParam(required = false) Long spaceId, @AuthenticationPrincipal User user, Model model) {
-        // Проверяем, есть ли у пользователя доступ к созданию ХОТЯ БЫ В ОДНОМ пространстве.
-        var writableSpaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), com.knowledgebase.domain.model.PermissionType.WRITE, 0, 1);
+        var writableSpaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), com.knowledgebase.domain.model.PermissionType.WRITE);
         
+        // Оставляем проверку на пустоту, но теперь список полный
         if (writableSpaces.isEmpty()) {
             return "redirect:/";
         }

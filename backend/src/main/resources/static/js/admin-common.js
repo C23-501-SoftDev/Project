@@ -38,13 +38,24 @@ async function adminFetch(url, options = {}) {
     try {
         const response = await fetch(url, defaultOptions);
         if (!response.ok) {
-            if (response.status === 409) {
-                throw new Error('Conflict: ' + response.statusText);
+            const contentType = response.headers.get('content-type');
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    const errorBody = await response.json();
+                    if (errorBody.message) {
+                        errorMessage = errorBody.message;
+                    }
+                    if (errorBody.fieldErrors && errorBody.fieldErrors.length > 0) {
+                        const fieldMessages = errorBody.fieldErrors
+                            .map(fe => fe.message)
+                            .join('; ');
+                        errorMessage = errorMessage + '. ' + fieldMessages;
+                    }
+                } catch (e) {
+                }
             }
-            if (response.status === 403) {
-                throw new Error('Access denied');
-            }
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(errorMessage);
         }
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -78,7 +89,7 @@ function showToast(message, type = 'success') {
     }
     setTimeout(() => {
         toast.className = 'toast';
-    }, 2000);
+    }, 5000);
 }
 
 /**

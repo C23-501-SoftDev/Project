@@ -79,6 +79,26 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public List<Document> findBySpaceIdAndAuthorIdPaged(Long spaceId, Long authorId, boolean includeDeleted, int page, int size) {
+        var pageable = PageRequest.of(page, size);
+        if (includeDeleted) {
+            return jpaRepository.findBySpaceIdAndAuthorId(spaceId, authorId, pageable).stream()
+                    .map(mapper::toDomain).collect(Collectors.toList());
+        }
+        return jpaRepository.findBySpaceIdAndAuthorIdAndStatusNot(spaceId, authorId, "Deleted", pageable).stream()
+                .map(mapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public long countBySpaceIdAndAuthorId(Long spaceId, Long authorId, boolean includeDeleted) {
+        if (includeDeleted) {
+            return jpaRepository.countBySpaceIdAndAuthorId(spaceId, authorId);
+        }
+        return jpaRepository.countBySpaceIdAndAuthorIdAndStatusNot(spaceId, authorId, "Deleted");
+    }
+
+
+    @Override
     public List<Document> findBySpaceIdIn(List<Long> spaceIds, boolean includeDeleted) {
         if (spaceIds == null || spaceIds.isEmpty()) {
             return Collections.emptyList();
@@ -203,6 +223,31 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public List<com.knowledgebase.domain.model.User> findDistinctAuthorsByAccessibleSpaces(Long userId) {
+        Set<Long> accessibleSpaceIds = spacePermissionRepository.findByUserId(userId).stream()
+                .map(com.knowledgebase.domain.model.SpacePermission::getSpaceId)
+                .collect(Collectors.toSet());
+
+        if (accessibleSpaceIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return jpaRepository.findDistinctAuthorsBySpaceIds(accessibleSpaceIds).stream()
+                .map(entity -> com.knowledgebase.domain.model.User.restore(
+                        entity.getId(), 
+                        entity.getLogin(), 
+                        null, 
+                        entity.getEmail(), 
+                        com.knowledgebase.domain.model.GlobalRole.fromDbValue(entity.getRole()), 
+                        entity.isAdmin(), 
+                        entity.isDeleted(), 
+                        entity.getCreatedAt(), 
+                        entity.getUpdatedAt()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<Long> findAncestorIds(Long documentId) {
         return jpaRepository.findAncestorIds(documentId);
     }
@@ -215,5 +260,10 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     @Override
     public boolean hasChildren(Long id) {
         return jpaRepository.existsByParentDocumentId(id);
+    }
+
+    @Override
+    public void flush() {
+        jpaRepository.flush();
     }
 }

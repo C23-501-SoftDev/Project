@@ -46,6 +46,13 @@
                 <label><input type="checkbox" value="Editor" class="roleFilter">Редактор</label>
             </div>
         </div>
+        <div class="filter-group">
+            <label>Админ:</label>
+            <div class="role-filters">
+                <label><input type="checkbox" value="true" class="adminFilter">Админ</label>
+                <label><input type="checkbox" value="false" class="adminFilter">Не админ</label>
+            </div>
+        </div>
         <input type="text" id="searchInput" placeholder="Поиск по логину/email">
         <button class="button-primary" id="applyFiltersBtn">Применить</button>
         <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
@@ -151,6 +158,7 @@
             size: 20,
             statusFilter: 'active',
             roleFilters: [],
+            adminFilters: [],
             searchTerm: '',
             totalElements: 0,
             totalPages: 0
@@ -182,7 +190,18 @@
             let includeDeletedParam = state.statusFilter === 'all' ? true : (state.statusFilter === 'deleted');
 
             let url = `/api/admin/users?page=${state.page}&size=${state.size}&sortBy=${state.sortBy}&sortDir=${state.sortDir}&includeDeleted=${includeDeletedParam}`;
+            let url = `/api/admin/users?page=${state.page}&size=${state.size}&sortBy=${state.sortBy}&sortDir=${state.sortDir}&status=${state.statusFilter}`;
             if (state.searchTerm) url += `&search=${encodeURIComponent(state.searchTerm)}`;
+            if (state.roleFilters.length > 0) {
+                state.roleFilters.forEach(role => {
+                    url += `&roles=${encodeURIComponent(role)}`;
+                });
+            }
+            if (state.adminFilters.length > 0) {
+                state.adminFilters.forEach(val => {
+                    url += `&isAdmin=${encodeURIComponent(val)}`;
+                });
+            }
 
             try {
                 const data = await adminFetch(url);
@@ -215,11 +234,14 @@
                 }
 
                 if (filteredUsers.length === 0) {
+                const users = data.content || [];
+                
+                if (users.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Пользователи не найдены</td></tr>';
                     document.getElementById('usersEmptyMsg').style.display = 'block';
                 } else {
                     document.getElementById('usersEmptyMsg').style.display = 'none';
-                    tbody.innerHTML = filteredUsers.map(u => `
+                    tbody.innerHTML = users.map(u => `
                     <tr>
                         <td>${escapeHtml(u.id)}</td>
                         <td>${escapeHtml(u.login || '')}</td>
@@ -238,6 +260,8 @@
                 `).join('');
                 }
 
+                state.totalElements = data.totalElements || 0;
+                state.totalPages = data.totalPages || 1;
                 updatePagination();
                 updateSortIndicators();
             } catch (e) {
@@ -420,6 +444,8 @@
         function applyUserFilters() {
             const checked = Array.from(document.querySelectorAll('.roleFilter:checked')).map(cb => cb.value);
             state.roleFilters = checked;
+            const adminChecked = Array.from(document.querySelectorAll('.adminFilter:checked')).map(cb => cb.value);
+            state.adminFilters = adminChecked;
             state.statusFilter = document.getElementById('statusFilter').value;
             state.searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
             state.page = 0;
@@ -429,6 +455,7 @@
 
         function clearUserFilters() {
             document.querySelectorAll('.roleFilter').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.adminFilter').forEach(cb => cb.checked = false);
             
             const statusFilter = document.getElementById('statusFilter');
             statusFilter.value = 'active';
@@ -439,6 +466,7 @@
 
             document.getElementById('searchInput').value = '';
             state.roleFilters = [];
+            state.adminFilters = [];
             state.statusFilter = 'active';
             state.searchTerm = '';
             state.page = 0;

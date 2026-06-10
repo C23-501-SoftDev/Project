@@ -38,6 +38,13 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
     Page<DocumentJpaEntity> findBySpaceIdInAndStatus(Collection<Long> spaceIds, String status, Pageable pageable);
 
     long countBySpaceIdInAndStatus(Collection<Long> spaceIds, String status);
+    Page<DocumentJpaEntity> findBySpaceIdAndAuthorIdAndStatusNot(Long spaceId, Long authorId, String status, Pageable pageable);
+
+    Page<DocumentJpaEntity> findBySpaceIdAndAuthorId(Long spaceId, Long authorId, Pageable pageable);
+
+    long countBySpaceIdAndAuthorIdAndStatusNot(Long spaceId, Long authorId, String status);
+
+    long countBySpaceIdAndAuthorId(Long spaceId, Long authorId);
 
     List<DocumentJpaEntity> findByStatusNot(String status);
 
@@ -121,6 +128,9 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
         SELECT parent_document_id FROM Ancestors WHERE parent_document_id IS NOT NULL
         """, nativeQuery = true)
     List<Long> findAncestorIds(@org.springframework.data.repository.query.Param("documentId") Long documentId);
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT u.* FROM users u JOIN documents d ON u.id = d.author_id WHERE d.space_id IN :spaceIds", nativeQuery = true)
+    List<com.knowledgebase.infrastructure.persistence.entity.UserJpaEntity> findDistinctAuthorsBySpaceIds(@org.springframework.data.repository.query.Param("spaceIds") java.util.Set<Long> spaceIds);
 
     boolean existsByParentDocumentId(Long parentId);
 }
