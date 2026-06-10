@@ -12,6 +12,7 @@
         <div class="navbar-brand">
             <a th:href="@{/}">База знаний</a>
         </div>
+        <a th:href="@{/documents/new}" class="button-primary" style="display:none; text-decoration:none; white-space:nowrap;" id="headerCreateDocBtn">+ Создать документ</a>
         <div class="navbar-search">
             <form th:action="@{/search}" method="get">
                 <input type="text" name="q" placeholder="Поиск документов..." th:value="${searchQuery}">
@@ -68,5 +69,21 @@
 
     <script th:src="@{/js/main.js}"></script>
     <script th:src="@{/js/custom-select.js}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const createBtn = document.getElementById('headerCreateDocBtn');
+            if (createBtn) {
+                try {
+                    const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=1');
+                    if (spaces && spaces.length > 0) {
+                        createBtn.style.display = '';
+                    }
+                } catch (e) {
+                    console.error('Failed to check create permission:', e);
+                }
+            }
+        });
+    </script>
 </body>
 </html>
+

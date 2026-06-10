@@ -5,9 +5,6 @@
     </div>
 
     <h2>Документы</h2>
-    <div class="create-actions" style="margin-bottom: 5px;" th:if="${currentUser.admin || currentUser.role.name() == 'EDITOR'}">
-        <button class="button-primary" id="createBtn" th:onclick="|location.href='/documents/new?spaceId=${spaceId}'|">+ Создать документ</button>
-    </div>
 
     <div style="overflow-x:auto;">
         <table id="documentsTable" class="data-table">

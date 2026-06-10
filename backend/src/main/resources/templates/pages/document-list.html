@@ -128,10 +128,6 @@
         </div>
     </div>
 
-    <div class="create-actions" id="createActions" style="margin-top: 5px; margin-bottom: 5px; display: none;">
-        <button class="button-primary" id="createBtn" onclick="location.href='/documents/new'">+ Создать документ</button>
-    </div>
-
     <div style="overflow-x:auto;">
         <table id="documentsTable" class="data-table">
             <thead>
@@ -319,17 +315,6 @@
         }
     };
 
-    async function checkCreatePermission() {
-        try {
-            const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=1');
-            if (spaces && spaces.length > 0) {
-                document.getElementById('createActions').style.display = 'block';
-            }
-        } catch (e) {
-            console.error('Failed to check create permission:', e);
-        }
-    }
-
     async function checkAdminStatus() {
         try {
             const user = await apiFetch('/api/auth/me');
@@ -417,7 +402,6 @@
             
                 fetchFilters();
                 fetchDocuments();
-                checkCreatePermission();
                 checkAdminStatus();
 
         setupCustomSelect('spaceFilterWrapper', 'spaceFilter');
