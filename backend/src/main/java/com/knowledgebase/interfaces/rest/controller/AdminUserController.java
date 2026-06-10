@@ -52,12 +52,11 @@ public class AdminUserController {
 
     /**
      * GET /api/admin/users
-     * Список всех пользователей с пагинацией.
-     * По умолчанию возвращает только активных (is_deleted = false).
-     * Параметр includeDeleted=true возвращает всех, включая удалённых.
+     * Список всех пользователей с пагинацией и фильтрами.
+     * Фильтры: status (active/deleted/all), roles (список ролей), isAdmin (список true/false), search (по login/email)
      */
     @GetMapping
-    @Operation(summary = "Список пользователей", description = "Возвращает список пользователей с пагинацией. По умолчанию только активных.")
+    @Operation(summary = "Список пользователей", description = "Возвращает список пользователей с пагинацией и фильтрами.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Список пользователей"),
         @ApiResponse(responseCode = "403", description = "Доступ запрещён",
@@ -82,9 +81,11 @@ public class AdminUserController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String term) {
+            @Parameter(description = "Фильтр по статусу: active, deleted, all", example = "active")
+            @RequestParam(defaultValue = "active") String status,
 
-        List<User> users;
-        long total;
+            @Parameter(description = "Фильтр по ролям (можно указать несколько)", example = "READER,EDITOR")
+            @RequestParam(required = false) List<String> roles,
 
         // Поддерживаем разные имена параметра поиска, отдаём приоритет q -> search -> query -> term
         String raw = q != null && !q.isBlank() ? q : (search != null && !search.isBlank() ? search : (query != null && !query.isBlank() ? query : term));
@@ -100,6 +101,14 @@ public class AdminUserController {
             users = userService.getAllUsers(page, size, sortBy, sortDir);
             total = userService.countUsers();
         }
+            @Parameter(description = "Фильтр по статусу администратора (true/false, можно указать несколько)", example = "true")
+            @RequestParam(required = false) List<String> isAdmin,
+
+            @Parameter(description = "Поиск по логину или email", example = "admin")
+            @RequestParam(required = false, defaultValue = "") String search) {
+
+        List<User> users = userService.getUsersWithFilters(page, size, sortBy, sortDir, status, roles, isAdmin, search);
+        long total = userService.countUsersWithFilters(status, roles, isAdmin, search);
 
         List<UserResponse> userResponses = users.stream()
                 .map(mapper::toUserResponse)

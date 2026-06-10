@@ -3,33 +3,129 @@
         <h1>Документы</h1>
     </div>
 
-    <div class="filter-bar" style="display: flex; align-items: flex-end; gap: 10px;">
-        <div class="filter-group" style="min-width:140px;">
-        <label>Статус</label>
-        <div class="custom-select" id="statusFilter-wrapper" data-target="statusFilter">
-            <div class="select-styled">Все</div>
-                <div class="select-options">
-                    <div class="select-option" data-value="">Все</div>
-                    <div class="select-option" data-value="Draft">Черновик</div>
-                    <div class="select-option" data-value="Published">Опубликовано</div>
-                    <div class="select-option" data-value="Deleted">Удалено</div>
-                </div>
+    <style>
+    .filter-bar {
+        padding: 20px 20px 20px 0;
+    }
+    .filter-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        width: 100%;
+        padding: 0;
+    }
+    .filter-row .left-side {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex: 1;
+        padding-left: 40px;
+    }
+    .filter-row .status-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 0 0 0 20px;
+        margin: 0;
+    }
+    .filter-row .status-panel label:first-child {
+        margin-bottom: 2px;
+        padding: 0;
+    }
+    .status-filters {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: flex-start;
+        flex-shrink: 0;
+        width: auto;
+        margin: 0;
+        padding: 0;
+    }
+    .status-filters label {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        flex-shrink: 0;
+        width: auto;
+        margin: 0;
+        padding: 0;
+        cursor: pointer;
+        white-space: nowrap;
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.2;
+    }
+    .status-filters input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        min-width: 14px;
+        min-height: 14px;
+        margin: 0;
+        padding: 0;
+        border: 2px solid #94a3b8;
+        border-radius: 3px;
+        background: #fff;
+        outline: none;
+        cursor: pointer;
+        flex-shrink: 0;
+        flex-grow: 0;
+        display: inline-block;
+        vertical-align: top;
+        box-sizing: border-box;
+        -webkit-appearance: none;
+        appearance: none;
+        accent-color: var(--primary-color);
+    }
+    .status-filters input[type="checkbox"]:checked {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='white'%3E%3Cpath d='M4.5 8.8L2.3 6.6a.5.5 0 01.7-.7l1.8 1.8 4.5-4.5a.5.5 0 01.7.7l-5 5a.5.5 0 01-.7 0z'/%3E%3C/svg%3E");
+        background-size: 10px;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+    .status-filters input[type="checkbox"]:hover {
+        border-color: var(--primary-color);
+    }
+    </style>
 
-            <input type="hidden" id="statusFilter" value="">
-        </div>
-        </div>
-        <div class="filter-group" style="flex: 1; min-width: 160px;">
-            <label>Пространство</label>
-            <div class="custom-select" id="spaceFilter-wrapper" data-target="spaceFilter">
-                <div class="select-styled">Все пространства</div>
-                <div class="select-options">
-                    <div class="select-option" data-value="">Все пространства</div>
+    <div class="filter-bar">
+        <div class="filter-row">
+            <div class="status-panel filter-group">
+                <label>Статусы:</label>
+                <div class="status-filters">
+                    <label><input type="checkbox" value="Draft" class="statusFilter" checked>Черновик</label>
+                    <label><input type="checkbox" value="Published" class="statusFilter" checked>Опубликовано</label>
+                    <label><input type="checkbox" value="Deleted" class="statusFilter" checked>Удалено</label>
                 </div>
-                <input type="hidden" id="spaceFilter" value="">
+            </div>
+            <div class="left-side">
+                <div class="filter-group">
+                    <label>Пространство:</label>
+                    <div class="custom-select" id="spaceFilterWrapper" style="width: 200px;">
+                        <div class="select-styled">Все пространства</div>
+                        <div class="select-options">
+                            <div class="select-option" data-value="">Все пространства</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="spaceFilter" value="">
+                </div>
+                <div class="filter-group" style="display: none;">
+                    <label>Автор:</label>
+                    <div class="custom-select" id="authorFilterWrapper" style="width: 200px;">
+                        <div class="select-styled">Все авторы</div>
+                        <div class="select-options">
+                            <div class="select-option" data-value="">Все авторы</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="authorFilter" value="">
+                </div>
+                <button class="button-primary" id="applyFiltersBtn">Применить</button>
+                <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
             </div>
         </div>
-        <button class="button-primary" id="applyFiltersBtn">Применить</button>
-        <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
     </div>
 
     <div class="create-actions" id="createActions" style="margin-top: 5px; margin-bottom: 5px; display: none;">
@@ -60,6 +156,9 @@
         <span id="documentsPageInfo" style="margin: 0 10px;">Страница 1 из 1</span>
         <button class="button-secondary" id="documentsNextBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
     </div>
+    <div class="states">
+        <p id="documentsEmptyMsg" style="display:none; text-align:center;">Документы не найдены</p>
+    </div>
 </div>
 
 <script>
@@ -68,60 +167,84 @@
         page: 0,
         size: 20,
         searchTerm: '',
-        statusFilter: '',
+        statusFilters: ['Draft', 'Published', 'Deleted'],
         spaceFilter: '',
         sortBy: 'id',
-        sortDir: 'desc'
+        sortDir: 'desc',
+        totalElements: 0,
+        totalPages: 0
     };
 
-    async function fetchSpaces() {
+    function renderStatus(status) {
+        const statusMap = {
+            'DRAFT': '<span class="badge draft">Черновик</span>',
+            'PUBLISHED': '<span class="badge published">Опубликовано</span>',
+            'DELETED': '<span class="badge deleted">Удалено</span>'
+        };
+        return statusMap[status] || `<span class="badge">${status || '-'}</span>`;
+    }
+
+    async function fetchFilters() {
         try {
-            const spaces = await apiFetch('/api/spaces');
-            const optionsContainer = document.querySelector('#spaceFilter-wrapper .select-options');
+            const [spaces, authors] = await Promise.all([
+                apiFetch('/api/spaces'),
+                apiFetch('/api/documents/authors')
+            ]);
+
+            const spaceOptions = document.querySelector('#spaceFilterWrapper .select-options');
             spaces.forEach(s => {
                 const div = document.createElement('div');
                 div.className = 'select-option';
                 div.setAttribute('data-value', s.id);
                 div.textContent = s.name;
-                optionsContainer.appendChild(div);
+                spaceOptions.appendChild(div);
             });
-            initCustomSelects();
+
+            const authorOptions = document.querySelector('#authorFilterWrapper .select-options');
+            authors.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'select-option';
+                div.setAttribute('data-value', u.id);
+                div.textContent = u.login;
+                authorOptions.appendChild(div);
+            });
         } catch (e) {
-            console.error('Failed to fetch spaces:', e);
+            console.error('Failed to fetch filters:', e);
         }
     }
 
     async function fetchDocuments() {
         const tbody = document.getElementById('documentsTbody');
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Загрузка...</td></tr>';
+        document.getElementById('documentsEmptyMsg').style.display = 'none';
 
-        // Загружаем документы с поддержкой пагинации
         let url = `/api/documents?includeDeleted=true&page=${state.page}&size=${state.size}`;
         if (state.spaceFilter) url += `&spaceId=${state.spaceFilter}`;
+        if (state.authorFilter) url += `&authorId=${state.authorFilter}`; // Добавили параметр
+        if (state.statusFilters.length > 0) {
+            state.statusFilters.forEach(status => {
+                url += `&status=${encodeURIComponent(status.toUpperCase())}`;
+            });
+        } else {
+            url += `&status=NONE`;
+        }
+        if (state.searchTerm) url += `&search=${encodeURIComponent(state.searchTerm)}`;
 
         try {
             const data = await apiFetch(url);
             const docs = data.content || [];
-            state.totalElements = data.totalElements || docs.length;
+            state.totalElements = data.totalElements || 0;
             state.totalPages = data.totalPages || 1;
             
-            // При отображении используем уже полученные с сервера данные
-            let itemsToDisplay = docs;
-            
-            // Если API возвращает только страницу, фильтровать на клиенте не нужно, 
-            // так как API уже вернул отфильтрованные данные (если фильтры были переданы на сервер).
-            // Если API возвращает все данные, то оставляем фильтрацию здесь.
-            
-            if (itemsToDisplay.length === 0) {
+            if (docs.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Документы не найдены</td></tr>';
+                document.getElementById('documentsEmptyMsg').style.display = 'block';
                 document.getElementById('documentsPageInfo').textContent = `Страница 1 из 1`;
                 document.getElementById('documentsPrevBtn').disabled = true;
                 document.getElementById('documentsNextBtn').disabled = true;
             } else {
-                // Получаем уникальные spaceId
-                const spaceIds = [...new Set(itemsToDisplay.map(d => d.spaceId))];
+                const spaceIds = [...new Set(docs.map(d => d.spaceId))];
                 
-                // Загружаем права для всех пространств в списке
                 const permsMap = {};
                 await Promise.all(spaceIds.map(async (sid) => {
                     try {
@@ -132,22 +255,23 @@
                     }
                 }));
 
-                tbody.innerHTML = itemsToDisplay.map(d => {
+                tbody.innerHTML = docs.map(d => {
                     const canEdit = permsMap[d.spaceId]?.canEdit || false;
-                    const isDeleted = d.status === 'DELETED';
+                    const isDeleted = d.status === 'Deleted' || d.status === 'DELETED';
                     return `
                     <tr>
                         <td>${d.id}</td>
-                        <td><strong>${escapeHtml(d.title)}</strong></td>
+                        <td><strong style="display:block; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(d.title)}">${escapeHtml(d.title)}</strong></td>
                         <td>${escapeHtml(d.spaceName || d.spaceId)}</td>
                         <td>${escapeHtml(d.authorLogin || 'Неизвестно')}</td>
-                        <td><span class="badge ${d.status ? d.status.toLowerCase() : ''}">${d.status || 'Draft'}</span></td>
+                        <td>${renderStatus(d.status)}</td>
+
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}')" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
                             ${canEdit && !isDeleted ? `<a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
                             <button class="button-secondary" onclick="openExportMenu(event,${d.id})" style="padding:6px 12px;">Экспорт ▾</button>
-                            ${canEdit ? (isDeleted ? `<a href="#" onclick="restoreDocument(${d.id}); return false;" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Восстановить</a>` : `<button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">🗑</button>`) : ''}
+                            ${canEdit ? (isDeleted ? `<a href="#" onclick="restoreDocument(${d.id}); return false;" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Восстановить</a>` : `<button class="button-danger" onclick="deleteDocument(${d.id})" style="padding:6px 12px; margin: 0;">Удалить</button>`) : ''}
                         </td>
                     </tr>
                 `;}).join('');
@@ -169,24 +293,23 @@
     function updateUrl() {
         const params = new URLSearchParams();
         if (state.page > 0) params.set('page', state.page);
-        if (state.statusFilter) params.set('status', state.statusFilter);
         if (state.spaceFilter) params.set('spaceId', state.spaceFilter);
         if (state.searchTerm) params.set('q', state.searchTerm);
         const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         history.replaceState(null, '', newUrl);
     }
 
-                window.restoreDocument = async function(id) {
-                    try {
-                        await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
-                        showToast('Документ восстановлен');
-                        fetchDocuments();
-                    } catch (e) {
-                        console.error('Restore failed:', e);
-                    }
-                };
+    window.restoreDocument = async function(id) {
+        try {
+            await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
+            showToast('Документ восстановлен');
+            fetchDocuments();
+        } catch (e) {
+            console.error('Restore failed:', e);
+        }
+    };
 
-                window.deleteDocument = async function(id) {
+    window.deleteDocument = async function(id) {
         try {
             await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });
             showToast('Документ удален');
@@ -198,7 +321,6 @@
 
     async function checkCreatePermission() {
         try {
-            // Запрашиваем хотя бы одно пространство с правом WRITE
             const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=1');
             if (spaces && spaces.length > 0) {
                 document.getElementById('createActions').style.display = 'block';
@@ -208,55 +330,111 @@
         }
     }
 
+    async function checkAdminStatus() {
+        try {
+            const user = await apiFetch('/api/auth/me');
+            if (user && user.isAdmin) {
+                document.getElementById('authorFilterWrapper').parentElement.style.display = 'block';
+            } else {
+                document.getElementById('authorFilterWrapper').parentElement.style.display = 'none';
+            }
+        } catch (e) {
+            console.error('Failed to check admin status:', e);
+        }
+    }
+
+    function applyFilters() {
+        const checked = Array.from(document.querySelectorAll('.statusFilter:checked')).map(cb => cb.value);
+        state.statusFilters = checked;
+        state.spaceFilter = document.getElementById('spaceFilter').value;
+        state.authorFilter = document.getElementById('authorFilter').value;
+        state.searchTerm = '';
+        state.page = 0;
+        fetchDocuments();
+    }
+
+    function clearFilters() {
+        document.querySelectorAll('.statusFilter').forEach(cb => cb.checked = true);
+        
+        const spaceFilter = document.getElementById('spaceFilter');
+        spaceFilter.value = '';
+        const spaceWrapper = document.getElementById('spaceFilterWrapper');
+        spaceWrapper.querySelector('.select-styled').textContent = 'Все пространства';
+
+        const authorFilter = document.getElementById('authorFilter');
+        authorFilter.value = '';
+        const authorWrapper = document.getElementById('authorFilterWrapper');
+        authorWrapper.querySelector('.select-styled').textContent = 'Все авторы';
+
+        state.statusFilters = ['Draft', 'Published', 'Deleted'];
+        state.spaceFilter = '';
+        state.authorFilter = '';
+        state.searchTerm = '';
+        state.page = 0;
+        fetchDocuments();
+    }
+
+    function setupCustomSelect(wrapperId, targetId) {
+        const wrapper = document.getElementById(wrapperId);
+        const styled = wrapper.querySelector('.select-styled');
+        const options = wrapper.querySelector('.select-options');
+        const target = document.getElementById(targetId);
+
+        styled.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isActive = styled.classList.contains('active');
+            document.querySelectorAll('.select-styled').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.select-options').forEach(o => o.style.display = 'none');
+            
+            if (!isActive) {
+                styled.classList.add('active');
+                options.style.display = 'block';
+            }
+        });
+
+        options.addEventListener('click', (e) => {
+            const opt = e.target.closest('.select-option');
+            if (!opt) return;
+            const val = opt.dataset.value;
+            target.value = val;
+            styled.textContent = opt.textContent;
+            styled.classList.remove('active');
+            options.style.display = 'none';
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
                 const urlParams = new URLSearchParams(window.location.search);
                 // Читаем state из URL при загрузке
                 state.page = parseInt(urlParams.get('page')) || 0;
                 state.statusFilter = urlParams.get('status') || '';
                 state.spaceFilter = urlParams.get('spaceId') || '';
+                state.authorFilter = urlParams.get('authorId') || '';
                 state.searchTerm = urlParams.get('q') || '';
 
                 // Устанавливаем значения в UI
-                if (state.statusFilter) {
-                    document.getElementById('statusFilter').value = state.statusFilter;
-            const statusWrapper = document.getElementById('statusFilter-wrapper');
-                    const opt = statusWrapper.querySelector(`.select-option[data-value="${state.statusFilter}"]`);
-                    if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
-                }
-                if (state.spaceFilter) {
-                    document.getElementById('spaceFilter').value = state.spaceFilter;
-                    const spaceWrapper = document.getElementById('spaceFilter-wrapper');
-                    const opt = spaceWrapper.querySelector(`.select-option[data-value="${state.spaceFilter}"]`);
-                    if (opt) spaceWrapper.querySelector('.select-styled').textContent = opt.textContent;
-                }
+                // (логику инициализации select элементов нужно обновить при необходимости)
             
-                fetchSpaces();
-            fetchDocuments();
+                fetchFilters();
+                fetchDocuments();
                 checkCreatePermission();
+                checkAdminStatus();
+
+        setupCustomSelect('spaceFilterWrapper', 'spaceFilter');
+        setupCustomSelect('authorFilterWrapper', 'authorFilter');
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.select-styled').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.select-options').forEach(o => o.style.display = 'none');
+        });
 
         document.getElementById('applyFiltersBtn').addEventListener('click', () => {
-            state.statusFilter = document.getElementById('statusFilter').value;
-            state.spaceFilter = document.getElementById('spaceFilter').value;
-            state.page = 0;
-            fetchDocuments();
+            applyFilters();
             updateUrl();
         });
 
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
-            const statusWrapper = document.getElementById('statusFilter-wrapper');
-            const spaceWrapper = document.getElementById('spaceFilter-wrapper');
-
-            document.getElementById('statusFilter').value = '';
-            statusWrapper.querySelector('.select-styled').textContent = 'Все';
-
-            document.getElementById('spaceFilter').value = '';
-            spaceWrapper.querySelector('.select-styled').textContent = 'Все пространства';
-
-            state.searchTerm = '';
-            state.statusFilter = '';
-            state.spaceFilter = '';
-            state.page = 0;
-            fetchDocuments();
+            clearFilters();
             updateUrl();
         });
 
@@ -264,7 +442,7 @@
             if (state.page > 0) { state.page--; fetchDocuments(); updateUrl(); }
     });
         document.getElementById('documentsNextBtn').addEventListener('click', () => {
-            if (state.page >= state.totalPages - 1) { state.page++; fetchDocuments(); updateUrl(); }
+            if (state.page < state.totalPages - 1) { state.page++; fetchDocuments(); updateUrl(); }
         });
     });
 })();
