@@ -1,4 +1,5 @@
 const { test, expect, request: playwrightRequest } = require("@playwright/test");
+const { createSpace, createDocument } = require("./helpers/documents");
 
 function uniqueSuffix() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -23,18 +24,6 @@ async function createUser(adminApi, baseURL, { loginName, email, password, role 
   });
   expect(response.status()).toBe(201);
   return response.json();
-}
-
-async function createSpace(adminApi, baseURL, name) {
-  const response = await adminApi.post(`${baseURL}/api/admin/spaces`, {
-    data: { name, description: "E2E API categories space" },
-  });
-  expect(response.status()).toBe(201);
-  return response.json();
-}
-
-async function createDocument(adminApi, baseURL, data) {
-  return adminApi.post(`${baseURL}/api/documents`, { data });
 }
 
 test.describe("DOCS API", () => {
@@ -104,6 +93,42 @@ test.describe("DOCS API", () => {
     expect(getRes.ok()).toBeTruthy();
     const restored = await getRes.json();
     expect(restored.status).not.toBe("DELETED");
+
+    await adminApi.dispose();
+  });
+
+  test("DOCS-API-05: status and search filters without spaceId", async ({ baseURL }) => {
+    const adminApi = await loginAdmin(baseURL);
+    const space = await createSpace(adminApi, baseURL, `DOCS filter ${uniqueSuffix()}`);
+    const draftTitle = `DOCS draft ${uniqueSuffix()}`;
+    const publishedTitle = `DOCS published ${uniqueSuffix()}`;
+
+    expect(
+      (await createDocument(adminApi, baseURL, {
+        title: draftTitle,
+        spaceId: space.id,
+      })).status()
+    ).toBe(201);
+    const publishedRes = await createDocument(adminApi, baseURL, {
+      title: publishedTitle,
+      spaceId: space.id,
+    });
+    expect(publishedRes.status()).toBe(201);
+    const publishedDoc = await publishedRes.json();
+    const publishRes = await adminApi.put(
+      `${baseURL}/api/documents/${publishedDoc.id}`,
+      { data: { title: publishedTitle, content: "x", status: "PUBLISHED" } }
+    );
+    expect(publishRes.ok()).toBeTruthy();
+
+    const draftOnly = await adminApi.get(
+      `${baseURL}/api/documents?includeDeleted=true&status=DRAFT&search=${encodeURIComponent(draftTitle)}`
+    );
+    expect(draftOnly.ok()).toBeTruthy();
+    const draftPayload = await draftOnly.json();
+    expect(draftPayload.content.some((d) => d.title === draftTitle)).toBeTruthy();
+    expect(draftPayload.content.every((d) => d.status === "DRAFT")).toBeTruthy();
+    expect(draftPayload.content.some((d) => d.title === publishedTitle)).toBeFalsy();
 
     await adminApi.dispose();
   });
@@ -199,6 +224,42 @@ test.describe("USERS API", () => {
     const forbidden = await readerApi.get(`${baseURL}/api/admin/users?page=0&size=20`);
     expect([401, 403]).toContain(forbidden.status());
     await readerApi.dispose();
+  });
+
+  test("USERS-API-04: combined status, roles, isAdmin and search filters", async ({
+    baseURL,
+  }) => {
+    const adminApi = await loginAdmin(baseURL);
+    const suffix = uniqueSuffix();
+    const target = await createUser(adminApi, baseURL, {
+      loginName: `usr_filter_${suffix}`,
+      email: `usr_filter_${suffix}@local.test`,
+      password: "UserPass123!",
+      role: "EDITOR",
+    });
+    await createUser(adminApi, baseURL, {
+      loginName: `usr_filter_other_${suffix}`,
+      email: `usr_filter_other_${suffix}@local.test`,
+      password: "UserPass123!",
+      role: "READER",
+    });
+
+    const response = await adminApi.get(
+      `${baseURL}/api/admin/users?page=0&size=50&status=active&roles=Editor&isAdmin=false&search=${suffix}`
+    );
+    expect(response.ok()).toBeTruthy();
+    const payload = await response.json();
+    expect(payload.content.some((u) => u.id === target.id)).toBeTruthy();
+    expect(payload.content.every((u) => u.role === "EDITOR" && !u.isAdmin)).toBeTruthy();
+    expect(
+      payload.content.every(
+        (u) =>
+          u.login.toLowerCase().includes(suffix) ||
+          u.email.toLowerCase().includes(suffix)
+      )
+    ).toBeTruthy();
+
+    await adminApi.dispose();
   });
 });
 
@@ -431,6 +492,38 @@ test.describe("SPACES API", () => {
       { data: { userId: editor.id, permissionType: "WRITE" } }
     );
     expect(grantEditorWrite.status()).toBe(409);
+
+    await adminApi.dispose();
+  });
+
+  test("SPACES-API-06: ownerId and status filters narrow spaces list", async ({
+    baseURL,
+  }) => {
+    const adminApi = await loginAdmin(baseURL);
+    const suffix = uniqueSuffix();
+    const me = await adminApi.get(`${baseURL}/api/auth/me`);
+    const adminUser = await me.json();
+
+    const owned = await createSpace(adminApi, baseURL, `Space owned ${suffix}`);
+    const foreign = await createSpace(adminApi, baseURL, `Space foreign ${suffix}`);
+    await adminApi.delete(`${baseURL}/api/admin/spaces/${foreign.id}`);
+
+    const activeByOwner = await adminApi.get(
+      `${baseURL}/api/admin/spaces?status=active&ownerId=${adminUser.id}`
+    );
+    expect(activeByOwner.ok()).toBeTruthy();
+    const activePayload = await activeByOwner.json();
+    expect(activePayload.content.some((s) => s.id === owned.id)).toBeTruthy();
+    expect(
+      activePayload.content.every(
+        (s) => s.ownerLogin === adminUser.login || s.ownerId === adminUser.id
+      )
+    ).toBeTruthy();
+
+    const inactive = await adminApi.get(`${baseURL}/api/admin/spaces?status=inactive`);
+    expect(inactive.ok()).toBeTruthy();
+    const inactivePayload = await inactive.json();
+    expect(inactivePayload.content.some((s) => s.id === foreign.id)).toBeTruthy();
 
     await adminApi.dispose();
   });

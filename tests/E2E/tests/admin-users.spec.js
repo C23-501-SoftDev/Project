@@ -4,15 +4,17 @@ const {
   prepareUsersTableNewestFirst,
   selectCustomOption,
 } = require("./helpers/ui");
-
-async function waitForUsersTableReload(page) {
-  await page.waitForResponse(
-    (response) =>
-      response.url().includes("/api/admin/users") &&
-      response.request().method() === "GET" &&
-      response.ok()
-  );
-}
+const {
+  createAdminApi,
+  createUser,
+  uniqueSuffix,
+} = require("./helpers/documents");
+const {
+  applyUserFiltersUi,
+  clearUserFiltersUi,
+  expectTableShows,
+  expectTableHides,
+} = require("./helpers/filters");
 
 function userRow(page, login) {
   return page.locator("#usersTbody tr").filter({ hasText: login });
@@ -64,7 +66,12 @@ test("B2+B3+B5: create, edit and delete user", async ({
       response.url().includes("/api/admin/users") &&
       response.request().method() === "POST"
   );
-  const tableAfterCreate = waitForUsersTableReload(page);
+  const tableAfterCreate = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/admin/users") &&
+      response.request().method() === "GET" &&
+      response.ok()
+  );
   await page.locator("#saveUserBtn").click();
   expect((await createResponse).status()).toBe(201);
   await tableAfterCreate;
@@ -84,7 +91,12 @@ test("B2+B3+B5: create, edit and delete user", async ({
       response.url().includes(`/api/admin/users/`) &&
       response.request().method() === "PUT"
   );
-  const tableAfterUpdate = waitForUsersTableReload(page);
+  const tableAfterUpdate = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/admin/users") &&
+      response.request().method() === "GET" &&
+      response.ok()
+  );
   await page.locator("#saveUserBtn").click();
   expect((await updateResponse).status()).toBe(200);
   await tableAfterUpdate;
@@ -98,7 +110,12 @@ test("B2+B3+B5: create, edit and delete user", async ({
       response.url().includes("/api/admin/users/") &&
       response.request().method() === "DELETE"
   );
-  const tableAfterDelete = waitForUsersTableReload(page);
+  const tableAfterDelete = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/admin/users") &&
+      response.request().method() === "GET" &&
+      response.ok()
+  );
   await updatedRow.getByRole("button", { name: /удалить/i }).click();
   await page.locator("#confirmDeleteBtn").click();
   expect((await deleteResponse).status()).toBe(200);
@@ -109,11 +126,32 @@ test("B2+B3+B5: create, edit and delete user", async ({
   await context.close();
 });
 
-test("B7+B8: users sorting and filtering UI works", async ({
+test("B7+B8: users search, role, admin and combined filters work", async ({
   browser,
   request,
   baseURL,
 }) => {
+  const adminApi = await createAdminApi(baseURL);
+  const suffix = uniqueSuffix();
+  const readerLogin = `e2e_filt_reader_${suffix}`;
+  const editorLogin = `e2e_filt_editor_${suffix}`;
+
+  await createUser(adminApi, baseURL, {
+    login: readerLogin,
+    email: `${readerLogin}@local.test`,
+    password: "ReaderPass123!",
+    role: "READER",
+    isAdmin: false,
+  });
+  await createUser(adminApi, baseURL, {
+    login: editorLogin,
+    email: `${editorLogin}@local.test`,
+    password: "EditorPass123!",
+    role: "EDITOR",
+    isAdmin: false,
+  });
+  await adminApi.dispose();
+
   const { context, page } = await createAuthenticatedPage({
     browser,
     request,
@@ -121,14 +159,71 @@ test("B7+B8: users sorting and filtering UI works", async ({
   });
 
   await page.goto("/admin/users");
-  await expect(page.locator("#usersTbody")).not.toContainText("Загрузка");
+  await clearUserFiltersUi(page);
 
-  await page.locator("#searchInput").fill("admin");
-  await page.locator("#applyFiltersBtn").click();
-  await expect(page.locator("#usersTbody")).toBeVisible();
+  await applyUserFiltersUi(page, { search: readerLogin });
+  await expectTableShows(page, "usersTable", [readerLogin]);
+  await expectTableHides(page, "usersTable", [editorLogin]);
 
-  await page.locator("#clearFiltersBtn").click();
-  await expect(page.locator("#searchInput")).toHaveValue("");
+  await clearUserFiltersUi(page);
+  await applyUserFiltersUi(page, { roles: ["Reader"], search: suffix });
+  await expectTableShows(page, "usersTable", [readerLogin]);
+  await expectTableHides(page, "usersTable", [editorLogin]);
+
+  await clearUserFiltersUi(page);
+  await applyUserFiltersUi(page, { admin: ["true"], search: "admin" });
+  await expectTableShows(page, "usersTable", ["admin"]);
+  await expectTableHides(page, "usersTable", [readerLogin]);
+
+  await clearUserFiltersUi(page);
+  await applyUserFiltersUi(page, {
+    search: suffix,
+    roles: ["Editor"],
+    admin: ["false"],
+  });
+  await expectTableShows(page, "usersTable", [editorLogin]);
+  await expectTableHides(page, "usersTable", [readerLogin]);
+
+  await context.close();
+});
+
+test("B9: deleted users appear only with deleted status filter", async ({
+  browser,
+  request,
+  baseURL,
+}) => {
+  const adminApi = await createAdminApi(baseURL);
+  const suffix = uniqueSuffix();
+  const login = `e2e_filt_del_${suffix}`;
+  const created = await createUser(adminApi, baseURL, {
+    login,
+    email: `${login}@local.test`,
+    password: "TempPass123!",
+    role: "GUEST",
+    isAdmin: false,
+  });
+  const deleteRes = await adminApi.delete(`${baseURL}/api/admin/users/${created.id}`);
+  expect(deleteRes.ok()).toBeTruthy();
+  await adminApi.dispose();
+
+  const { context, page } = await createAuthenticatedPage({
+    browser,
+    request,
+    baseURL,
+  });
+
+  await page.goto("/admin/users");
+  await clearUserFiltersUi(page);
+  await applyUserFiltersUi(page, { status: "active", search: login });
+  await expect(page.locator("#usersTbody")).toContainText(/не найдены|не найден/i);
+
+  await clearUserFiltersUi(page);
+  await applyUserFiltersUi(page, { status: "deleted", search: login });
+  await expectTableShows(page, "usersTable", [login]);
+
+  await clearUserFiltersUi(page);
+  await applyUserFiltersUi(page, { status: "active", search: login });
+  await expect(page.locator("#usersTbody")).toContainText(/не найдены|не найден/i);
 
   await context.close();
 });

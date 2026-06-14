@@ -1,6 +1,18 @@
 const { test, expect } = require("@playwright/test");
 const { createAuthenticatedPage } = require("./helpers/session");
-const { selectFirstSpaceOwner } = require("./helpers/ui");
+const {
+  selectFirstSpaceOwner,
+  waitForSpacesLoaded,
+  applySpacesFilters,
+  setSpacesStatusFilter,
+  selectSpacesOwnerFilter,
+} = require("./helpers/ui");
+const {
+  createAdminApi,
+  createSpace,
+  createUser,
+  uniqueSuffix,
+} = require("./helpers/documents");
 
 test("C1: spaces table loads", async ({ browser, request, baseURL }) => {
   const { context, page } = await createAuthenticatedPage({
@@ -79,3 +91,83 @@ test("C4: edit and delete controls open modal / perform action", async ({
   await context.close();
 });
 
+test("C5: spaces owner and status filters narrow the table", async ({
+  browser,
+  request,
+  baseURL,
+}) => {
+  const adminApi = await createAdminApi(baseURL);
+  const suffix = uniqueSuffix();
+  const ownerLogin = `e2e_owner_${suffix}`;
+  const owner = await createUser(adminApi, baseURL, {
+    login: ownerLogin,
+    email: `${ownerLogin}@local.test`,
+    password: "OwnerPass123!",
+    role: "EDITOR",
+    isAdmin: true,
+  });
+  const ownedSpace = await createSpace(adminApi, baseURL, `E2E owner space ${suffix}`, {
+    ownerId: owner.id,
+  });
+  const otherSpace = await createSpace(adminApi, baseURL, `E2E other space ${suffix}`);
+  await adminApi.delete(`${baseURL}/api/admin/spaces/${otherSpace.id}`);
+  await adminApi.dispose();
+
+  const { context, page } = await createAuthenticatedPage({
+    browser,
+    request,
+    baseURL,
+  });
+
+  await page.goto("/admin/spaces");
+  await waitForSpacesLoaded(page);
+  await expect(page.locator("#spacesTbody")).toContainText(ownedSpace.name);
+  await expect(page.locator("#spacesTbody")).not.toContainText(otherSpace.name);
+
+  await selectSpacesOwnerFilter(page, owner.id);
+  await applySpacesFilters(page);
+  await expect(page.locator("#spacesTbody")).toContainText(ownedSpace.name);
+
+  await page.locator("#clearFiltersBtn").click();
+  await waitForSpacesLoaded(page);
+
+  await setSpacesStatusFilter(page, "inactive");
+  await applySpacesFilters(page);
+  await expect(page.locator("#spacesTbody")).toContainText(otherSpace.name);
+  await expect(page.locator("#spacesTbody")).not.toContainText(ownedSpace.name);
+
+  await page.locator("#clearFiltersBtn").click();
+  await waitForSpacesLoaded(page);
+  await expect(page.locator("#spacesTbody")).toContainText(ownedSpace.name);
+
+  await context.close();
+});
+
+test("C6: combined owner and active status filters are sent together", async ({
+  browser,
+  request,
+  baseURL,
+}) => {
+  const adminApi = await createAdminApi(baseURL);
+  const suffix = uniqueSuffix();
+  const me = await adminApi.get(`${baseURL}/api/auth/me`);
+  const adminUser = await me.json();
+  const space = await createSpace(adminApi, baseURL, `E2E combo ${suffix}`);
+  await adminApi.dispose();
+
+  const { context, page } = await createAuthenticatedPage({
+    browser,
+    request,
+    baseURL,
+  });
+
+  await page.goto("/admin/spaces");
+  await waitForSpacesLoaded(page);
+
+  await selectSpacesOwnerFilter(page, adminUser.id);
+  await setSpacesStatusFilter(page, "active");
+  await applySpacesFilters(page);
+  await expect(page.locator("#spacesTbody")).toContainText(space.name);
+
+  await context.close();
+});

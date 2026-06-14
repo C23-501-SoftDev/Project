@@ -18,7 +18,12 @@ const {
   applyDocumentSpaceFilter,
   waitDocumentsLoaded,
   goToLastDocumentsPage,
+  applyDocumentAuthorFilter,
 } = require("./helpers/ui");
+const {
+  gotoDocumentsSearch,
+  expectDocumentStatusFilterResult,
+} = require("./helpers/filters");
 
 // --- UI: список документов ---
 
@@ -355,6 +360,109 @@ test("@documents DOC13: markdown with raw HTML is rendered as-is (marked.js)", a
   await adminApi.dispose();
 });
 
+test("@documents DOC31: title search via URL query parameter", async ({
+  browser,
+  baseURL,
+}) => {
+  const adminApi = await createAdminApi(baseURL);
+  const space = await createSpace(adminApi, baseURL, `E2E search ${uniqueSuffix()}`);
+  const title = `E2E searchable ${uniqueSuffix()}`;
+  expect(
+    (await createDocument(adminApi, baseURL, { title, spaceId: space.id })).ok()
+  ).toBeTruthy();
+
+  const { context, page } = await newBrowserPageFromApi(browser, adminApi);
+  await gotoDocumentsSearch(page, title);
+  await expect(page.locator("#documentsTbody")).toContainText(title);
+
+  await context.close();
+  await adminApi.dispose();
+});
+
+test("@documents DOC32: draft-only status filter excludes published documents", async ({
+  browser,
+  baseURL,
+}) => {
+  const adminApi = await createAdminApi(baseURL);
+  const tag = uniqueSuffix();
+  const space = await createSpace(adminApi, baseURL, `E2E status ${tag}`);
+  const draftTitle = `E2E draft only ${tag}`;
+  const publishedTitle = `E2E published only ${tag}`;
+
+  expect(
+    (await createDocument(adminApi, baseURL, { title: draftTitle, spaceId: space.id })).ok()
+  ).toBeTruthy();
+  const publishedRes = await createDocument(adminApi, baseURL, {
+    title: publishedTitle,
+    spaceId: space.id,
+  });
+  const publishedDoc = await publishedRes.json();
+  expect(
+    (
+      await adminApi.put(`${baseURL}/api/documents/${publishedDoc.id}`, {
+        data: { title: publishedTitle, content: "x", status: "PUBLISHED" },
+      })
+    ).ok()
+  ).toBeTruthy();
+
+  const { context, page } = await newBrowserPageFromApi(browser, adminApi);
+  await gotoDocumentsSearch(page, publishedTitle);
+  await expect(page.locator("#documentsTbody")).toContainText(publishedTitle);
+  await expectDocumentStatusFilterResult(
+    page,
+    { tag, draftTitle, publishedTitle },
+    { allowedStatuses: ["DRAFT"], hiddenTitles: [publishedTitle] }
+  );
+
+  await context.close();
+  await adminApi.dispose();
+});
+
+test("@documents DOC33: author filter with search-like unique titles", async ({
+  browser,
+  baseURL,
+}) => {
+  const adminApi = await createAdminApi(baseURL);
+  const suffix = uniqueSuffix();
+  const author = await createUser(adminApi, baseURL, {
+    login: `doc_author_${suffix}`,
+    email: `doc_author_${suffix}@local.test`,
+    password: "AuthorPass123!",
+    role: "EDITOR",
+    isAdmin: false,
+  });
+  const space = await createSpace(adminApi, baseURL, `E2E author filt ${suffix}`);
+  const authorTitle = `E2E by author ${suffix}`;
+  const adminTitle = `E2E by admin ${suffix}`;
+
+  const authorApi = await createUserApi(baseURL, author.login, "AuthorPass123!");
+  expect(
+    (await createDocument(authorApi, baseURL, {
+      title: authorTitle,
+      spaceId: space.id,
+    })).ok()
+  ).toBeTruthy();
+  await authorApi.dispose();
+
+  expect(
+    (await createDocument(adminApi, baseURL, {
+      title: adminTitle,
+      spaceId: space.id,
+    })).ok()
+  ).toBeTruthy();
+
+  const { context, page } = await newBrowserPageFromApi(browser, adminApi);
+  await page.goto("/");
+  await waitDocumentsLoaded(page);
+  await applyDocumentAuthorFilter(page, author.id);
+  await waitDocumentsLoaded(page);
+  await expect(page.locator("#documentsTbody")).toContainText(authorTitle);
+  await expect(page.locator("#documentsTbody")).not.toContainText(adminTitle);
+
+  await context.close();
+  await adminApi.dispose();
+});
+
 // --- API: валидация и CRUD ---
 
 test("@documents DOC14: anonymous document API is rejected", async ({
@@ -630,37 +738,33 @@ test("@documents DOC28: EDITOR with WRITE can create and update document", async
   await adminApi.dispose();
 });
 
-test("@documents DOC29: READER cannot create even with READ permission on space", async ({
+test("@documents DOC29: GUEST with READ permission cannot create document", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
   const space = await createSpace(adminApi, baseURL, `E2E ronly ${uniqueSuffix()}`);
   const suffix = uniqueSuffix();
-  const reader = await createUser(adminApi, baseURL, {
-    login: `reader_c_${suffix}`,
-    email: `reader_c_${suffix}@local.test`,
-    password: "ReaderPass123!",
-    role: "READER",
+  const guest = await createUser(adminApi, baseURL, {
+    login: `guest_c_${suffix}`,
+    email: `guest_c_${suffix}@local.test`,
+    password: "GuestPass123!",
+    role: "GUEST",
   });
   const grantReadRes = await adminApi.post(
     `${baseURL}/api/admin/spaces/${space.id}/permissions`,
-    { data: { userId: reader.id, permissionType: "READ" } }
+    { data: { userId: guest.id, permissionType: "READ" } }
   );
-  expect(grantReadRes.status()).toBe(409);
+  expect(grantReadRes.status()).toBe(201);
 
-  const readerApi = await createUserApi(
-    baseURL,
-    `reader_c_${suffix}`,
-    "ReaderPass123!"
-  );
-  const response = await createDocument(readerApi, baseURL, {
-    title: "Reader create attempt",
+  const guestApi = await createUserApi(baseURL, guest.login, "GuestPass123!");
+  const response = await createDocument(guestApi, baseURL, {
+    title: "Guest create attempt",
     spaceId: space.id,
   });
   expect(response.ok()).toBeFalsy();
   expect([401, 403]).toContain(response.status());
 
-  await readerApi.dispose();
+  await guestApi.dispose();
   await adminApi.dispose();
 });
 

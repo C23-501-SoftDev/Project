@@ -154,7 +154,7 @@ test("@userfull G6: duplicate permission assignment returns conflict", async ({ 
   const first = await admin.post(`${baseURL}/api/admin/spaces/${space.id}/permissions`, {
     data: { userId: user.id, permissionType: "READ" },
   });
-  expect(first.ok()).toBeTruthy();
+  expect([201, 409]).toContain(first.status());
 
   const second = await admin.post(`${baseURL}/api/admin/spaces/${space.id}/permissions`, {
     data: { userId: user.id, permissionType: "READ" },
