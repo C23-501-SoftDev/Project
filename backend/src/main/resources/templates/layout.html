@@ -10,7 +10,20 @@
     <!-- Навигационная панель -->
     <nav class="navbar" th:if="${currentUser != null}">
         <div class="navbar-brand">
-            <a th:href="@{/}">База знаний</a>
+            <a th:href="@{/}">
+                <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 8px;">
+                    <path d="M2 6C2 4.89543 2.89543 4 4 4H12V18H4C2.89543 18 2 17.1046 2 16V6Z" fill="var(--primary-light)" stroke="currentColor" stroke-width="2"/>
+                    <path d="M22 6C22 4.89543 21.1046 4 20 4H12V18H20C21.1046 18 22 17.1046 22 16V6Z" fill="var(--primary-light)" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 4V18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M5 8H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M5 11H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M5 14H7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M15 8H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M15 11H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M17 14H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                </svg>
+                База знаний
+            </a>
         </div>
         <a th:href="@{/documents/new}" class="button-primary" style="display:none; text-decoration:none; white-space:nowrap;" id="headerCreateDocBtn">+ Создать документ</a>
         <div class="navbar-search">
