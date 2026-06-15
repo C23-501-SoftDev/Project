@@ -1,16 +1,40 @@
 function toggleSpaceTree(spaceId) {
+    const btn = document.querySelector(`.space-button[onclick*="toggleSpaceTree(${spaceId})"]`);
+    const spaceName = btn ? btn.textContent.trim() : '';
+    localStorage.setItem('selectedSpaceId', String(spaceId));
+    localStorage.setItem('selectedSpaceName', spaceName);
+
+    // If not on the main documents page — redirect there with the space filter
+    if (window.location.pathname !== '/') {
+        localStorage.setItem('space-tree-' + spaceId, 'visible');
+        window.location.href = '/?spaceId=' + spaceId;
+        return;
+    }
+
+    // On the main page: toggle tree visibility
     const treeElement = document.getElementById('tree-' + spaceId);
     if (treeElement) {
         const isVisible = treeElement.style.display !== 'none';
         treeElement.style.display = isVisible ? 'none' : 'block';
-
-        // Save state to localStorage to persist across navigation
         localStorage.setItem('space-tree-' + spaceId, isVisible ? 'hidden' : 'visible');
     }
+
+    setActiveSpaceButton(spaceId);
+
+    document.dispatchEvent(new CustomEvent('spaceSelected', {
+        detail: { spaceId: spaceId, spaceName: spaceName }
+    }));
+}
+
+function setActiveSpaceButton(spaceId) {
+    document.querySelectorAll('.space-button').forEach(b => b.classList.remove('active'));
+    if (spaceId == null) return;
+    const target = document.querySelector(`.space-button[onclick*="toggleSpaceTree(${spaceId})"]`);
+    if (target) target.classList.add('active');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Restore state from localStorage
+    // Restore tree expand/collapse state from localStorage
     const allTrees = document.querySelectorAll('[id^="tree-"]');
     allTrees.forEach(tree => {
         const spaceId = tree.id.replace('tree-', '');
@@ -21,6 +45,14 @@ document.addEventListener('DOMContentLoaded', () => {
             tree.style.display = 'none';
         }
     });
+
+    // Highlight the active space based on ?spaceId= URL param (main page only)
+    if (window.location.pathname === '/') {
+        const urlSpaceId = new URLSearchParams(window.location.search).get('spaceId');
+        if (urlSpaceId) {
+            setActiveSpaceButton(urlSpaceId);
+        }
+    }
 });
 
 function getCsrfToken() {
