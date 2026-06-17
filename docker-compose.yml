@@ -67,7 +67,9 @@ services:
     restart: unless-stopped
 
   e2e:
-    image: mcr.microsoft.com/playwright:latest
+    build:
+      context: ./tests/E2E
+      dockerfile: Dockerfile
     container_name: kb_e2e
     profiles: ["e2e"]
     working_dir: /e2e
@@ -75,11 +77,12 @@ services:
       E2E_BASE_URL: http://app:8080
     volumes:
       - ./tests/E2E:/e2e
+      - e2e_node_modules:/e2e/node_modules
     depends_on:
       app:
         condition: service_healthy
-    command: >
-      bash -lc "npm ci && npx playwright test"
+    command: npx playwright test
       
 volumes:
   postgres_data:
+  e2e_node_modules:

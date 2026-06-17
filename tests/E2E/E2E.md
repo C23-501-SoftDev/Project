@@ -12,8 +12,8 @@
 - Backend: `mvn spring-boot:run` из `Project/backend`
 - DB: локальный PostgreSQL (рабочий `kb_user` / `knowledge_base`)
 - E2E workspace: `Project/tests/E2E`
-- Base URL: `http://localhost:8081` (переопределение: `E2E_BASE_URL=http://localhost:8081 npm test`)
-- Браузер: только **Chromium** (`npx playwright install chromium` локально; в Docker — то же через compose)
+- Base URL: `http://localhost:8080` (переопределение: `E2E_BASE_URL=http://localhost:8080 npm test`)
+- Браузер: только **Chromium** (`npx playwright install chromium` локально; в Docker — предустановлен в образе `tests/E2E/Dockerfile`)
 
 ### Docker (profile `e2e`)
 
@@ -21,12 +21,10 @@
 
 ```bash
 cd Project
-docker compose --env-file .env up -d
-make e2e-run
-# или: docker compose --env-file .env --profile e2e run --rm e2e
+docker compose --env-file .env --profile e2e run e2e
 ```
 
-Сервис `e2e` подключается к уже работающему `app` (`E2E_BASE_URL=http://app:8080`), ставит зависимости npm и **только Chromium** (`playwright install --with-deps chromium`).
+Сервис `e2e` собирается из `tests/E2E/Dockerfile` (образ `mcr.microsoft.com/playwright:v1.59.1-jammy` + `npm ci` + Chromium) и подключается к уже работающему `app` (`E2E_BASE_URL=http://app:8080`). При изменении `package.json` пересоберите образ: `docker compose --profile e2e build e2e`.
 
 ## Наборы тестов
 
@@ -157,10 +155,3 @@ npm run test:userfull
 - Минимум для “полной пользовательской готовности”: зеленый `npm run test:userfull`.
 
 Если `strict` или `userfull` красные — это блокер для утверждения полноты пользовательского функционала.
-
-## Последний полный прогон
-
-- Команда: `npm test`
-- Результат: **57 total / 53 passed / 4 skipped** (`test.fixme` для ещё не реализованных strict-сценариев)
-- WIP-страницы (поиск, история, пространство, admin settings) отмечены в `content-placeholders.spec.js` (D2) и strict `@fixme`
-
