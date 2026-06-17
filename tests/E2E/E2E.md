@@ -17,14 +17,28 @@
 
 ### Docker (profile `e2e`)
 
-Поднять приложение, затем прогон тестов в одноразовом контейнере:
+Рекомендуемый запуск — скрипт рядом с `docker-compose.yml` (каждый раз с чистой БД):
 
 ```bash
 cd Project
-docker compose --env-file .env --profile e2e run e2e
+./run-e2e.sh
 ```
 
-Сервис `e2e` собирается из `tests/E2E/Dockerfile` (образ `mcr.microsoft.com/playwright:v1.59.1-jammy` + `npm ci` + Chromium) и подключается к уже работающему `app` (`E2E_BASE_URL=http://app:8080`). При изменении `package.json` пересоберите образ: `docker compose --profile e2e build e2e`.
+Дополнительные аргументы передаются в контейнер e2e (заменяют команду по умолчанию):
+
+```bash
+./run-e2e.sh npm run test:strict
+./run-e2e.sh npx playwright test --grep @documents
+```
+
+Скрипт: останавливает `app`/`postgres`, удаляет volume `postgres_data`, поднимает сервисы заново и запускает тесты.
+
+Вручную (без сброса БД):
+
+```bash
+docker compose --env-file .env up -d app postgres
+docker compose --env-file .env --profile e2e run --rm --build e2e
+```
 
 ## Наборы тестов
 
