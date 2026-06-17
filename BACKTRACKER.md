@@ -248,6 +248,9 @@
 | GET | `/api/admin/groups/{groupId}` | Детали группы | ✅ |
 | PUT | `/api/admin/groups/{groupId}` | Обновление группы (`{ name, description }`) | ✅ |
 | DELETE | `/api/admin/groups/{groupId}` | Удаление группы (состав удаляется каскадно) | ✅ |
+| GET | `/api/admin/groups/{groupId}/members` | Состав группы (с полями login, email, role) | ✅ |
+| POST | `/api/admin/groups/{groupId}/members` | Добавить пользователя в группу (`{ userId }`) | ✅ |
+| DELETE | `/api/admin/groups/{groupId}/members/{userId}` | Удалить пользователя из группы | ✅ |
 
 ---
 

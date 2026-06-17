@@ -1,10 +1,14 @@
 package com.knowledgebase.interfaces.rest.controller;
 
+import com.knowledgebase.application.service.UserGroupMembershipService;
 import com.knowledgebase.application.service.UserGroupService;
 import com.knowledgebase.domain.model.UserGroup;
+import com.knowledgebase.domain.model.UserGroupMember;
 import com.knowledgebase.interfaces.rest.advice.ErrorResponse;
+import com.knowledgebase.interfaces.rest.dto.request.AddGroupMemberRequest;
 import com.knowledgebase.interfaces.rest.dto.request.CreateGroupRequest;
 import com.knowledgebase.interfaces.rest.dto.request.UpdateGroupRequest;
+import com.knowledgebase.interfaces.rest.dto.response.GroupMemberResponse;
 import com.knowledgebase.interfaces.rest.dto.response.GroupResponse;
 import com.knowledgebase.interfaces.rest.dto.response.PageResponse;
 import com.knowledgebase.interfaces.rest.mapper.RestDtoMapper;
@@ -40,10 +44,14 @@ import java.util.List;
 public class AdminGroupController {
 
     private final UserGroupService groupService;
+    private final UserGroupMembershipService membershipService;
     private final RestDtoMapper mapper;
 
-    public AdminGroupController(UserGroupService groupService, RestDtoMapper mapper) {
+    public AdminGroupController(UserGroupService groupService,
+                                UserGroupMembershipService membershipService,
+                                RestDtoMapper mapper) {
         this.groupService = groupService;
+        this.membershipService = membershipService;
         this.mapper = mapper;
     }
 
@@ -143,6 +151,69 @@ public class AdminGroupController {
     })
     public ResponseEntity<Void> deleteGroup(@PathVariable Long groupId) {
         groupService.deleteGroup(groupId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Управление членством (US4.1.9) ────────────────────────────────────────
+
+    /**
+     * GET /api/admin/groups/{groupId}/members
+     * Список участников группы.
+     */
+    @GetMapping("/{groupId}/members")
+    @Operation(summary = "Состав группы", description = "Возвращает список участников группы")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Список участников"),
+        @ApiResponse(responseCode = "404", description = "Группа не найдена",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<List<GroupMemberResponse>> getMembers(@PathVariable Long groupId) {
+        List<GroupMemberResponse> members = membershipService.getMembers(groupId).stream()
+                .map(mapper::toGroupMemberResponse)
+                .toList();
+        return ResponseEntity.ok(members);
+    }
+
+    /**
+     * POST /api/admin/groups/{groupId}/members
+     * Добавить пользователя в группу.
+     */
+    @PostMapping("/{groupId}/members")
+    @Operation(summary = "Добавить пользователя в группу",
+               description = "Добавляет пользователя в группу. Пользователь наследует права группы.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Пользователь добавлен в группу",
+            content = @Content(schema = @Schema(implementation = GroupMemberResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Ошибка валидации",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Группа или пользователь не найдены",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Пользователь уже состоит в группе",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<GroupMemberResponse> addMember(
+            @PathVariable Long groupId,
+            @Valid @RequestBody AddGroupMemberRequest request) {
+        UserGroupMember member = membershipService.addMember(groupId, request.userId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toGroupMemberResponse(member));
+    }
+
+    /**
+     * DELETE /api/admin/groups/{groupId}/members/{userId}
+     * Удалить пользователя из группы.
+     */
+    @DeleteMapping("/{groupId}/members/{userId}")
+    @Operation(summary = "Удалить пользователя из группы",
+               description = "Удаляет пользователя из группы. Пользователь теряет права, полученные через группу.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Пользователь удалён из группы"),
+        @ApiResponse(responseCode = "404", description = "Группа не найдена или пользователь не состоит в группе",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<Void> removeMember(
+            @PathVariable Long groupId,
+            @PathVariable Long userId) {
+        membershipService.removeMember(groupId, userId);
         return ResponseEntity.noContent().build();
     }
 }

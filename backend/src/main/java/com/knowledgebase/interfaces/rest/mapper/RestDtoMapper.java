@@ -7,10 +7,12 @@ import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.model.UserGroup;
+import com.knowledgebase.domain.model.UserGroupMember;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import com.knowledgebase.interfaces.rest.dto.response.AttachmentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.dto.response.GroupMemberResponse;
 import com.knowledgebase.interfaces.rest.dto.response.GroupResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
@@ -88,6 +90,36 @@ public class RestDtoMapper {
                 group.getDescription(),
                 group.getCreatedAt(),
                 group.getUpdatedAt()
+        );
+    }
+
+    // ── UserGroupMember ───────────────────────────────────────────────────────
+
+    public GroupMemberResponse toGroupMemberResponse(UserGroupMember member) {
+        if (member == null) return null;
+
+        String login = null;
+        String email = null;
+        com.knowledgebase.domain.model.GlobalRole role = null;
+        boolean userDeleted = false;
+
+        Optional<User> user = userRepository.findByIdIncludingDeleted(member.getUserId());
+        if (user.isPresent()) {
+            login = user.get().getLogin();
+            email = user.get().getEmail();
+            role = user.get().getRole();
+            userDeleted = user.get().getIsDeleted();
+        }
+
+        return new GroupMemberResponse(
+                member.getId(),
+                member.getGroupId(),
+                member.getUserId(),
+                login,
+                email,
+                role,
+                userDeleted,
+                member.getAddedAt()
         );
     }
 

@@ -42,3 +42,9 @@
 - **dependsOn**: `admin-users-crud`
 - **endpoints**: `GET/POST/PUT/DELETE /api/admin/groups`, `GET /api/admin/groups/{groupId}`
 - **docs**: `../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.8 Создание и управление группами/description.md`
+
+### user-group-membership — Admin: user group membership management
+- **status**: pending
+- **dependsOn**: `user-group-management`
+- **endpoints**: `GET/POST /api/admin/groups/{groupId}/members`, `DELETE /api/admin/groups/{groupId}/members/{userId}`
+- **docs**: `../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.9 Управление членством в группах/description.md`

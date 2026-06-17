@@ -3,6 +3,7 @@ package com.knowledgebase.application.service;
 import com.knowledgebase.domain.exception.ConflictException;
 import com.knowledgebase.domain.exception.GroupNotFoundException;
 import com.knowledgebase.domain.model.UserGroup;
+import com.knowledgebase.domain.repository.UserGroupMemberRepository;
 import com.knowledgebase.domain.repository.UserGroupRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,9 +30,12 @@ public class UserGroupService {
     private static final Logger log = LoggerFactory.getLogger(UserGroupService.class);
 
     private final UserGroupRepository groupRepository;
+    private final UserGroupMemberRepository memberRepository;
 
-    public UserGroupService(UserGroupRepository groupRepository) {
+    public UserGroupService(UserGroupRepository groupRepository,
+                            UserGroupMemberRepository memberRepository) {
         this.groupRepository = groupRepository;
+        this.memberRepository = memberRepository;
     }
 
     /**
@@ -110,9 +114,10 @@ public class UserGroupService {
     /**
      * Удаляет группу.
      *
-     * Связанные записи о составе группы и правах группы на пространства удаляются
-     * каскадно на уровне БД (ON DELETE CASCADE, changelog 015/016). Сами пользователи
-     * не затрагиваются.
+     * Состав группы (членство) удаляется явно на уровне сервиса, чтобы поведение было
+     * детерминированным независимо от наличия FK-каскада в конкретной СУБД. Права группы
+     * на пространства удаляются каскадно на уровне БД (ON DELETE CASCADE, changelog 016).
+     * Сами пользователи не затрагиваются.
      *
      * @param groupId ID группы
      * @throws GroupNotFoundException если группа не найдена
@@ -124,6 +129,9 @@ public class UserGroupService {
         if (groupRepository.findById(groupId).isEmpty()) {
             throw new GroupNotFoundException(groupId);
         }
+
+        // Сначала отзываем членство всех участников (US4.1.8 Сценарий 2)
+        memberRepository.deleteByGroupId(groupId);
 
         groupRepository.deleteById(groupId);
         log.info("Группа удалена: id={}", groupId);

@@ -157,6 +157,25 @@
             ]
         },
         {
+            "featureId": "user-group-membership",
+            "title": "Admin: user group membership management",
+            "status": "pending",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.9 Управление членством в группах/description.md",
+                "../../Docs/120.data-model.md"
+            ],
+            "endpoints": [
+                "GET /api/admin/groups/{groupId}/members",
+                "POST /api/admin/groups/{groupId}/members",
+                "DELETE /api/admin/groups/{groupId}/members/{userId}"
+            ],
+            "dependsOn": [
+                "user-group-management"
+            ]
+        },
+        {
             "featureId": "documents-crud",
             "title": "Documents: CRUD operations with Git integration",
             "status": "done",
