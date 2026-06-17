@@ -6,10 +6,12 @@ import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.model.UserGroup;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import com.knowledgebase.interfaces.rest.dto.response.AttachmentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.dto.response.GroupResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
 import com.knowledgebase.interfaces.rest.dto.response.UserResponse;
@@ -74,6 +76,19 @@ public class RestDtoMapper {
         if (ownerId == null) return null;
         Optional<User> owner = userRepository.findById(ownerId);
         return owner.map(User::getLogin).orElse(null);
+    }
+
+    // ── UserGroup ─────────────────────────────────────────────────────────────
+
+    public GroupResponse toGroupResponse(UserGroup group) {
+        if (group == null) return null;
+        return new GroupResponse(
+                group.getId(),
+                group.getName(),
+                group.getDescription(),
+                group.getCreatedAt(),
+                group.getUpdatedAt()
+        );
     }
 
     // ── SpacePermission ───────────────────────────────────────────────────────
