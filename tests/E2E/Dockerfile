@@ -11,4 +11,4 @@ RUN npx playwright install chromium
 COPY playwright.config.js ./
 COPY tests ./tests
 
-CMD ["npx", "playwright", "test"]
+CMD ["npx", "playwright", "test", "--workers=1"]
