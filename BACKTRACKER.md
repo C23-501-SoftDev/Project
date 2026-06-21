@@ -239,6 +239,18 @@
 
 ---
 
+## Админ-панель: Группы пользователей (`GET /admin/groups`)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/admin/groups?page=0&size=50` | Список групп с пагинацией | ✅ |
+| POST | `/api/admin/groups` | Создание группы (`{ name, description }`) | ✅ |
+| GET | `/api/admin/groups/{groupId}` | Детали группы | ✅ |
+| PUT | `/api/admin/groups/{groupId}` | Обновление группы (`{ name, description }`) | ✅ |
+| DELETE | `/api/admin/groups/{groupId}` | Удаление группы (состав удаляется каскадно) | ✅ |
+
+---
+
 ## Админ-панель: Настройки (`GET /admin/settings`)
 
 | Метод | Эндпоинт | Описание | Статус |
