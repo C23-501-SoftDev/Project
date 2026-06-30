@@ -18,10 +18,10 @@ import java.util.stream.Collectors;
 
 /**
  * MVC контроллер для SSR страниц (Thymeleaf).
- * 
+ *
  * Возвращает имена шаблонов Thymeleaf для рендеринга на сервере.
  * Данные для шаблонов передаются через Model.
- * 
+ *
  * Шаблоны должны быть созданы в src/main/resources/templates/
  */
 @Controller
@@ -75,10 +75,10 @@ public class PageController {
         model.addAttribute("pageTitle", "Просмотр документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
-        
+
         var doc = documentService.getDocumentById(id);
         addSidebarData(doc.getSpaceId(), model, user);
-        
+
         model.addAttribute("content", "pages/document-view");
         return "layout";
     }
@@ -86,7 +86,7 @@ public class PageController {
     @GetMapping("/documents/new")
     public String newDocument(@RequestParam(required = false) Long spaceId, @AuthenticationPrincipal User user, Model model) {
         var writableSpaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), com.knowledgebase.domain.model.PermissionType.WRITE);
-        
+
         // Оставляем проверку на пустоту, но теперь список полный
         if (writableSpaces.isEmpty()) {
             return "redirect:/";
@@ -107,7 +107,7 @@ public class PageController {
     @GetMapping("/documents/{id}/edit")
     public String editDocument(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
         var doc = documentService.getDocumentById(id);
-        
+
         // Проверка прав на редактирование
         if (!permissionService.canWrite(user.getId(), user.isAdmin(), doc.getSpaceId())) {
             return "redirect:/documents/" + id;
@@ -116,9 +116,9 @@ public class PageController {
         model.addAttribute("pageTitle", "Редактирование документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
-        
+
         addSidebarData(doc.getSpaceId(), model, user);
-        
+
         model.addAttribute("content", "pages/document-edit");
         return "layout";
     }
@@ -137,18 +137,20 @@ public class PageController {
         var searchPage = documentService.searchDocumentsByTitle(q, user.getId(), user.isAdmin(), 0, 20);
 
         model.addAttribute("searchResults", searchPage.getContent().stream()
-            .map(document -> new DocumentResponse(
-                document.getId(),
-                document.getTitle(),
-                document.getSpaceId(),
-                spaceRepository.findById(document.getSpaceId()).map(space -> space.getName()).orElse(null),
-                document.getAuthorId(),
-                null,
-                document.getStatus(),
-                null,
-                document.getGitFilePath(),
-                document.getCreatedAt(),
-                document.getUpdatedAt()))
+                .map(document -> new DocumentResponse(
+                        document.getId(),
+                        document.getTitle(),
+                        document.getSpaceId(),
+                        spaceRepository.findById(document.getSpaceId()).map(space -> space.getName()).orElse(null),
+                        document.getAuthorId(),
+                        null,
+                        document.getStatus(),
+                        null,
+                        null,
+                        document.getGitFilePath(),
+                        document.getCreatedAt(),
+                        document.getUpdatedAt()
+                ))
             .toList());
         model.addAttribute("pageTitle", "Поиск: " + q);
         model.addAttribute("currentUser", user);
@@ -163,9 +165,9 @@ public class PageController {
         model.addAttribute("pageTitle", "Пространство");
         model.addAttribute("currentUser", user);
         model.addAttribute("spaceId", id);
-        
+
         addSidebarData(id, model, user);
-        
+
         model.addAttribute("content", "pages/space-view");
         return "layout";
     }
@@ -187,7 +189,7 @@ public class PageController {
     public String editDocumentInSpace(@PathVariable Long spaceId, @PathVariable String docTitle, @AuthenticationPrincipal User user, Model model) {
         String decodedTitle = java.net.URLDecoder.decode(docTitle, java.nio.charset.StandardCharsets.UTF_8);
         var doc = documentService.getDocumentBySpaceAndTitle(spaceId, decodedTitle);
-        
+
         // Проверка прав на редактирование
         if (!permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
             return "redirect:/spaces/" + spaceId + "/doc/" + docTitle;

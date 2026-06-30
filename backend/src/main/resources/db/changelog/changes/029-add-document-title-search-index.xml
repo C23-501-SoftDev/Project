@@ -12,11 +12,11 @@
             CREATE EXTENSION IF NOT EXISTS pg_trgm;
         </sql>
 
-        <sql>
-            CREATE INDEX idx_documents_title_trgm
+        <sql><![CDATA[
+            CREATE INDEX IF NOT EXISTS idx_documents_title_trgm
                 ON documents USING GIN (title gin_trgm_ops)
                 WHERE status <> 'Deleted';
-        </sql>
+            ]]></sql>
 
         <rollback>
             <sql>DROP INDEX IF EXISTS idx_documents_title_trgm;</sql>

@@ -39,10 +39,9 @@ public class DocumentController {
 
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
 
-    public DocumentController(DocumentService documentService, RestDtoMapper mapper) {
     public DocumentController(DocumentService documentService,
-                               PermissionService permissionService,
-                               RestDtoMapper mapper) {
+                              PermissionService permissionService,
+                              RestDtoMapper mapper) {
         this.documentService = documentService;
         this.permissionService = permissionService;
         this.mapper = mapper;
@@ -64,14 +63,14 @@ public class DocumentController {
             @AuthenticationPrincipal User currentUser) {
 
         Document document = documentService.createDocument(
-                request.title(), 
-                request.content(), 
-                request.spaceId(), 
+                request.title(),
+                request.content(),
+                request.spaceId(),
                 request.parentId(),
                 currentUser.getId(),
                 request.templateId()
         );
-        
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(mapper.toDocumentResponse(document, request.content()));
     }
@@ -89,7 +88,7 @@ public class DocumentController {
     })
     public ResponseEntity<DocumentResponse> getDocument(
             @Parameter(description = "ID документа") @PathVariable Long id) {
-        
+
         Document document = documentService.getDocumentById(id);
         String content = documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
@@ -109,7 +108,7 @@ public class DocumentController {
 
         Document document = documentService.updateDocument(
                 id, request.title(), request.content(), request.status(), request.parentId(), currentUser.getId());
-        
+
         String content = request.content() != null ? request.content() : documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
     }
@@ -150,7 +149,7 @@ public class DocumentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal User currentUser) {
-        
+
         List<DocumentResponse> pagedContent;
         long totalElements;
 
@@ -167,7 +166,7 @@ public class DocumentController {
         } else {
             List<Document> all = documentService.getAllAccessibleDocuments(
                     currentUser.getId(), currentUser.isAdmin(), includeDeleted);
-            
+
             // Фильтрация по автору (добавлено)
             if (authorId != null) {
                 if (!currentUser.isAdmin()) {
@@ -177,7 +176,7 @@ public class DocumentController {
             }
 
             List<Document> filteredList = new java.util.ArrayList<>(all);
-            
+
             // Фильтрация по статусам
             if (status != null && !status.isEmpty()) {
                 java.util.Set<String> statusSet = new java.util.HashSet<>(status);
@@ -251,6 +250,8 @@ public class DocumentController {
                 .toList();
 
         return ResponseEntity.ok(PageResponse.of(content, page, size, searchPage.getTotalElements()));
+    }
+    /**
      * GET /api/documents/authors
      * Возвращает список авторов для фильтрации.
      */
@@ -259,7 +260,7 @@ public class DocumentController {
     @Operation(summary = "Список авторов", description = "Возвращает список авторов документов в доступных пространствах")
     public ResponseEntity<List<com.knowledgebase.interfaces.rest.dto.response.UserResponse>> getAuthors(
             @AuthenticationPrincipal User currentUser) {
-        
+
         List<com.knowledgebase.domain.model.User> authors = documentService.findDistinctAuthorsByAccessibleSpaces(currentUser.getId());
         List<com.knowledgebase.interfaces.rest.dto.response.UserResponse> responses = authors.stream()
                 .map(mapper::toUserResponse)
