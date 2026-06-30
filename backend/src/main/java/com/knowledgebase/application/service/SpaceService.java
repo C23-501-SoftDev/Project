@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Сервис управления пространствами документов (Application Layer).
@@ -306,7 +307,6 @@ public class SpaceService {
             return java.util.Collections.emptyList();
         }
 
-        // Проверяем роль пользователя
         com.knowledgebase.domain.model.User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
             return java.util.Collections.emptyList();
@@ -314,31 +314,84 @@ public class SpaceService {
 
         com.knowledgebase.domain.model.GlobalRole role = user.getRole();
 
-        // Если запрашивается доступ на запись (WRITE/OWNER), то ADMIN-READER должен видеть только разрешенные пространства,
-        // так же как и обычный READER. ADMIN-EDITOR по-прежнему видит всё.
         if (isAdmin && role != com.knowledgebase.domain.model.GlobalRole.GUEST) {
             if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
                 if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
-                    // Для ADMIN с ролью READER при запросе WRITE проверяем явные права
                     return findSpacesByExplicitPermissions(userId, requiredAccess);
                 }
             }
             return spaceRepository.findAll(page, size);
         }
 
-        // EDITOR всегда может писать во все пространства
         if (role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
             return spaceRepository.findAll(page, size);
         }
 
-        // READER и GUEST: только пространства с явными правами, если требуется доступ выше READ
-        // Если требуется просто READ, READER видит всё.
         if (role == com.knowledgebase.domain.model.GlobalRole.READER && (requiredAccess == null || requiredAccess == PermissionType.READ)) {
             return spaceRepository.findAll(page, size);
         }
 
-        // В остальных случаях (GUEST или READER, которому нужен WRITE/OWNER) — только по записям в разрешениях
         return findSpacesByExplicitPermissions(userId, requiredAccess);
+    }
+
+    /**
+     * Возвращает пространства пользователя с поиском по названию.
+     */
+    public List<Space> searchSpacesForUser(Long userId, boolean isAdmin, PermissionType requiredAccess, String query, int page, int size) {
+        if (query == null || query.isBlank()) {
+            return getSpacesForUser(userId, isAdmin, requiredAccess, page, size);
+        }
+
+        String normalizedQuery = query.trim().toLowerCase(Locale.ROOT);
+        List<Space> matchedSpaces = getAccessibleSpaces(userId, isAdmin, requiredAccess).stream()
+                .filter(space -> space.getName() != null && space.getName().toLowerCase(Locale.ROOT).contains(normalizedQuery))
+                .toList();
+        return paginate(matchedSpaces, page, size);
+    }
+
+    private List<Space> getAccessibleSpaces(Long userId, boolean isAdmin, PermissionType requiredAccess) {
+        if (userId == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        com.knowledgebase.domain.model.User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        com.knowledgebase.domain.model.GlobalRole role = user.getRole();
+
+        if (isAdmin && role != com.knowledgebase.domain.model.GlobalRole.GUEST) {
+            if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
+                if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
+                    return findSpacesByExplicitPermissions(userId, requiredAccess);
+                }
+            }
+            return spaceRepository.findAllActive();
+        }
+
+        if (role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
+            return spaceRepository.findAllActive();
+        }
+
+        if (role == com.knowledgebase.domain.model.GlobalRole.READER && (requiredAccess == null || requiredAccess == PermissionType.READ)) {
+            return spaceRepository.findAllActive();
+        }
+
+        return findSpacesByExplicitPermissions(userId, requiredAccess);
+    }
+
+    private List<Space> paginate(List<Space> spaces, int page, int size) {
+        if (spaces.isEmpty() || size <= 0) {
+            return java.util.Collections.emptyList();
+        }
+
+        int fromIndex = Math.min(Math.max(page, 0) * size, spaces.size());
+        int toIndex = Math.min(fromIndex + size, spaces.size());
+        if (fromIndex >= toIndex) {
+            return java.util.Collections.emptyList();
+        }
+        return spaces.subList(fromIndex, toIndex);
     }
 
     private List<Space> findSpacesByExplicitPermissions(Long userId, PermissionType requiredAccess) {

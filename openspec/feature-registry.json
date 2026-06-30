@@ -59,6 +59,22 @@
             ]
         },
         {
+            "featureId": "space-search-sidebar",
+            "title": "Spaces: search by name in sidebar",
+            "status": "pending",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md"
+            ],
+            "endpoints": [
+                "GET /api/spaces/search"
+            ],
+            "dependsOn": [
+                "spaces-and-permissions"
+            ]
+        },
+        {
             "featureId": "admin-panel-ui",
             "title": "Admin Panel: Users & Spaces management UI",
             "status": "done",
