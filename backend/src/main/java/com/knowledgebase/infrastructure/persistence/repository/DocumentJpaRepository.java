@@ -13,16 +13,36 @@ import java.util.List;
 
 @Repository
 public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, Long> {
-    
+
     List<DocumentJpaEntity> findBySpaceId(Long spaceId);
-    
+
     List<DocumentJpaEntity> findBySpaceIdAndStatusNot(Long spaceId, String status);
 
+    Page<DocumentJpaEntity> findBySpaceIdAndStatusNot(Long spaceId, String status, Pageable pageable);
+
+    Page<DocumentJpaEntity> findBySpaceId(Long spaceId, Pageable pageable);
+
+    long countBySpaceIdAndStatusNot(Long spaceId, String status);
+
+    long countBySpaceId(Long spaceId);
+
+    Page<DocumentJpaEntity> findBySpaceIdAndAuthorIdAndStatusNot(Long spaceId, Long authorId, String status, Pageable pageable);
+
+    Page<DocumentJpaEntity> findBySpaceIdAndAuthorId(Long spaceId, Long authorId, Pageable pageable);
+
+    long countBySpaceIdAndAuthorIdAndStatusNot(Long spaceId, Long authorId, String status);
+
+    long countBySpaceIdAndAuthorId(Long spaceId, Long authorId);
+
     List<DocumentJpaEntity> findByStatusNot(String status);
-    
+
     List<DocumentJpaEntity> findAllBySpaceIdIn(java.util.Set<Long> spaceIds);
-    
+
     List<DocumentJpaEntity> findAllBySpaceIdInAndStatusNot(java.util.Set<Long> spaceIds, String status);
+
+    List<DocumentJpaEntity> findBySpaceIdIn(Collection<Long> spaceIds);
+
+    List<DocumentJpaEntity> findBySpaceIdInAndStatusNot(Collection<Long> spaceIds, String status);
     
     List<DocumentJpaEntity> findByAuthorId(Long authorId);
     @org.springframework.data.jpa.repository.Query(value = "SELECT count(*) FROM documents WHERE title = ?1 AND space_id = ?2 AND parent_document_id = ?3", nativeQuery = true)
@@ -75,6 +95,9 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
         SELECT parent_document_id FROM Ancestors WHERE parent_document_id IS NOT NULL
         """, nativeQuery = true)
     List<Long> findAncestorIds(@org.springframework.data.repository.query.Param("documentId") Long documentId);
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT u.* FROM users u JOIN documents d ON u.id = d.author_id WHERE d.space_id IN :spaceIds", nativeQuery = true)
+    List<com.knowledgebase.infrastructure.persistence.entity.UserJpaEntity> findDistinctAuthorsBySpaceIds(@org.springframework.data.repository.query.Param("spaceIds") java.util.Set<Long> spaceIds);
 
     boolean existsByParentDocumentId(Long parentId);
 }

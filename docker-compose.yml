@@ -66,5 +66,23 @@ services:
       retries: 20
     restart: unless-stopped
 
+  e2e:
+    build:
+      context: ./tests/E2E
+      dockerfile: Dockerfile
+    container_name: kb_e2e
+    profiles: ["e2e"]
+    working_dir: /e2e
+    environment:
+      E2E_BASE_URL: http://app:8080
+    volumes:
+      - ./tests/E2E:/e2e
+      - e2e_node_modules:/e2e/node_modules
+    depends_on:
+      app:
+        condition: service_healthy
+    command: npx playwright test
+      
 volumes:
   postgres_data:
+  e2e_node_modules:
