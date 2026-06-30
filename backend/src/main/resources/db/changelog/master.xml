@@ -42,5 +42,6 @@
     <include file="db/changelog/changes/026-add-document-title-uniqueness-index.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/027-add-is-deleted-to-spaces.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/028-create-requirement-number-counters-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/029-add-document-title-search-index.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
