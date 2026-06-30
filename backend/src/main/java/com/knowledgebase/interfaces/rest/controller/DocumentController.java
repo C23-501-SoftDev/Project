@@ -7,6 +7,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.dto.request.CreateDocumentRequest;
 import com.knowledgebase.interfaces.rest.dto.request.UpdateDocumentRequest;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.dto.response.PageResponse;
 import com.knowledgebase.interfaces.rest.mapper.RestDtoMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -36,6 +37,9 @@ public class DocumentController {
     private final PermissionService permissionService;
     private final RestDtoMapper mapper;
 
+    private static final int MAX_SEARCH_PAGE_SIZE = 50;
+
+    public DocumentController(DocumentService documentService, RestDtoMapper mapper) {
     public DocumentController(DocumentService documentService,
                                PermissionService permissionService,
                                RestDtoMapper mapper) {
@@ -209,6 +213,44 @@ public class DocumentController {
     }
 
     /**
+     * GET /api/documents/search?q=...
+     * Поиск документов по заголовку.
+     */
+    @GetMapping("/search")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Поиск документов", description = "Ищет документы по заголовку с учётом прав доступа")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Поиск выполнен успешно"),
+        @ApiResponse(responseCode = "400", description = "Некорректная поисковая строка или размер страницы")
+    })
+    public ResponseEntity<PageResponse<DocumentResponse>> searchDocuments(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal User currentUser) {
+
+        if (q == null || q.isBlank()) {
+            throw new IllegalArgumentException("Поисковая строка не может быть пустой");
+        }
+        if (page < 0) {
+            throw new IllegalArgumentException("Номер страницы не может быть отрицательным");
+        }
+        if (size < 1 || size > MAX_SEARCH_PAGE_SIZE) {
+            throw new IllegalArgumentException("Размер страницы должен быть от 1 до " + MAX_SEARCH_PAGE_SIZE);
+        }
+
+        var searchPage = documentService.searchDocumentsByTitle(
+                q,
+                currentUser.getId(),
+                currentUser.isAdmin(),
+                page,
+                size);
+
+        List<DocumentResponse> content = searchPage.getContent().stream()
+                .map(document -> mapper.toDocumentResponse(document, null))
+                .toList();
+
+        return ResponseEntity.ok(PageResponse.of(content, page, size, searchPage.getTotalElements()));
      * GET /api/documents/authors
      * Возвращает список авторов для фильтрации.
      */

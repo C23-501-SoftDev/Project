@@ -6,21 +6,27 @@ import com.knowledgebase.domain.exception.SpaceNotFoundException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
+import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.knowledgebase.domain.repository.TemplateRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.Set;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -37,19 +43,25 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final DocumentContentRepository contentRepository;
     private final SpaceRepository spaceRepository;
+    private final SpacePermissionRepository permissionRepository;
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
     private final RequirementNumberService requirementNumberService;
 
+    private static final int MAX_SEARCH_QUERY_LENGTH = 200;
+    private static final int MAX_SEARCH_PAGE_SIZE = 50;
+
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
                            SpaceRepository spaceRepository,
+                           SpacePermissionRepository permissionRepository,
                            TemplateRepository templateRepository,
                            UserRepository userRepository,
                            RequirementNumberService requirementNumberService) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
+        this.permissionRepository = permissionRepository;
         this.templateRepository = templateRepository;
         this.userRepository = userRepository;
         this.requirementNumberService = requirementNumberService;
@@ -472,6 +484,59 @@ public class DocumentService {
         }
         
         return documents;
+    }
+
+    /**
+     * Ищет документы по заголовку с учётом прав доступа.
+     */
+    public Page<Document> searchDocumentsByTitle(String query, Long userId, boolean isAdmin, int page, int size) {
+        validateSearchParameters(query, page, size);
+
+        Pageable pageable = PageRequest.of(page, size);
+        String normalizedQuery = query.trim();
+
+        if (userId == null) {
+            return Page.empty(pageable);
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return Page.empty(pageable);
+        }
+
+        GlobalRole role = user.getRole();
+        if (isAdmin && role != GlobalRole.GUEST) {
+            return documentRepository.searchByTitle(normalizedQuery, pageable);
+        }
+
+        if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
+            return documentRepository.searchByTitle(normalizedQuery, pageable);
+        }
+
+        Set<Long> accessibleSpaceIds = permissionRepository.findByUserId(userId).stream()
+                .map(SpacePermission::getSpaceId)
+                .collect(Collectors.toSet());
+
+        if (accessibleSpaceIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        return documentRepository.searchByTitleInSpaces(accessibleSpaceIds, normalizedQuery, pageable);
+    }
+
+    private void validateSearchParameters(String query, int page, int size) {
+        if (query == null || query.isBlank()) {
+            throw new IllegalArgumentException("Поисковая строка не может быть пустой");
+        }
+        if (query.trim().length() > MAX_SEARCH_QUERY_LENGTH) {
+            throw new IllegalArgumentException("Поисковая строка не может превышать " + MAX_SEARCH_QUERY_LENGTH + " символов");
+        }
+        if (page < 0) {
+            throw new IllegalArgumentException("Номер страницы не может быть отрицательным");
+        }
+        if (size < 1 || size > MAX_SEARCH_PAGE_SIZE) {
+            throw new IllegalArgumentException("Размер страницы должен быть от 1 до " + MAX_SEARCH_PAGE_SIZE);
+        }
     }
 
     /**

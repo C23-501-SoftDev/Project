@@ -44,7 +44,7 @@
 | GET | `/api/documents?page=0&size=20&sortBy=title&sortDir=asc` | Список документов с пагинацией | ❌ |
 | GET | `/api/documents?spaceId={id}` | Фильтрация документов по пространству | ✅ |
 | GET | `/api/documents?status=Published` | Фильтрация по статусу | ❌ |
-| POST | `/api/documents/search` | Поиск документов по названию/тексту с фильтрацией по дате | ❌ |
+| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск документов по названию | ✅ |
 
 **Данные для SSR-страницы:**
 - Список последних документов (title, author, updatedAt, status)
@@ -160,7 +160,7 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск по названию | ❌ |
+| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск по названию | ✅ |
 | GET | `/api/documents/search?q=запрос&spaceId={id}` | Поиск в конкретном пространстве | ❌ |
 | GET | `/api/documents/search?q=запрос&dateFrom=...&dateTo=...` | Поиск + фильтрация по дате | ❌ |
 | GET | `/api/documents/search?q=запрос&status=Published` | Поиск + фильтрация по статусу | ❌ |

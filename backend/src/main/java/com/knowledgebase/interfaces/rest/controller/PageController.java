@@ -5,6 +5,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.application.service.DocumentService;
 import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -133,9 +134,26 @@ public class PageController {
 
     @GetMapping("/search")
     public String search(@RequestParam String q, @AuthenticationPrincipal User user, Model model) {
+        var searchPage = documentService.searchDocumentsByTitle(q, user.getId(), user.isAdmin(), 0, 20);
+
+        model.addAttribute("searchResults", searchPage.getContent().stream()
+            .map(document -> new DocumentResponse(
+                document.getId(),
+                document.getTitle(),
+                document.getSpaceId(),
+                spaceRepository.findById(document.getSpaceId()).map(space -> space.getName()).orElse(null),
+                document.getAuthorId(),
+                null,
+                document.getStatus(),
+                null,
+                document.getGitFilePath(),
+                document.getCreatedAt(),
+                document.getUpdatedAt()))
+            .toList());
         model.addAttribute("pageTitle", "Поиск: " + q);
         model.addAttribute("currentUser", user);
         model.addAttribute("searchQuery", q);
+        model.addAttribute("searchTotalElements", searchPage.getTotalElements());
         model.addAttribute("content", "pages/search-results");
         return "layout";
     }

@@ -1,4 +1,15 @@
 <div class="search-results-page">
     <h1>Результаты поиска: <span th:text="${searchQuery}"></span></h1>
-    <p>Результаты поиска будут отображены здесь.</p>
+    <div th:if="${searchResults != null and !searchResults.isEmpty()}">
+        <div th:each="doc : ${searchResults}" class="search-result-item">
+            <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}">Документ</a>
+            <div class="search-result-meta">
+                <span th:text="${doc.spaceName}"></span>
+                <span th:text="${doc.authorLogin}"></span>
+                <span th:text="${doc.updatedAt}"></span>
+                <span th:text="${doc.status}"></span>
+            </div>
+        </div>
+    </div>
+    <p th:if="${searchResults == null or searchResults.isEmpty()}">Документы не найдены</p>
 </div>
