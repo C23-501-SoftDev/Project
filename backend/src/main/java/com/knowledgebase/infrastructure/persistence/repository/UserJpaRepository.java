@@ -42,6 +42,24 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
 
     long countByIsDeletedFalse();
 
+            @Query(value = "SELECT * FROM users WHERE is_deleted = false AND (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                countQuery = "SELECT COUNT(*) FROM users WHERE is_deleted = false AND (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                nativeQuery = true)
+            Page<UserJpaEntity> searchByLoginOrFullName(@Param("q") String q, Pageable pageable);
+
+            @Query(value = "SELECT COUNT(*) FROM users WHERE is_deleted = false AND (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                nativeQuery = true)
+            long countByLoginOrFullName(@Param("q") String q);
+
+            @Query(value = "SELECT * FROM users WHERE (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                countQuery = "SELECT COUNT(*) FROM users WHERE (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                nativeQuery = true)
+            Page<UserJpaEntity> searchByLoginOrFullNameIncludingDeleted(@Param("q") String q, Pageable pageable);
+
+            @Query(value = "SELECT COUNT(*) FROM users WHERE (login ILIKE %:q% OR full_name ILIKE %:q%)",
+                nativeQuery = true)
+            long countByLoginOrFullNameIncludingDeleted(@Param("q") String q);
+
     @Query(value = "SELECT COUNT(*) > 0 FROM spaces WHERE owner_id = :userId", nativeQuery = true)
     boolean hasOwnedSpaces(@Param("userId") Long userId);
 
@@ -76,7 +94,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
            "(:includeDeleted = true) OR " +
            "(:includeDeleted = false AND u.isDeleted = true)) AND " +
            "(LOWER(u.login) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     Page<UserJpaEntity> findByStatusAndSearch(@Param("includeDeleted") Boolean includeDeleted,
                                                @Param("search") String search,
                                                Pageable pageable);
@@ -98,7 +117,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
            "(:includeDeleted = false AND u.isDeleted = true)) AND " +
            "(:roles IS NULL OR u.role IN :roles) AND " +
            "(LOWER(u.login) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     Page<UserJpaEntity> findByStatusRolesAndSearch(@Param("includeDeleted") Boolean includeDeleted,
                                                     @Param("roles") List<String> roles,
                                                     @Param("search") String search,
@@ -110,7 +130,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
            "(:includeDeleted = false AND u.isDeleted = true)) AND " +
            "(:isAdmin IS NULL OR CAST(u.isAdmin AS string) IN :isAdmin) AND " +
            "(LOWER(u.login) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     Page<UserJpaEntity> findByStatusIsAdminAndSearch(@Param("includeDeleted") Boolean includeDeleted,
                                                       @Param("isAdmin") List<String> isAdmin,
                                                       @Param("search") String search,
@@ -123,7 +144,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
            "(:roles IS NULL OR u.role IN :roles) AND " +
            "(:isAdmin IS NULL OR CAST(u.isAdmin AS string) IN :isAdmin) AND " +
            "(LOWER(u.login) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     Page<UserJpaEntity> findAllWithFilters(@Param("includeDeleted") Boolean includeDeleted,
                                               @Param("roles") List<String> roles,
                                               @Param("isAdmin") List<String> isAdmin,
@@ -157,7 +179,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
            "(:includeDeleted = true) OR " +
            "(:includeDeleted = false AND u.isDeleted = true)) AND " +
            "(LOWER(u.login) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     long countByStatusAndSearch(@Param("includeDeleted") Boolean includeDeleted,
                                    @Param("search") String search);
 
@@ -177,7 +200,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
            "(:includeDeleted = false AND u.isDeleted = true)) AND " +
            "(:roles IS NULL OR u.role IN :roles) AND " +
            "(LOWER(u.login) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     long countByStatusRolesAndSearch(@Param("includeDeleted") Boolean includeDeleted,
                                       @Param("roles") List<String> roles,
                                       @Param("search") String search);
@@ -188,7 +212,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
            "(:includeDeleted = false AND u.isDeleted = true)) AND " +
            "(:isAdmin IS NULL OR CAST(u.isAdmin AS string) IN :isAdmin) AND " +
            "(LOWER(u.login) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     long countByStatusIsAdminAndSearch(@Param("includeDeleted") Boolean includeDeleted,
                                         @Param("isAdmin") List<String> isAdmin,
                                         @Param("search") String search);
@@ -200,7 +225,8 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, Long> {
            "(:roles IS NULL OR u.role IN :roles) AND " +
            "(:isAdmin IS NULL OR CAST(u.isAdmin AS string) IN :isAdmin) AND " +
            "(LOWER(u.login) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     long countAllWithFilters(@Param("includeDeleted") Boolean includeDeleted,
                                 @Param("roles") List<String> roles,
                                 @Param("isAdmin") List<String> isAdmin,

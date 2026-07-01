@@ -44,5 +44,6 @@
     <include file="db/changelog/changes/028-create-requirement-number-counters-table.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/029-add-document-title-search-index.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/030-add-document-date-filter-indexes.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/031-add-user-fullname.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

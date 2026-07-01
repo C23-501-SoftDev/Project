@@ -98,6 +98,26 @@ public class AdminUserController {
     }
 
     /**
+     * GET /api/admin/users/search
+     * Поиск пользователей по части логина или ФИО.
+     */
+    @GetMapping("/search")
+    @Operation(summary = "Поиск пользователей", description = "Поиск по логину или ФИО (частичный, case-insensitive)")
+    public ResponseEntity<PageResponse<UserResponse>> searchUsers(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        // По умолчанию поиск не включает удалённых, можно добавить ?includeDeleted=true при необходимости
+        boolean includeDeletedForSearch = false;
+        List<User> users = userService.searchUsers(q, page, size, includeDeletedForSearch);
+        long total = userService.countSearchUsers(q, includeDeletedForSearch);
+
+        List<UserResponse> userResponses = users.stream().map(mapper::toUserResponse).toList();
+        return ResponseEntity.ok(PageResponse.of(userResponses, page, size, total));
+    }
+
+    /**
      * GET /api/admin/users/{id}
      * Получить пользователя по ID (включая удалённых).
      */

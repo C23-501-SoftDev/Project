@@ -204,6 +204,7 @@ public class DocumentRepositoryImpl implements DocumentRepository {
                         com.knowledgebase.domain.model.GlobalRole.fromDbValue(entity.getRole()), 
                         entity.isAdmin(), 
                         entity.isDeleted(), 
+                    entity.getFullName(), 
                         entity.getCreatedAt(), 
                         entity.getUpdatedAt()
                 ))
