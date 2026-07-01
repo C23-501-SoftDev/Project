@@ -23,6 +23,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
 
@@ -50,6 +54,8 @@ public class DocumentService {
 
     private static final int MAX_SEARCH_QUERY_LENGTH = 200;
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
+    private static final LocalDateTime SEARCH_MIN_DATE = LocalDateTime.of(1970, 1, 1, 0, 0);
+    private static final LocalDateTime SEARCH_MAX_DATE = LocalDateTime.of(9999, 12, 31, 23, 59, 59, 999_999_999);
 
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
@@ -489,11 +495,19 @@ public class DocumentService {
     /**
      * Ищет документы по заголовку с учётом прав доступа.
      */
-    public Page<Document> searchDocumentsByTitle(String query, Long userId, boolean isAdmin, int page, int size) {
-        validateSearchParameters(query, page, size);
+    public Page<Document> searchDocumentsByTitle(String query,
+                                                 LocalDate dateFrom,
+                                                 LocalDate dateTo,
+                                                 Long userId,
+                                                 boolean isAdmin,
+                                                 int page,
+                                                 int size) {
+        validateSearchParameters(query, dateFrom, dateTo, page, size);
 
         Pageable pageable = PageRequest.of(page, size);
-        String normalizedQuery = query.trim();
+        String normalizedQuery = query != null ? query.trim() : "";
+        LocalDateTime effectiveFrom = dateFrom != null ? dateFrom.atStartOfDay() : SEARCH_MIN_DATE;
+        LocalDateTime effectiveTo = dateTo != null ? dateTo.atTime(LocalTime.MAX) : SEARCH_MAX_DATE;
 
         if (userId == null) {
             return Page.empty(pageable);
@@ -506,11 +520,11 @@ public class DocumentService {
 
         GlobalRole role = user.getRole();
         if (isAdmin && role != GlobalRole.GUEST) {
-            return documentRepository.searchByTitle(normalizedQuery, pageable);
+            return documentRepository.searchByTitle(normalizedQuery, effectiveFrom, effectiveTo, pageable);
         }
 
         if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
-            return documentRepository.searchByTitle(normalizedQuery, pageable);
+            return documentRepository.searchByTitle(normalizedQuery, effectiveFrom, effectiveTo, pageable);
         }
 
         Set<Long> accessibleSpaceIds = permissionRepository.findByUserId(userId).stream()
@@ -521,14 +535,18 @@ public class DocumentService {
             return Page.empty(pageable);
         }
 
-        return documentRepository.searchByTitleInSpaces(accessibleSpaceIds, normalizedQuery, pageable);
+        return documentRepository.searchByTitleInSpaces(accessibleSpaceIds, normalizedQuery, effectiveFrom, effectiveTo, pageable);
     }
 
-    private void validateSearchParameters(String query, int page, int size) {
-        if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Поисковая строка не может быть пустой");
+    private void validateSearchParameters(String query, LocalDate dateFrom, LocalDate dateTo, int page, int size) {
+        String normalizedQuery = query != null ? query.trim() : "";
+        if (normalizedQuery.isBlank() && dateFrom == null && dateTo == null) {
+            throw new IllegalArgumentException("Укажите поисковую строку или хотя бы одну дату");
         }
-        if (query.trim().length() > MAX_SEARCH_QUERY_LENGTH) {
+        if (dateFrom != null && dateTo != null && dateFrom.isAfter(dateTo)) {
+            throw new IllegalArgumentException("Дата начала не может быть позже даты окончания");
+        }
+        if (!normalizedQuery.isBlank() && normalizedQuery.length() > MAX_SEARCH_QUERY_LENGTH) {
             throw new IllegalArgumentException("Поисковая строка не может превышать " + MAX_SEARCH_QUERY_LENGTH + " символов");
         }
         if (page < 0) {

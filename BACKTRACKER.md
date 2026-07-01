@@ -162,7 +162,7 @@
 |-------|----------|----------|--------|
 | GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск по названию | ✅ |
 | GET | `/api/documents/search?q=запрос&spaceId={id}` | Поиск в конкретном пространстве | ❌ |
-| GET | `/api/documents/search?q=запрос&dateFrom=...&dateTo=...` | Поиск + фильтрация по дате | ❌ |
+| GET | `/api/documents/search?q=запрос&dateFrom=...&dateTo=...` | Поиск + фильтрация по дате | ✅ |
 | GET | `/api/documents/search?q=запрос&status=Published` | Поиск + фильтрация по статусу | ❌ |
 
 **Формат ответа поиска:**

@@ -4,6 +4,8 @@ import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -40,6 +42,89 @@ class DocumentSearchIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].title", is("Fast access guide")))
                 .andExpect(jsonPath("$.totalElements", is(1)));
+    }
+
+    @Test
+    void searchByTitle_withDateRange_returnsOnlyInRange() throws Exception {
+        ensureDocumentsTable();
+        persistUser("admin", "admin123", "admin@kb.local", GlobalRole.EDITOR, true);
+        String adminJwt = loginAndGetJwt("admin", "admin123");
+
+        long spaceId = createSpace(adminJwt, "Date Filter Space");
+
+        long oldDocId = createDocument(adminJwt, spaceId, "Fast old note");
+        long inRangeDocId = createDocument(adminJwt, spaceId, "Fast fresh note");
+
+        updateDocumentDates(oldDocId, LocalDateTime.of(2026, 1, 10, 10, 0), LocalDateTime.of(2026, 1, 10, 10, 0));
+        updateDocumentDates(inRangeDocId, LocalDateTime.of(2026, 3, 10, 10, 0), LocalDateTime.of(2026, 3, 15, 10, 0));
+
+        mockMvc.perform(get("/api/documents/search?q=Fast&dateFrom=2026-02-01&dateTo=2026-04-01&page=0&size=10")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].title", is("Fast fresh note")))
+                .andExpect(jsonPath("$.totalElements", is(1)));
+    }
+
+    @Test
+    void searchByDate_onlyWithoutQuery_returnsResults() throws Exception {
+        ensureDocumentsTable();
+        persistUser("admin", "admin123", "admin@kb.local", GlobalRole.EDITOR, true);
+        String adminJwt = loginAndGetJwt("admin", "admin123");
+
+        long spaceId = createSpace(adminJwt, "Date Only Space");
+
+        long oldDocId = createDocument(adminJwt, spaceId, "Architecture draft");
+        long inRangeDocId = createDocument(adminJwt, spaceId, "Release checklist");
+
+        updateDocumentDates(oldDocId, LocalDateTime.of(2026, 1, 10, 10, 0), LocalDateTime.of(2026, 1, 10, 10, 0));
+        updateDocumentDates(inRangeDocId, LocalDateTime.of(2026, 3, 10, 10, 0), LocalDateTime.of(2026, 3, 15, 10, 0));
+
+        mockMvc.perform(get("/api/documents/search?dateFrom=2026-02-01&dateTo=2026-04-01&page=0&size=10")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].title", is("Release checklist")))
+                .andExpect(jsonPath("$.totalElements", is(1)));
+    }
+
+    @Test
+    void searchByTitle_withInvalidDateRange_returnsValidationError() throws Exception {
+        ensureDocumentsTable();
+        persistUser("admin", "admin123", "admin@kb.local", GlobalRole.EDITOR, true);
+        String adminJwt = loginAndGetJwt("admin", "admin123");
+
+        mockMvc.perform(get("/api/documents/search?q=Fast&dateFrom=2026-05-01&dateTo=2026-04-01")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", is("Дата начала не может быть позже даты окончания")));
+    }
+
+    @Test
+    void searchByTitle_withOnlyDateFromOrDateTo_appliesOneSidedFilter() throws Exception {
+        ensureDocumentsTable();
+        persistUser("admin", "admin123", "admin@kb.local", GlobalRole.EDITOR, true);
+        String adminJwt = loginAndGetJwt("admin", "admin123");
+
+        long spaceId = createSpace(adminJwt, "One Side Space");
+
+        long oldDocId = createDocument(adminJwt, spaceId, "Fast alpha");
+        long freshDocId = createDocument(adminJwt, spaceId, "Fast beta");
+
+        updateDocumentDates(oldDocId, LocalDateTime.of(2026, 1, 5, 12, 0), LocalDateTime.of(2026, 1, 5, 12, 0));
+        updateDocumentDates(freshDocId, LocalDateTime.of(2026, 5, 5, 12, 0), LocalDateTime.of(2026, 5, 5, 12, 0));
+
+        mockMvc.perform(get("/api/documents/search?q=Fast&dateFrom=2026-03-01&page=0&size=10")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].title", is("Fast beta")));
+
+        mockMvc.perform(get("/api/documents/search?q=Fast&dateTo=2026-02-01&page=0&size=10")
+                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].title", is("Fast alpha")));
     }
 
     @Test
@@ -97,13 +182,22 @@ class DocumentSearchIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isCreated());
     }
 
-    private void createDocument(String jwt, long spaceId, String title) throws Exception {
-        mockMvc.perform(post("/api/documents")
+    private long createDocument(String jwt, long spaceId, String title) throws Exception {
+        String response = mockMvc.perform(post("/api/documents")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":"%s","content":"# test","spaceId":%d}
                                 """.formatted(title, spaceId)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        return Long.parseLong(response.replaceAll("(?s).*\\\"id\\\"\\s*:\\s*(\\d+).*", "$1"));
+    }
+
+    private void updateDocumentDates(long documentId, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        jdbcTemplate.update("UPDATE documents SET created_at = ?, updated_at = ? WHERE id = ?", createdAt, updatedAt, documentId);
     }
 }

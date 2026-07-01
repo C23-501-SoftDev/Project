@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
@@ -136,13 +137,21 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
-    public Page<Document> searchByTitle(String query, Pageable pageable) {
-        return jpaRepository.searchByTitle(query, pageable).map(mapper::toDomain);
+    public Page<Document> searchByTitle(String query,
+                                        LocalDateTime effectiveFrom,
+                                        LocalDateTime effectiveTo,
+                                        Pageable pageable) {
+        return jpaRepository.searchByTitle(query, effectiveFrom, effectiveTo, pageable).map(mapper::toDomain);
     }
 
     @Override
-    public Page<Document> searchByTitleInSpaces(Collection<Long> spaceIds, String query, Pageable pageable) {
-        return jpaRepository.searchByTitleInSpaces(spaceIds, query, pageable).map(mapper::toDomain);
+    public Page<Document> searchByTitleInSpaces(Collection<Long> spaceIds,
+                                                String query,
+                                                LocalDateTime effectiveFrom,
+                                                LocalDateTime effectiveTo,
+                                                Pageable pageable) {
+        return jpaRepository.searchByTitleInSpaces(spaceIds, query, effectiveFrom, effectiveTo, pageable)
+                .map(mapper::toDomain);
     }
 
     @Override
