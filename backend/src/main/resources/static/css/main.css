@@ -191,7 +191,19 @@ body {
     text-decoration: none;
     letter-spacing: -0.02em;
     transition: var(--transition);
+    display: flex;
+    align-items: center;
 }
+
+.logo-icon {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.navbar-brand a:hover .logo-icon {
+    transform: rotate(-5deg) scale(1.1);
+}
+
 
 .navbar-brand a:hover {
     color: var(--primary-hover);
@@ -208,7 +220,19 @@ body {
     text-decoration: none;
     letter-spacing: -0.02em;
     transition: var(--transition);
+    display: flex;
+    align-items: center;
 }
+
+.logo-icon {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.navbar-brand a:hover .logo-icon {
+    transform: rotate(-5deg) scale(1.1);
+}
+
 
 .navbar-brand a:hover {
     color: var(--primary-hover);
