@@ -7,7 +7,11 @@ function toggleSpaceTree(spaceId) {
     // If not on the main documents page — redirect there with the space filter
     if (window.location.pathname !== '/') {
         localStorage.setItem('space-tree-' + spaceId, 'visible');
-        window.location.href = '/?spaceId=' + spaceId;
+        // Preserve existing URL params, only override spaceId and reset page
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.set('spaceId', spaceId);
+        currentParams.delete('page');
+        window.location.href = '/?' + currentParams.toString();
         return;
     }
 
