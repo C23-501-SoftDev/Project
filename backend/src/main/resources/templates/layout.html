@@ -38,11 +38,18 @@
     <!-- Основной контент -->
     <div class="container">
         <!-- Боковая панель -->
-        <aside class="sidebar" th:if="${currentUser != null}">
+        <aside class="sidebar" th:if="${currentUser != null}" id="spacesSidebar">
             <div class="sidebar-header">
                 <h3>Пространства</h3>
+                <form class="sidebar-search" id="spaceSearchForm" autocomplete="off">
+                    <input type="search" id="spaceSearchInput" class="sidebar-search-input"
+                        placeholder="Поиск по названию"
+                        aria-label="Поиск пространства">
+                    <button type="submit" class="button-secondary">Найти</button>
+                </form>
             </div>
-            <div class="space-tree" th:if="${spaces != null}">
+            <div class="sidebar-search-status" id="spaceSearchStatus" hidden></div>
+            <div class="space-tree" id="spaceTreeContainer" th:if="${spaces != null}">
                 <ul class="space-list">
                     <li th:each="space : ${spaces}" class="space-item">
                         <button type="button" class="space-button" th:onclick="'toggleSpaceTree(' + ${space.id} + ')'"
@@ -62,6 +69,7 @@
                     </li>
                 </ul>
             </div>
+            <div class="space-search-results" id="spaceSearchResults" hidden></div>
         </aside>
 
         <!-- Главная область контента -->
