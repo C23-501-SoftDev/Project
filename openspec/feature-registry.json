@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-05-14",
+    "updatedAt": "2026-06-17",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -133,6 +133,46 @@
             ],
             "dependsOn": [
                 "spaces-and-permissions"
+            ]
+        },
+        {
+            "featureId": "user-group-management",
+            "title": "Admin: user groups CRUD",
+            "status": "pending",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.8 Создание и управление группами/description.md",
+                "../../Docs/120.data-model.md"
+            ],
+            "endpoints": [
+                "GET /api/admin/groups",
+                "GET /api/admin/groups/{groupId}",
+                "POST /api/admin/groups",
+                "PUT /api/admin/groups/{groupId}",
+                "DELETE /api/admin/groups/{groupId}"
+            ],
+            "dependsOn": [
+                "admin-users-crud"
+            ]
+        },
+        {
+            "featureId": "user-group-membership",
+            "title": "Admin: user group membership management",
+            "status": "pending",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.9 Управление членством в группах/description.md",
+                "../../Docs/120.data-model.md"
+            ],
+            "endpoints": [
+                "GET /api/admin/groups/{groupId}/members",
+                "POST /api/admin/groups/{groupId}/members",
+                "DELETE /api/admin/groups/{groupId}/members/{userId}"
+            ],
+            "dependsOn": [
+                "user-group-management"
             ]
         },
         {

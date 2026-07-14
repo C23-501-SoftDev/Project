@@ -6,10 +6,14 @@ import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.model.UserGroup;
+import com.knowledgebase.domain.model.UserGroupMember;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import com.knowledgebase.interfaces.rest.dto.response.AttachmentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.dto.response.GroupMemberResponse;
+import com.knowledgebase.interfaces.rest.dto.response.GroupResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
 import com.knowledgebase.interfaces.rest.dto.response.UserResponse;
@@ -74,6 +78,49 @@ public class RestDtoMapper {
         if (ownerId == null) return null;
         Optional<User> owner = userRepository.findById(ownerId);
         return owner.map(User::getLogin).orElse(null);
+    }
+
+    // ── UserGroup ─────────────────────────────────────────────────────────────
+
+    public GroupResponse toGroupResponse(UserGroup group) {
+        if (group == null) return null;
+        return new GroupResponse(
+                group.getId(),
+                group.getName(),
+                group.getDescription(),
+                group.getCreatedAt(),
+                group.getUpdatedAt()
+        );
+    }
+
+    // ── UserGroupMember ───────────────────────────────────────────────────────
+
+    public GroupMemberResponse toGroupMemberResponse(UserGroupMember member) {
+        if (member == null) return null;
+
+        String login = null;
+        String email = null;
+        com.knowledgebase.domain.model.GlobalRole role = null;
+        boolean userDeleted = false;
+
+        Optional<User> user = userRepository.findByIdIncludingDeleted(member.getUserId());
+        if (user.isPresent()) {
+            login = user.get().getLogin();
+            email = user.get().getEmail();
+            role = user.get().getRole();
+            userDeleted = user.get().getIsDeleted();
+        }
+
+        return new GroupMemberResponse(
+                member.getId(),
+                member.getGroupId(),
+                member.getUserId(),
+                login,
+                email,
+                role,
+                userDeleted,
+                member.getAddedAt()
+        );
     }
 
     // ── SpacePermission ───────────────────────────────────────────────────────
