@@ -1,3 +1,4 @@
+javascript
 function toggleSpaceTree(spaceId) {
     const treeElement = document.getElementById('tree-' + spaceId);
     if (treeElement) {
@@ -6,6 +7,17 @@ function toggleSpaceTree(spaceId) {
 
         // Save state to localStorage to persist across navigation
         localStorage.setItem('space-tree-' + spaceId, isVisible ? 'hidden' : 'visible');
+    }
+
+    // If not on the main documents page — redirect there with the space filter
+    if (window.location.pathname !== '/') {
+        localStorage.setItem('space-tree-' + spaceId, 'visible');
+        // Preserve existing URL params, only override spaceId and reset page
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.set('spaceId', spaceId);
+        currentParams.delete('page');
+        window.location.href = '/?' + currentParams.toString();
+        return;
     }
 }
 
@@ -91,7 +103,6 @@ function initSpaceSidebarSearch() {
         }
 
         showLoading();
-
         try {
             const spaces = await apiFetch(`/api/spaces/search?q=${encodeURIComponent(normalizedQuery)}&size=100`);
             if (currentRequest !== requestCounter) {
@@ -106,8 +117,8 @@ function initSpaceSidebarSearch() {
             statusElement.textContent = 'Ошибка поиска';
             resultsContainer.hidden = true;
             sidebar.classList.add('sidebar-search-active');
-        }
     }
+}
 
     form.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -178,7 +189,6 @@ async function apiFetch(url, options = {}) {
         credentials: 'same-origin',
         ...options
     };
-
     try {
         const response = await fetch(url, defaultOptions);
         if (!response.ok) {
@@ -196,9 +206,9 @@ async function apiFetch(url, options = {}) {
                             .join('; ');
                         errorMessage = errorMessage + '. ' + fieldMessages;
                     }
-                } catch (e) {
-                }
-            }
+    } catch (e) {
+    }
+}
             throw new Error(errorMessage);
         }
         const contentType = response.headers.get('content-type');
@@ -337,3 +347,4 @@ function escapeHtml(str) {
         }
     });
 }
+

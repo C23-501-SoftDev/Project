@@ -290,11 +290,17 @@
         document.getElementById('documentsNextBtn').disabled = state.page >= state.totalPages - 1;
     }
 
-    function updateUrl() {
+                    function updateUrl() {
         const params = new URLSearchParams();
         if (state.page > 0) params.set('page', state.page);
         if (state.spaceFilter) params.set('spaceId', state.spaceFilter);
+        if (state.authorFilter) params.set('authorId', state.authorFilter);
         if (state.searchTerm) params.set('q', state.searchTerm);
+        if (state.statusFilters.length > 0 && state.statusFilters.length < 3) {
+            params.set('status', state.statusFilters.join(','));
+        }
+        if (state.sortBy !== 'id') params.set('sortBy', state.sortBy);
+        if (state.sortDir !== 'desc') params.set('sortDir', state.sortDir);
         const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         history.replaceState(null, '', newUrl);
     }
@@ -343,7 +349,7 @@
         }
     }
 
-    function applyFilters() {
+            function applyFilters() {
         const checked = Array.from(document.querySelectorAll('.statusFilter:checked')).map(cb => cb.value);
         state.statusFilters = checked;
         state.spaceFilter = document.getElementById('spaceFilter').value;
@@ -351,9 +357,10 @@
         state.searchTerm = '';
         state.page = 0;
         fetchDocuments();
+        updateUrl();
     }
 
-    function clearFilters() {
+            function clearFilters() {
         document.querySelectorAll('.statusFilter').forEach(cb => cb.checked = true);
         
         const spaceFilter = document.getElementById('spaceFilter');
@@ -372,6 +379,7 @@
         state.searchTerm = '';
         state.page = 0;
         fetchDocuments();
+        updateUrl();
     }
 
     function setupCustomSelect(wrapperId, targetId) {
@@ -403,44 +411,97 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-                const urlParams = new URLSearchParams(window.location.search);
-                // Читаем state из URL при загрузке
-                state.page = parseInt(urlParams.get('page')) || 0;
-                state.statusFilter = urlParams.get('status') || '';
-                state.spaceFilter = urlParams.get('spaceId') || '';
-                state.authorFilter = urlParams.get('authorId') || '';
-                state.searchTerm = urlParams.get('q') || '';
+        document.addEventListener('DOMContentLoaded', async () => {
+        const urlParams = new URLSearchParams(window.location.search);
 
-                // Устанавливаем значения в UI
-                // (логику инициализации select элементов нужно обновить при необходимости)
-            
-                fetchFilters();
-                fetchDocuments();
-                checkCreatePermission();
-                checkAdminStatus();
+        // Читаем state из URL при загрузке
+        state.page = parseInt(urlParams.get('page')) || 0;
+        state.spaceFilter = urlParams.get('spaceId') || '';
+        state.authorFilter = urlParams.get('authorId') || '';
+        state.searchTerm = urlParams.get('q') || '';
+        state.sortBy = urlParams.get('sortBy') || 'id';
+        state.sortDir = urlParams.get('sortDir') || 'desc';
 
+        // Восстановление статусов из URL
+        const statusParam = urlParams.get('status');
+        if (statusParam && statusParam.trim()) {
+            state.statusFilters = statusParam.split(',');
+        } else {
+            state.statusFilters = ['Draft', 'Published', 'Deleted'];
+        }
+
+        // Синхронизация UI статусов
+        document.querySelectorAll('.statusFilter').forEach(cb => {
+            cb.checked = state.statusFilters.includes(cb.value);
+        });
+
+        // Если spaceId задан в URL, показываем имя из localStorage (восстановление после навигации)
+        if (state.spaceFilter) {
+            const savedName = localStorage.getItem('selectedSpaceName');
+            const savedId = localStorage.getItem('selectedSpaceId');
+            const spaceName = (savedId === String(state.spaceFilter)) ? savedName : null;
+            setSpaceHeading(state.spaceFilter, spaceName);
+        }
+        // Сначала настраиваем кастомные селекты (они будут заполнены позже)
         setupCustomSelect('spaceFilterWrapper', 'spaceFilter');
         setupCustomSelect('authorFilterWrapper', 'authorFilter');
+
+        // Загружаем опции для селектов
+        await fetchFilters();
+
+        // После загрузки опций синхронизируем кастомные селекты с URL
+        if (state.spaceFilter) {
+            const spaceStyled = document.querySelector('#spaceFilterWrapper .select-styled');
+            const spaceOpt = document.querySelector(`#spaceFilterWrapper .select-option[data-value="${state.spaceFilter}"]`);
+            if (spaceStyled && spaceOpt) {
+                spaceStyled.textContent = spaceOpt.textContent;
+            }
+            document.getElementById('spaceFilter').value = state.spaceFilter;
+        }
+        if (state.authorFilter) {
+            const authorStyled = document.querySelector('#authorFilterWrapper .select-styled');
+            const authorOpt = document.querySelector(`#authorFilterWrapper .select-option[data-value="${state.authorFilter}"]`);
+            if (authorStyled && authorOpt) {
+                authorStyled.textContent = authorOpt.textContent;
+            }
+            document.getElementById('authorFilter').value = state.authorFilter;
+        }
+
+        fetchDocuments();
+        checkCreatePermission();
+        checkAdminStatus();
 
         document.addEventListener('click', () => {
             document.querySelectorAll('.select-styled').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.select-options').forEach(o => o.style.display = 'none');
         });
 
+        document.addEventListener('spaceSelected', function(e) {
+            const { spaceId, spaceName } = e.detail;
+            state.spaceFilter = String(spaceId);
+            state.page = 0;
+    
+            const spaceStyled = document.querySelector('#spaceFilterWrapper .select-styled');
+            const spaceOpt = document.querySelector(`#spaceFilterWrapper .select-option[data-value="${spaceId}"]`);
+            if (spaceStyled && spaceOpt) {
+                spaceStyled.textContent = spaceOpt.textContent;
+            }
+    
+            fetchDocuments();
+            updateUrl();
+        });
+
         document.getElementById('applyFiltersBtn').addEventListener('click', () => {
             applyFilters();
-            updateUrl();
         });
 
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             clearFilters();
-            updateUrl();
         });
 
         document.getElementById('documentsPrevBtn').addEventListener('click', () => {
             if (state.page > 0) { state.page--; fetchDocuments(); updateUrl(); }
-    });
+        });
         document.getElementById('documentsNextBtn').addEventListener('click', () => {
             if (state.page < state.totalPages - 1) { state.page++; fetchDocuments(); updateUrl(); }
         });

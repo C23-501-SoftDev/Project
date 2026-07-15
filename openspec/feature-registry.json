@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-05-14",
+    "updatedAt": "2026-07-14",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -210,6 +210,21 @@
             "docs": [
                 "../../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md"
             ],
+            "dependsOn": [
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "url-params-filters",
+            "title": "URL parameters support for all document list filters",
+            "status": "done",
+            "area": "frontend",
+            "repo": "Project",
+            "docs": [],
+            "endpoints": [
+                "GET /api/documents"
+            ],
+            "description": "Full URL parameter support for filters (spaceId, authorId, status, sortBy, sortDir, q, page). Preserves filters when navigating via space tree. Restores filter state from URL on page load.",
             "dependsOn": [
                 "documents-crud"
             ]
