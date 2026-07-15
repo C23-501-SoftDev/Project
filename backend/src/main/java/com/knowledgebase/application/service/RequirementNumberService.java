@@ -15,6 +15,14 @@ public class RequirementNumberService {
     }
 
     public String numberRequirements(String content, Long spaceId, Long templateId) {
+        return numberRequirements(content, spaceId, templateId, false);
+    }
+
+    public String numberMissingRequirements(String content, Long spaceId, Long templateId) {
+        return numberRequirements(content, spaceId, templateId, true);
+    }
+
+    private String numberRequirements(String content, Long spaceId, Long templateId, boolean onlyMissingNumbers) {
         if (content == null || content.isBlank() || spaceId == null || templateId == null) {
             return content;
         }
@@ -39,7 +47,7 @@ public class RequirementNumberService {
                 if (isMarkdownTableSeparator(currentLine)) {
                     tableSeparatorSeen = true;
                 } else if (tableSeparatorSeen && isMarkdownTableRow(currentLine)) {
-                    processedLine = assignRequirementNumber(currentLine, spaceId, templateId);
+                    processedLine = assignRequirementNumber(currentLine, spaceId, templateId, onlyMissingNumbers);
                 } else {
                     insideRequirementTable = false;
                     tableSeparatorSeen = false;
@@ -55,9 +63,18 @@ public class RequirementNumberService {
         return result.toString();
     }
 
-    private String assignRequirementNumber(String line, Long spaceId, Long templateId) {
+    private String assignRequirementNumber(String line, Long spaceId, Long templateId, boolean onlyMissingNumbers) {
+        if (onlyMissingNumbers && !isFirstTableCellBlank(line)) {
+            return line;
+        }
+
         int nextNumber = requirementNumberRepository.allocateNextRequirementNumber(spaceId, templateId);
         return replaceFirstTableCell(line, formatRequirementNumber(nextNumber));
+    }
+
+    private boolean isFirstTableCellBlank(String line) {
+        String[] cells = line.split("\\|", -1);
+        return cells.length >= 3 && cells[1].trim().isBlank();
     }
 
     private String replaceFirstTableCell(String line, String value) {
