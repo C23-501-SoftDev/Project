@@ -73,8 +73,9 @@ public class DocumentController {
                 request.templateId()
         );
 
+        String content = documentService.getDocumentContent(document);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(mapper.toDocumentResponse(document, request.content()));
+                .body(mapper.toDocumentResponse(document, content));
     }
 
     /**
@@ -111,7 +112,7 @@ public class DocumentController {
         Document document = documentService.updateDocument(
                 id, request.title(), request.content(), request.status(), request.parentId(), currentUser.getId());
 
-        String content = request.content() != null ? request.content() : documentService.getDocumentContent(document);
+        String content = documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
     }
 

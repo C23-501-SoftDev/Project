@@ -250,12 +250,21 @@ public class DocumentService {
             if (!oldPath.equals(newPath)) {
                 contentRepository.moveContent(oldPath, newPath, "Rename document to: " + title);
                 document.updateGitFilePath(newPath);
-                documentRepository.save(document);
+                updatedMetadata = documentRepository.save(document);
+            }
+
+            String actualContent = content;
+            if (document.getTemplateId() != null) {
+                actualContent = requirementNumberService.numberMissingRequirements(
+                        actualContent,
+                        document.getSpaceId(),
+                        document.getTemplateId()
+                );
             }
 
             contentRepository.saveContent(
                     newPath,
-                    content,
+                    actualContent,
                     "Update document: " + document.getTitle(),
                     "System",
                     "system@knowledgebase.com"
@@ -639,4 +648,3 @@ public class DocumentService {
         return documentRepository.findDistinctAuthorsByAccessibleSpaces(userId);
     }
 }
-

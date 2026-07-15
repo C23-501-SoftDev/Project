@@ -45,5 +45,6 @@
     <include file="db/changelog/changes/029-add-document-title-search-index.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/030-add-document-date-filter-indexes.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/031-add-user-fullname.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/032-repair-system-template-newlines.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
