@@ -32,9 +32,9 @@
 - **dependsOn**: `auth-jwt-cookie`, `admin-users-crud`, `spaces-and-permissions`
 
 ### space-crud — Spaces: Full CRUD operations for Admin
-- **status**: pending
+- **status**: done
 - **dependsOn**: `spaces-and-permissions`
-- **endpoints**: `GET/POST/PUT/DELETE /api/admin/spaces`
+- **endpoints**: `GET/POST/PUT/DELETE /api/admin/spaces`, `POST /api/admin/spaces/{id}/restore`
 - **docs**: `../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md`
 
 ### add-email-notifications — Email notifications: async event-driven email + admin SMTP test
@@ -42,3 +42,15 @@
 - **dependsOn**: `admin-users-crud`, `spaces-and-permissions`, `documents-crud`
 - **endpoints**: `POST /api/admin/notifications/test`
 - **docs**: `../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.3 Системные уведомления/US4.3.1 Рассылка Email-уведомлений/description.md`, `.../US4.3.2 Настройка параметров SMTP и асинхронной рассылки/description.md`
+
+### audit-log — Audit log: system action logging + admin audit endpoint (US4.1.5)
+- **status**: done
+- **dependsOn**: `admin-users-crud`, `space-crud`, `documents-crud`
+- **endpoints**: `GET /api/admin/audit`
+- **docs**: `.../F4.1 Управление пользователями (RBAC)/US4.1.5 Логирование действий системы/description.md`
+
+### user-groups — User groups: CRUD, membership and group space permissions (US4.1.8 / US4.1.9 / US4.2.2)
+- **status**: done
+- **dependsOn**: `admin-users-crud`, `spaces-and-permissions`
+- **endpoints**: `GET/POST /api/admin/groups`, `GET/PUT/DELETE /api/admin/groups/{id}`, `GET/POST /api/admin/groups/{id}/members`, `DELETE /api/admin/groups/{id}/members/{userId}`, `POST/GET /api/admin/spaces/{spaceId}/group-permissions`, `DELETE /api/admin/group-permissions/{permId}`
+- **docs**: `.../F4.1 Управление пользователями (RBAC)/US4.1.8 Создание и управление группами/description.md`, `.../US4.1.9 Управление членством в группах/description.md`

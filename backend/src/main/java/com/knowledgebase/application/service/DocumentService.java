@@ -43,6 +43,7 @@ public class DocumentService {
     private final UserRepository userRepository;
     private final RequirementNumberService requirementNumberService;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditService auditService;
 
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
@@ -50,7 +51,8 @@ public class DocumentService {
                            TemplateRepository templateRepository,
                            UserRepository userRepository,
                            RequirementNumberService requirementNumberService,
-                           ApplicationEventPublisher eventPublisher) {
+                           ApplicationEventPublisher eventPublisher,
+                           AuditService auditService) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
@@ -58,6 +60,7 @@ public class DocumentService {
         this.userRepository = userRepository;
         this.requirementNumberService = requirementNumberService;
         this.eventPublisher = eventPublisher;
+        this.auditService = auditService;
     }
 
     /**
@@ -95,7 +98,8 @@ public class DocumentService {
         User author = userRepository.findById(authorId)
                 .orElseThrow(() -> new UserNotFoundException(authorId));
 
-        String actualContent = content;
+        // Контент может отсутствовать в запросе — создаём документ с пустым содержимым
+        String actualContent = content != null ? content : "";
         if (templateId != null) {
             actualContent = templateRepository.findById(templateId)
                 .map(com.knowledgebase.domain.model.Template::getContent)
@@ -132,6 +136,8 @@ public class DocumentService {
             author.getEmail()
         );
 
+        auditService.record("DOCUMENT_CREATED", AuditService.RESOURCE_DOCUMENT, updatedMetadata.getId(),
+                "title='" + title + "', spaceId=" + spaceId);
         return updatedMetadata;
     }
 
@@ -268,6 +274,8 @@ public class DocumentService {
                 editor.getLogin()
         ));
 
+        auditService.record("DOCUMENT_UPDATED", AuditService.RESOURCE_DOCUMENT, updatedMetadata.getId(),
+                "title='" + updatedMetadata.getTitle() + "', spaceId=" + document.getSpaceId());
         return updatedMetadata;
     }
 
@@ -297,6 +305,9 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.archive(newPath);
         documentRepository.save(document);
+
+        auditService.record("DOCUMENT_DELETED", AuditService.RESOURCE_DOCUMENT, id,
+                "title='" + document.getTitle() + "'");
     }
 
     /**
@@ -315,6 +326,9 @@ public class DocumentService {
 
         // 2. Удаляем файл из Git
         contentRepository.deleteContent(document.getGitFilePath(), "Hard delete document: " + document.getTitle());
+
+        auditService.record("DOCUMENT_HARD_DELETED", AuditService.RESOURCE_DOCUMENT, id,
+                "title='" + document.getTitle() + "'");
     }
 
 
@@ -330,8 +344,8 @@ public class DocumentService {
             return;
         }
 
-        // Проверяем статус пространства
-        Space space = spaceRepository.findById(document.getSpaceId())
+        // Проверяем статус пространства (включая удалённые — для корректного 409)
+        Space space = spaceRepository.findByIdIncludingDeleted(document.getSpaceId())
                 .orElseThrow(() -> new SpaceNotFoundException(document.getSpaceId()));
         
         if (space.isDeleted()) {
@@ -350,6 +364,9 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.restore(originalPath);
         documentRepository.save(document);
+
+        auditService.record("DOCUMENT_RESTORED", AuditService.RESOURCE_DOCUMENT, id,
+                "title='" + document.getTitle() + "'");
     }
 
     /**
@@ -384,7 +401,8 @@ public class DocumentService {
 
      */
     public List<Document> getDocumentsInSpace(Long spaceId, boolean includeDeleted) {
-        if (!spaceRepository.findById(spaceId).isPresent()) {
+        // Пространство может быть soft-удалённым (сценарии корзины) — проверяем только существование.
+        if (!spaceRepository.findByIdIncludingDeleted(spaceId).isPresent()) {
             throw new SpaceNotFoundException(spaceId);
         }
         return documentRepository.findBySpaceId(spaceId, includeDeleted);

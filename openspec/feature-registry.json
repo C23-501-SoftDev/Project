@@ -118,7 +118,7 @@
         {
             "featureId": "space-crud",
             "title": "Spaces: Full CRUD operations for Admin",
-            "status": "pending",
+            "status": "done",
             "area": "backend",
             "repo": "Project",
             "docs": [
@@ -216,6 +216,51 @@
                 "admin-users-crud",
                 "spaces-and-permissions",
                 "documents-crud"
+            ]
+        },
+        {
+            "featureId": "audit-log",
+            "title": "Audit log: system action logging + admin audit endpoint",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.5 Логирование действий системы/description.md"
+            ],
+            "description": "US4.1.5. AuditService records critical user actions (documents, spaces, users, groups, permissions) into audit_log with timestamp, user_id, action_type, resource, details and ip_address. Admin-only endpoint with filtering by user, action type and date range.",
+            "endpoints": [
+                "GET /api/admin/audit"
+            ],
+            "dependsOn": [
+                "admin-users-crud",
+                "space-crud",
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "user-groups",
+            "title": "User groups: CRUD, membership and group space permissions",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.8 Создание и управление группами/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.9 Управление членством в группах/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.2 Механизм назначения прав на Пространства/description.md"
+            ],
+            "description": "US4.1.8 + US4.1.9 + group part of US4.2.2. Group CRUD, membership management and space_group_permissions. Members inherit group permissions in access checks (canRead/canWrite, space lists). Deleting a group revokes its permissions; removing a member revokes inherited access.",
+            "endpoints": [
+                "GET/POST /api/admin/groups",
+                "GET/PUT/DELETE /api/admin/groups/{id}",
+                "GET/POST /api/admin/groups/{id}/members",
+                "DELETE /api/admin/groups/{id}/members/{userId}",
+                "POST /api/admin/spaces/{spaceId}/group-permissions",
+                "GET /api/admin/spaces/{spaceId}/group-permissions",
+                "DELETE /api/admin/group-permissions/{permId}"
+            ],
+            "dependsOn": [
+                "admin-users-crud",
+                "spaces-and-permissions"
             ]
         }
     ]

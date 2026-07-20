@@ -2,13 +2,18 @@ package com.knowledgebase.application.service;
 
 import com.knowledgebase.domain.event.SpacePermissionGrantedEvent;
 import com.knowledgebase.domain.exception.ConflictException;
+import com.knowledgebase.domain.exception.GroupNotFoundException;
 import com.knowledgebase.domain.exception.SpaceNotFoundException;
+import com.knowledgebase.domain.exception.SpaceValidationException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.PermissionType;
 import com.knowledgebase.domain.model.Space;
+import com.knowledgebase.domain.model.SpaceGroupPermission;
 import com.knowledgebase.domain.model.SpacePermission;
+import com.knowledgebase.domain.repository.SpaceGroupPermissionRepository;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.domain.repository.UserGroupRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,23 +39,47 @@ public class SpaceService {
 
     private final SpaceRepository spaceRepository;
     private final SpacePermissionRepository permissionRepository;
+    private final SpaceGroupPermissionRepository groupPermissionRepository;
+    private final UserGroupRepository groupRepository;
     private final UserRepository userRepository;
     private final com.knowledgebase.domain.repository.DocumentContentRepository contentRepository;
     private final DocumentService documentService;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditService auditService;
 
     public SpaceService(SpaceRepository spaceRepository,
                         SpacePermissionRepository permissionRepository,
+                        SpaceGroupPermissionRepository groupPermissionRepository,
+                        UserGroupRepository groupRepository,
                         UserRepository userRepository,
                         com.knowledgebase.domain.repository.DocumentContentRepository contentRepository,
                         DocumentService documentService,
-                        ApplicationEventPublisher eventPublisher) {
+                        ApplicationEventPublisher eventPublisher,
+                        AuditService auditService) {
         this.spaceRepository = spaceRepository;
         this.permissionRepository = permissionRepository;
+        this.groupPermissionRepository = groupPermissionRepository;
+        this.groupRepository = groupRepository;
         this.userRepository = userRepository;
         this.contentRepository = contentRepository;
         this.documentService = documentService;
         this.eventPublisher = eventPublisher;
+        this.auditService = auditService;
+    }
+
+    /**
+     * Проверяет бизнес-правило US4.2.1: владельцем пространства может быть
+     * только пользователь с правами администратора (is_admin = true).
+     *
+     * @throws UserNotFoundException    если пользователь не найден
+     * @throws SpaceValidationException если пользователь не администратор
+     */
+    private void validateOwnerIsAdmin(Long ownerId) {
+        com.knowledgebase.domain.model.User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new UserNotFoundException(ownerId));
+        if (!owner.isAdmin()) {
+            throw new SpaceValidationException("Владельцем пространства может быть только администратор");
+        }
     }
 
     /**
@@ -68,10 +97,8 @@ public class SpaceService {
     public Space createSpace(String name, String description, Long ownerId) {
         log.debug("Создание пространства: name={}, ownerId={}", name, ownerId);
 
-        // Проверяем существование владельца
-        if (!userRepository.findById(ownerId).isPresent()) {
-            throw new UserNotFoundException(ownerId);
-        }
+        // Владелец должен существовать и быть администратором (US4.2.1)
+        validateOwnerIsAdmin(ownerId);
 
         // Проверяем уникальность имени
         if (spaceRepository.existsByName(name)) {
@@ -92,6 +119,8 @@ public class SpaceService {
                 savedSpace.getId(), ownerId, PermissionType.OWNER);
         permissionRepository.save(ownerPermission);
 
+        auditService.record("SPACE_CREATED", AuditService.RESOURCE_SPACE, savedSpace.getId(),
+                "name='" + name + "', ownerId=" + ownerId);
         log.info("Пространство создано: id={}, name={}, owner={}", savedSpace.getId(), name, ownerId);
         return savedSpace;
     }
@@ -128,11 +157,10 @@ public class SpaceService {
             throw new ConflictException("Пространство с именем '" + name + "' уже существует");
         }
 
-        // Проверяем существование нового владельца
-        if (!userRepository.findById(ownerId).isPresent()) {
-            throw new UserNotFoundException(ownerId);
-        }
+        // Новый владелец должен существовать и быть администратором (US4.2.1)
+        validateOwnerIsAdmin(ownerId);
 
+        String oldName = space.getName();
         Long oldOwnerId = space.getOwnerId();
         space.update(name, description, ownerId);
         Space updatedSpace = spaceRepository.save(space);
@@ -140,11 +168,11 @@ public class SpaceService {
         // Если владелец изменился, обновляем права
         if (!oldOwnerId.equals(ownerId)) {
             log.info("Смена владельца пространства {}: {} -> {}", spaceId, oldOwnerId, ownerId);
-            
+
             // Удаляем старое право OWNER
             permissionRepository.deleteBySpaceIdAndUserIdAndPermissionType(
                     spaceId, oldOwnerId, PermissionType.OWNER);
-            
+
             // Назначаем новое право OWNER
             SpacePermission newOwnerPermission = SpacePermission.grant(
                     spaceId, ownerId, PermissionType.OWNER);
@@ -152,14 +180,16 @@ public class SpaceService {
         }
 
         // Если имя изменилось, переименовываем директорию в Git
-        if (!space.getName().equals(name)) {
-            String oldSanitizedName = space.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+        if (!oldName.equals(name)) {
+            String oldSanitizedName = oldName.replaceAll("[\\\\/:*?\"<>|\\s]", "-");
             String newSanitizedName = name.replaceAll("[\\\\/:*?\"<>|\\s]", "-");
             String oldPath = "spaces/" + oldSanitizedName;
             String newPath = "spaces/" + newSanitizedName;
-            contentRepository.moveContent(oldPath, newPath, "Rename space from " + space.getName() + " to " + name);
+            contentRepository.moveContent(oldPath, newPath, "Rename space from " + oldName + " to " + name);
         }
 
+        auditService.record("SPACE_UPDATED", AuditService.RESOURCE_SPACE, spaceId,
+                "name: '" + oldName + "' -> '" + name + "', owner: " + oldOwnerId + " -> " + ownerId);
         return updatedSpace;
     }
 
@@ -185,44 +215,52 @@ public class SpaceService {
 
     /**
      * Удаляет пространство (soft-delete).
-     * Документы внутри становятся недоступными для восстановления при восстановлении пространства.
+     * Все документы пространства также помечаются удалёнными.
      */
     @Transactional
     public void deleteSpace(Long spaceId) {
         log.info("Мягкое удаление пространства: id={}", spaceId);
-        
+
         Space space = spaceRepository.findById(spaceId)
                 .orElseThrow(() -> new SpaceNotFoundException(spaceId));
 
-        // Устанавливаем флаг удаления
-        space.softDelete();
-        spaceRepository.save(space);
-
-        // Мягко удаляем все документы в пространстве
-        List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, false);
+        // Сначала мягко удаляем документы (от листьев к корням — deleteDocument
+        // запрещает удалять документ с активными дочерними документами)
+        List<com.knowledgebase.domain.model.Document> documents =
+                sortChildrenFirst(documentService.getDocumentsInSpace(spaceId, false));
         for (com.knowledgebase.domain.model.Document doc : documents) {
             documentService.deleteDocument(doc.getId());
         }
+
+        // Затем устанавливаем флаг удаления самому пространству
+        space.softDelete();
+        spaceRepository.save(space);
+
+        auditService.record("SPACE_DELETED", AuditService.RESOURCE_SPACE, spaceId,
+                "name='" + space.getName() + "', documents=" + documents.size());
     }
 
     /**
      * Удаляет пространство и все его документы навсегда (hard-delete).
+     * Работает и для soft-удалённых пространств (удаление из корзины).
      */
     @Transactional
     public void hardDeleteSpace(Long spaceId) {
         log.info("Полное удаление пространства: id={}", spaceId);
-        
-        Space space = spaceRepository.findById(spaceId)
+
+        Space space = spaceRepository.findByIdIncludingDeleted(spaceId)
                 .orElseThrow(() -> new SpaceNotFoundException(spaceId));
 
-        // Сначала удаляем документы
-        List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, true);
+        // Сначала удаляем документы (от листьев к корням)
+        List<com.knowledgebase.domain.model.Document> documents =
+                sortChildrenFirst(documentService.getDocumentsInSpace(spaceId, true));
         for (com.knowledgebase.domain.model.Document doc : documents) {
             documentService.hardDeleteDocument(doc.getId());
         }
 
-        // Удаляем права доступа
+        // Удаляем права доступа пользователей и групп
         permissionRepository.deleteBySpaceId(spaceId);
+        groupPermissionRepository.deleteBySpaceId(spaceId);
 
         // Удаляем само пространство
         spaceRepository.deleteById(spaceId);
@@ -230,6 +268,9 @@ public class SpaceService {
         // Удаляем директорию в Git
         String sanitizedName = space.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
         contentRepository.deleteContent("spaces/" + sanitizedName, "Hard delete space: " + space.getName());
+
+        auditService.record("SPACE_HARD_DELETED", AuditService.RESOURCE_SPACE, spaceId,
+                "name='" + space.getName() + "'");
     }
 
     /**
@@ -240,12 +281,12 @@ public class SpaceService {
     @Transactional
     public void restoreSpace(Long spaceId) {
         log.info("Восстановление пространства: id={}", spaceId);
-        
-        Space space = spaceRepository.findById(spaceId)
+
+        Space space = spaceRepository.findByIdIncludingDeleted(spaceId)
                 .orElseThrow(() -> new SpaceNotFoundException(spaceId));
 
         // Восстанавливаем пространство
-        space.restore(); 
+        space.restore();
         spaceRepository.save(space);
 
         // Восстанавливаем документы в пространстве
@@ -257,6 +298,45 @@ public class SpaceService {
                 documentService.restoreDocument(doc.getId());
             }
         }
+
+        auditService.record("SPACE_RESTORED", AuditService.RESOURCE_SPACE, spaceId,
+                "name='" + space.getName() + "'");
+    }
+
+    /**
+     * Сортирует документы так, чтобы дочерние шли раньше родителей
+     * (по глубине вложенности, от самых глубоких к корням).
+     */
+    private List<com.knowledgebase.domain.model.Document> sortChildrenFirst(
+            List<com.knowledgebase.domain.model.Document> documents) {
+        java.util.Map<Long, com.knowledgebase.domain.model.Document> byId = new java.util.HashMap<>();
+        for (com.knowledgebase.domain.model.Document doc : documents) {
+            byId.put(doc.getId(), doc);
+        }
+        java.util.Map<Long, Integer> depthCache = new java.util.HashMap<>();
+        return documents.stream()
+                .sorted(java.util.Comparator.comparingInt(
+                        (com.knowledgebase.domain.model.Document d) -> depthOf(d, byId, depthCache)).reversed())
+                .toList();
+    }
+
+    private int depthOf(com.knowledgebase.domain.model.Document doc,
+                        java.util.Map<Long, com.knowledgebase.domain.model.Document> byId,
+                        java.util.Map<Long, Integer> cache) {
+        Integer cached = cache.get(doc.getId());
+        if (cached != null) {
+            return cached;
+        }
+        int depth = 0;
+        Long parentId = doc.getParentDocumentId();
+        // Ограничитель на случай некорректных циклов в данных
+        int guard = 0;
+        while (parentId != null && byId.containsKey(parentId) && guard++ < 1000) {
+            depth++;
+            parentId = byId.get(parentId).getParentDocumentId();
+        }
+        cache.put(doc.getId(), depth);
+        return depth;
     }
 
     /**
@@ -347,33 +427,38 @@ public class SpaceService {
     }
 
     private List<Space> findSpacesByExplicitPermissions(Long userId, PermissionType requiredAccess) {
+        // Личные права пользователя
         List<SpacePermission> permissions = permissionRepository.findByUserId(userId);
-        
-        // Фильтруем по требуемому уровню доступа
-        java.util.stream.Stream<SpacePermission> stream = permissions.stream();
-        if (requiredAccess != null) {
-            stream = stream.filter(p -> {
-                if (requiredAccess == PermissionType.READ) return true;
-                if (requiredAccess == PermissionType.WRITE) {
-                    return p.getPermissionType() == PermissionType.WRITE || p.getPermissionType() == PermissionType.OWNER;
-                }
-                if (requiredAccess == PermissionType.OWNER) {
-                    return p.getPermissionType() == PermissionType.OWNER;
-                }
-                return false;
-            });
-        }
-        
-        List<Long> spaceIds = stream
+        java.util.Set<Long> spaceIds = permissions.stream()
+                .filter(p -> matchesRequiredAccess(p.getPermissionType(), requiredAccess))
                 .map(SpacePermission::getSpaceId)
-                .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toSet());
+
+        // Права групп, в которых состоит пользователь (US4.2.2)
+        groupPermissionRepository.findByMemberUserId(userId).stream()
+                .filter(p -> matchesRequiredAccess(p.getPermissionType(), requiredAccess))
+                .map(SpaceGroupPermission::getSpaceId)
+                .forEach(spaceIds::add);
 
         if (spaceIds.isEmpty()) {
             return java.util.Collections.emptyList();
         }
 
-        return spaceRepository.findAllByIdIn(new java.util.HashSet<>(spaceIds));
+        return spaceRepository.findAllByIdIn(spaceIds);
+    }
+
+    /**
+     * Проверяет, покрывает ли имеющееся право требуемый уровень доступа
+     * (OWNER ⊃ WRITE ⊃ READ).
+     */
+    private boolean matchesRequiredAccess(PermissionType actual, PermissionType required) {
+        if (required == null || required == PermissionType.READ) {
+            return true;
+        }
+        if (required == PermissionType.WRITE) {
+            return actual == PermissionType.WRITE || actual == PermissionType.OWNER;
+        }
+        return actual == PermissionType.OWNER;
     }
 
     /**
@@ -440,8 +525,110 @@ public class SpaceService {
         eventPublisher.publishEvent(new SpacePermissionGrantedEvent(
                 spaceId, userId, permissionType.name()));
 
+        auditService.record("PERMISSION_GRANTED", AuditService.RESOURCE_PERMISSION, saved.getId(),
+                "spaceId=" + spaceId + ", userId=" + userId + ", type=" + permissionType);
         log.info("Право назначено: spaceId={}, userId={}, type={}", spaceId, userId, permissionType);
         return saved;
+    }
+
+    /**
+     * Отзывает право доступа пользователя по ID права.
+     * Идемпотентно: отсутствие права не считается ошибкой.
+     *
+     * @param permissionId ID записи права
+     */
+    @Transactional
+    public void revokePermission(Long permissionId) {
+        SpacePermission permission = permissionRepository.findById(permissionId).orElse(null);
+        permissionRepository.deleteById(permissionId);
+        if (permission != null) {
+            auditService.record("PERMISSION_REVOKED", AuditService.RESOURCE_PERMISSION, permissionId,
+                    "spaceId=" + permission.getSpaceId() + ", userId=" + permission.getUserId()
+                            + ", type=" + permission.getPermissionType());
+            log.info("Право отозвано: id={}, spaceId={}, userId={}",
+                    permissionId, permission.getSpaceId(), permission.getUserId());
+        }
+    }
+
+    // ── Права групп на пространства (US4.2.2) ───────────────────────────────
+
+    /**
+     * Назначает право доступа группе на пространство.
+     * Как и для пользователей: выдача WRITE поглощает READ, OWNER — READ и WRITE.
+     *
+     * @throws SpaceNotFoundException если пространство не найдено
+     * @throws GroupNotFoundException если группа не найдена
+     * @throws ConflictException      если такое право уже выдано
+     */
+    @Transactional
+    public SpaceGroupPermission grantGroupPermission(Long spaceId, Long groupId, PermissionType permissionType) {
+        log.debug("Назначение права группе: spaceId={}, groupId={}, type={}", spaceId, groupId, permissionType);
+
+        if (!spaceRepository.findById(spaceId).isPresent()) {
+            throw new SpaceNotFoundException(spaceId);
+        }
+        if (!groupRepository.findById(groupId).isPresent()) {
+            throw new GroupNotFoundException(groupId);
+        }
+
+        if (groupPermissionRepository.existsBySpaceIdAndGroupIdAndPermissionType(spaceId, groupId, permissionType)) {
+            throw new ConflictException("У группы уже есть такие права");
+        }
+
+        if (permissionType == PermissionType.READ) {
+            boolean hasHigherAccess =
+                    groupPermissionRepository.existsBySpaceIdAndGroupIdAndPermissionType(spaceId, groupId, PermissionType.WRITE)
+                    || groupPermissionRepository.existsBySpaceIdAndGroupIdAndPermissionType(spaceId, groupId, PermissionType.OWNER);
+            if (hasHigherAccess) {
+                throw new ConflictException("У группы уже есть такие права");
+            }
+        }
+
+        // WRITE поглощает READ; OWNER поглощает READ и WRITE
+        if (permissionType == PermissionType.WRITE) {
+            groupPermissionRepository.deleteBySpaceIdAndGroupIdAndPermissionType(spaceId, groupId, PermissionType.READ);
+        }
+        if (permissionType == PermissionType.OWNER) {
+            groupPermissionRepository.deleteBySpaceIdAndGroupIdAndPermissionType(spaceId, groupId, PermissionType.READ);
+            groupPermissionRepository.deleteBySpaceIdAndGroupIdAndPermissionType(spaceId, groupId, PermissionType.WRITE);
+        }
+
+        SpaceGroupPermission saved = groupPermissionRepository.save(
+                SpaceGroupPermission.grant(spaceId, groupId, permissionType));
+
+        auditService.record("GROUP_PERMISSION_GRANTED", AuditService.RESOURCE_PERMISSION, saved.getId(),
+                "spaceId=" + spaceId + ", groupId=" + groupId + ", type=" + permissionType);
+        log.info("Право группе назначено: spaceId={}, groupId={}, type={}", spaceId, groupId, permissionType);
+        return saved;
+    }
+
+    /**
+     * Отзывает право группы по ID права.
+     * Идемпотентно: отсутствие права не считается ошибкой.
+     */
+    @Transactional
+    public void revokeGroupPermission(Long permissionId) {
+        SpaceGroupPermission permission = groupPermissionRepository.findById(permissionId).orElse(null);
+        groupPermissionRepository.deleteById(permissionId);
+        if (permission != null) {
+            auditService.record("GROUP_PERMISSION_REVOKED", AuditService.RESOURCE_PERMISSION, permissionId,
+                    "spaceId=" + permission.getSpaceId() + ", groupId=" + permission.getGroupId()
+                            + ", type=" + permission.getPermissionType());
+            log.info("Право группы отозвано: id={}, spaceId={}, groupId={}",
+                    permissionId, permission.getSpaceId(), permission.getGroupId());
+        }
+    }
+
+    /**
+     * Возвращает все права групп для пространства (для ADMIN).
+     *
+     * @throws SpaceNotFoundException если пространство не найдено
+     */
+    public List<SpaceGroupPermission> getGroupPermissionsForSpace(Long spaceId) {
+        if (!spaceRepository.findById(spaceId).isPresent()) {
+            throw new SpaceNotFoundException(spaceId);
+        }
+        return groupPermissionRepository.findBySpaceId(spaceId);
     }
 
     /**

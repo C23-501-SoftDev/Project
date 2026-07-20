@@ -21,9 +21,15 @@ public interface SpaceRepository {
     Space save(Space space);
 
     /**
-     * Находит пространство по ID.
+     * Находит активное (не удалённое) пространство по ID.
      */
     Optional<Space> findById(Long id);
+
+    /**
+     * Находит пространство по ID, включая soft-удалённые.
+     * Используется для восстановления и полного удаления из корзины.
+     */
+    Optional<Space> findByIdIncludingDeleted(Long id);
 
     /**
      * Находит пространства по списку ID.

@@ -37,6 +37,12 @@ public class SpaceRepositoryImpl implements SpaceRepository {
 
     @Override
     public Optional<Space> findById(Long id) {
+        return jpaRepository.findByIdAndIsDeletedFalse(id)
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<Space> findByIdIncludingDeleted(Long id) {
         return jpaRepository.findById(id)
                 .map(mapper::toDomain);
     }

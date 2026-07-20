@@ -71,22 +71,19 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
         String email = login + "@example.com";
 
         // create user
-        mockMvc.perform(post("/api/admin/users")
+        String createResp = mockMvc.perform(post("/api/admin/users")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","password":"secret123","role":"READER","isAdmin":false}
                                 """.formatted(login, email)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.login", is(login)));
-
-        // get user id from list
-        String listResponse = mockMvc.perform(get("/api/admin/users?page=0&size=20")
-                        .cookie(jwtCookie(adminJwt)))
+                .andExpect(jsonPath("$.login", is(login)))
                 .andReturn().getResponse().getContentAsString();
+        long userId = Long.parseLong(createResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
         // soft-delete (200 with user data)
-        mockMvc.perform(delete("/api/admin/users/2")
+        mockMvc.perform(delete("/api/admin/users/" + userId)
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isDeleted", is(true)));
@@ -98,7 +95,7 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isUnauthorized());
 
         // restore user (200)
-        mockMvc.perform(post("/api/admin/users/2/restore")
+        mockMvc.perform(post("/api/admin/users/" + userId + "/restore")
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isDeleted", is(false)));
@@ -233,16 +230,18 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
         String email = login + "@example.com";
 
         // create user
-        mockMvc.perform(post("/api/admin/users")
+        String createResp = mockMvc.perform(post("/api/admin/users")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","password":"secret123","role":"READER","isAdmin":false}
                                 """.formatted(login, email)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long userId = Long.parseLong(createResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
         // soft-delete user
-        mockMvc.perform(delete("/api/admin/users/2")
+        mockMvc.perform(delete("/api/admin/users/" + userId)
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isOk());
 

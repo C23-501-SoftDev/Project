@@ -17,6 +17,8 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
 
     Optional<SpaceJpaEntity> findByNameAndIsDeletedFalse(String name);
 
+    Optional<SpaceJpaEntity> findByIdAndIsDeletedFalse(Long id);
+
     boolean existsByNameAndIsDeletedFalse(String name);
 
     boolean existsByNameAndIdNotAndIsDeletedFalse(String name, Long id);

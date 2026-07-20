@@ -43,4 +43,7 @@
     <include file="db/changelog/changes/027-add-is-deleted-to-spaces.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/028-create-requirement-number-counters-table.xml" relativeToChangelogFile="false"/>
 
+    <!-- US4.1.5 — Журнал аудита действий системы -->
+    <include file="db/changelog/changes/029-create-audit-log-table.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

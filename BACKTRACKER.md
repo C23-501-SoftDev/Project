@@ -236,6 +236,36 @@
 | DELETE | `/api/admin/spaces/{id}` | Удаление пространства (RESTRICT если есть документы) | ✅ |
 | POST | `/api/admin/spaces/{spaceId}/permissions` | Назначение прав (`{ userId, permissionType: READ|WRITE|OWNER }`) | ✅ |
 | GET | `/api/admin/spaces/{id}/permissions` | Список прав пространства (с полями userLogin, userEmail) | ✅ |
+| DELETE | `/api/admin/permissions/{permId}` | Отзыв права пользователя по ID | ✅ |
+| POST | `/api/admin/spaces/{spaceId}/restore` | Восстановление soft-удалённого пространства | ✅ |
+| POST | `/api/admin/spaces/{spaceId}/group-permissions` | Назначение права группе (`{ groupId, permissionType }`) | ✅ |
+| GET | `/api/admin/spaces/{spaceId}/group-permissions` | Список прав групп на пространство (с groupName) | ✅ |
+| DELETE | `/api/admin/group-permissions/{permId}` | Отзыв права группы по ID | ✅ |
+
+> **Бизнес-правило (US4.2.1):** владельцем пространства (`ownerId`) может быть только пользователь с `is_admin = true`; иначе `422 Unprocessable Entity`.
+
+---
+
+## Админ-панель: Группы пользователей (US4.1.8 / US4.1.9)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/admin/groups?page=0&size=50` | Список групп (PageResponse, с memberCount) | ✅ |
+| POST | `/api/admin/groups` | Создание группы (`{ name, description }`), 409 при дубликате имени | ✅ |
+| GET | `/api/admin/groups/{id}` | Данные группы | ✅ |
+| PUT | `/api/admin/groups/{id}` | Обновление группы | ✅ |
+| DELETE | `/api/admin/groups/{id}` | Удаление группы (члены и права на пространства отзываются) | ✅ |
+| GET | `/api/admin/groups/{id}/members` | Участники группы (userId, login, email, addedAt) | ✅ |
+| POST | `/api/admin/groups/{id}/members` | Добавить пользователя (`{ userId }`), 409 при дубликате | ✅ |
+| DELETE | `/api/admin/groups/{id}/members/{userId}` | Удалить пользователя из группы | ✅ |
+
+---
+
+## Админ-панель: Журнал аудита (US4.1.5)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/admin/audit?userId=&actionType=&dateFrom=&dateTo=&page=0&size=20` | Журнал аудита с фильтрами (только ADMIN), сортировка новые-первыми | ✅ |
 
 ---
 
