@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403 — Доступ запрещён</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <style>
+        .error-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .error-card {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 52px 48px;
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+            animation: fadeInUp 0.4s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            background: #fef2f2;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 28px;
+        }
+
+        .error-code {
+            font-size: 72px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--danger-color);
+            line-height: 1;
+            margin: 0 0 12px;
+        }
+
+        .error-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0 0 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .error-description {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin: 0 0 36px;
+            line-height: 1.7;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .error-actions a {
+            text-decoration: none;
+        }
+
+        .error-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 32px 0;
+        }
+
+        .error-hint {
+            font-size: 13px;
+            color: var(--secondary-color);
+        }
+
+        .error-hint a {
+            color: var(--primary-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .error-hint a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="error-page">
+    <div class="error-card">
+
+        <div class="error-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" fill="#fecaca"/>
+                <path d="M15.5 8.5L8.5 15.5" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+                <path d="M8.5 8.5L15.5 15.5" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+                <rect x="7" y="11" width="10" height="2" rx="1" fill="#ef4444"/>
+            </svg>
+        </div>
+
+        <div class="error-code">403</div>
+        <h1 class="error-title">Доступ запрещён</h1>
+        <p class="error-description">
+            У вас недостаточно прав для просмотра этой страницы.<br>
+            Обратитесь к администратору, если считаете это ошибкой.
+        </p>
+
+        <div class="error-actions">
+            <a th:href="@{/}" class="button-primary">На главную</a>
+            <a href="javascript:history.back()" class="button-secondary">Назад</a>
+        </div>
+
+        <div class="error-divider"></div>
+        <p class="error-hint">
+            Нужны права доступа? Свяжитесь с
+            <a th:href="@{/admin/users}">администратором</a>.
+        </p>
+
+    </div>
+</body>
+</html>
