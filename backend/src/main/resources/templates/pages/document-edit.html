@@ -59,7 +59,32 @@
                     Список</button>
                 <button class="toolbar-btn" onclick="insertAtCursor('\n```\n')" title="Блок кода">&lt;/&gt;</button>
                 <button class="toolbar-btn" onclick="insertAtCursor('## ')" title="Заголовок H2">H2</button>
+
+                <!-- Нейроассистент -->
+                <div class="ai-assistant" id="aiAssistant" style="position:relative; display:none; margin-left:auto;">
+                    <button type="button" class="toolbar-btn" id="aiAssistBtn" title="Нейроассистент — изменить тип текста">✨ Нейроассистент</button>
+                    <div id="aiAssistPanel" style="display:none; position:absolute; right:0; top:112%; z-index:50; background:#fff; border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.12); padding:6px; min-width:210px;">
+                        <div style="font-size:11px; color:#6B7280; padding:4px 8px;">Изменить тип текста (выделите фрагмент или обработается весь текст):</div>
+                        <button type="button" class="ai-action-btn" data-action="formal">Официальный</button>
+                        <button type="button" class="ai-action-btn" data-action="professional">Профессиональный</button>
+                        <button type="button" class="ai-action-btn" data-action="simple">Проще</button>
+                        <button type="button" class="ai-action-btn" data-action="friendly">Дружелюбный</button>
+                        <button type="button" class="ai-action-btn" data-action="shorter">Короче</button>
+                        <button type="button" class="ai-action-btn" data-action="longer">Подробнее</button>
+                        <button type="button" class="ai-action-btn" data-action="grammar">Исправить ошибки</button>
+                    </div>
+                </div>
             </div>
+            <style>
+                .ai-action-btn {
+                    display: block; width: 100%; text-align: left;
+                    padding: 8px 10px; margin: 2px 0; border: none;
+                    background: transparent; border-radius: 6px; cursor: pointer;
+                    font-size: 14px; color: var(--text-color);
+                }
+                .ai-action-btn:hover { background: #F3F4F6; }
+                .ai-action-btn:disabled { opacity: .6; cursor: default; }
+            </style>
             <textarea id="editorTextarea" class="editor-textarea"
                 placeholder="Введите текст в формате Markdown..."></textarea>
         </div>
@@ -380,6 +405,64 @@
                 saveDocument();
             }
         });
+
+        // ── Нейроассистент (routerai) ──────────────────────────────────
+        (function initAiAssistant() {
+            const wrapper = document.getElementById('aiAssistant');
+            const btn = document.getElementById('aiAssistBtn');
+            const panel = document.getElementById('aiAssistPanel');
+            if (!wrapper || !btn || !panel) return;
+
+            // Кнопку показываем только если ассистент включён на сервере
+            fetch('/api/ai/status', { credentials: 'same-origin' })
+                .then(r => r.ok ? r.json() : { enabled: false })
+                .then(s => { if (s && s.enabled) wrapper.style.display = ''; })
+                .catch(() => {});
+
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+            document.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) panel.style.display = 'none';
+            });
+            panel.querySelectorAll('.ai-action-btn').forEach(actionBtn => {
+                actionBtn.addEventListener('click', () => aiTransform(actionBtn.dataset.action));
+            });
+
+            async function aiTransform(action) {
+                const hasSelection = textarea.selectionStart !== textarea.selectionEnd;
+                const start = textarea.selectionStart, end = textarea.selectionEnd;
+                const text = hasSelection ? textarea.value.substring(start, end) : textarea.value;
+                if (!text.trim()) { showToast('Нет текста для обработки', 'error'); return; }
+
+                panel.style.display = 'none';
+                const prev = btn.textContent;
+                btn.disabled = true; btn.textContent = '✨ Обработка...';
+                try {
+                    const resp = await fetch('/api/ai/transform', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ text, action })
+                    });
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok) { showToast(data.error || 'Ошибка нейроассистента', 'error'); return; }
+                    const result = data.result || '';
+                    if (hasSelection) {
+                        textarea.setRangeText(result, start, end, 'end');
+                    } else {
+                        textarea.value = result;
+                    }
+                    renderPreview();
+                    showToast('Готово ✨');
+                } catch (e) {
+                    showToast('Ошибка запроса к нейроассистенту', 'error');
+                } finally {
+                    btn.disabled = false; btn.textContent = prev;
+                }
+            }
+        })();
 
         loadDocument();
     })();
