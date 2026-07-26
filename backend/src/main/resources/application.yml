@@ -135,6 +135,17 @@ app:
     from: ${NOTIFICATIONS_FROM:no-reply@knowledgebase.local}
     admin-email: ${NOTIFICATIONS_ADMIN_EMAIL:admin@knowledgebase.local}
 
+  # =====================================================
+  # Нейроассистент редактирования текста (routerai.ru, OpenAI-совместимый)
+  # enabled=false → эндпоинт /api/ai/** отвечает 503, кнопка в UI скрыта.
+  # =====================================================
+  ai:
+    enabled: ${AI_ENABLED:false}
+    base-url: ${AI_BASE_URL:https://routerai.ru/api/v1}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:deepseek/deepseek-v4-pro}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:60}
+
   jwt:
     # ВАЖНО: В prod заменить на ENV-переменную JWT_SECRET_KEY
     secret-key: "knowledge-base-secret-key-for-jwt-signing-minimum-256-bits-long!"
