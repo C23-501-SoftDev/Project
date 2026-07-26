@@ -54,10 +54,20 @@ public abstract class IntegrationTestBase {
     }
 
     @DynamicPropertySource
-    static void registerStoragePaths(DynamicPropertyRegistry registry) {
+    static void registerTestProperties(DynamicPropertyRegistry registry) {
         // В тестах не трогаем рабочие ./data — всё уходит во временную директорию.
         registry.add("app.storage.git.path", () -> tempDir.resolve("git-repo").toString());
         registry.add("app.storage.blob.path", () -> tempDir.resolve("blob-storage").toString());
+
+        // Тесты должны быть герметичными: в контейнере заданы переменные окружения
+        // NOTIFICATIONS_* / AI_*, а env в Spring Boot приоритетнее application.yml.
+        // Фиксируем значения здесь (DynamicPropertySource приоритетнее env),
+        // чтобы результат не зависел от настроек рабочего окружения.
+        registry.add("app.notifications.enabled", () -> "false");
+        registry.add("app.notifications.from", () -> "no-reply@knowledgebase.local");
+        registry.add("app.notifications.admin-email", () -> "admin@knowledgebase.local");
+        registry.add("app.ai.enabled", () -> "false");
+        registry.add("app.ai.api-key", () -> "");
     }
 
     @Autowired protected MockMvc mockMvc;
