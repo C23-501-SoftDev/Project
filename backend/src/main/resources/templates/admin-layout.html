@@ -23,6 +23,11 @@
                     Пространства</a>
             </li>
             <li>
+                <a th:href="@{/admin/groups}"
+                   th:class="${activePage == 'groups'} ? 'sidebar-tab active' : 'sidebar-tab'">
+                    Группы</a>
+            </li>
+            <li>
                 <a th:href="@{/admin/settings}"
                    th:class="${activePage == 'settings'} ? 'sidebar-tab active' : 'sidebar-tab'">
                     Настройки</a>

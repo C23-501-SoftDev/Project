@@ -210,6 +210,19 @@ public class PageController {
     }
 
     /**
+     * GET /admin/groups
+     * Панель администратора — управление группами пользователей (US4.1.8 / US4.1.9).
+     */
+    @GetMapping("/admin/groups")
+    public String adminGroups(@AuthenticationPrincipal User user, Model model) {
+        model.addAttribute("pageTitle", "Управление группами");
+        model.addAttribute("currentUser", user);
+        model.addAttribute("activePage", "groups");
+        model.addAttribute("content", "pages/admin-groups");
+        return "admin-layout";
+    }
+
+    /**
      * GET /admin/settings
      * Панель администратора — настройки.
      */
