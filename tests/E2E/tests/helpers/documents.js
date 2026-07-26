@@ -29,12 +29,36 @@ async function newBrowserPageFromApi(browser, api) {
   return { context, page };
 }
 
-async function createSpace(adminApi, baseURL, name) {
-  const response = await adminApi.post(`${baseURL}/api/admin/spaces`, {
-    data: { name, description: "E2E documents test space" },
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Retries transient 5xx responses (Git lock/contention during parallel seed). */
+async function postWithRetry(api, url, options, { attempts = 6, delayMs = 400 } = {}) {
+  let response;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    response = await api.post(url, options);
+    if (response.status() < 500) {
+      return response;
+    }
+    if (attempt < attempts) {
+      await sleep(delayMs * attempt);
+    }
+  }
+  return response;
+}
+
+async function createSpace(adminApi, baseURL, name, options = {}) {
+  const response = await postWithRetry(adminApi, `${baseURL}/api/admin/spaces`, {
+    data: {
+      name,
+      description: options.description || "E2E documents test space",
+      ...(options.ownerId ? { ownerId: options.ownerId } : {}),
+    },
   });
   if (!response.ok()) {
-    throw new Error(`createSpace failed: ${response.status()}`);
+    const body = await response.text().catch(() => "");
+    throw new Error(`createSpace failed: ${response.status()} ${body}`);
   }
   return response.json();
 }
@@ -50,9 +74,9 @@ async function grantSpacePermission(adminApi, baseURL, spaceId, userId, permissi
   return response.json();
 }
 
-async function createUser(adminApi, baseURL, { login, email, password, role }) {
+async function createUser(adminApi, baseURL, { login, email, password, role, isAdmin = false }) {
   const response = await adminApi.post(`${baseURL}/api/admin/users`, {
-    data: { login, email, password, role, isAdmin: false },
+    data: { login, email, password, role, isAdmin },
   });
   if (!response.ok()) {
     throw new Error(`createUser failed: ${response.status()}`);
@@ -60,11 +84,16 @@ async function createUser(adminApi, baseURL, { login, email, password, role }) {
   return response.json();
 }
 
-async function createDocument(api, baseURL, { title, spaceId, content = "" }) {
-  const response = await api.post(`${baseURL}/api/documents`, {
-    data: { title, spaceId, content },
-  });
-  return response;
+async function createDocument(api, baseURL, payload = {}) {
+  const { title, spaceId, content = "", parentId, templateId } = payload;
+  const data = { title, spaceId, content };
+  if (parentId !== undefined) {
+    data.parentId = parentId;
+  }
+  if (templateId !== undefined) {
+    data.templateId = templateId;
+  }
+  return postWithRetry(api, `${baseURL}/api/documents`, { data });
 }
 
 async function getFirstSpaceId(api, baseURL) {

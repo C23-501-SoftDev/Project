@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-06-03",
+    "updatedAt": "2026-07-22",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -56,6 +56,22 @@
                 "POST /api/admin/spaces/{spaceId}/permissions",
                 "GET /api/user/permissions",
                 "GET /api/user/spaces"
+            ]
+        },
+        {
+            "featureId": "space-search-sidebar",
+            "title": "Spaces: search by name in sidebar",
+            "status": "pending",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.1 CRUD сущности Space/description.md"
+            ],
+            "endpoints": [
+                "GET /api/spaces/search"
+            ],
+            "dependsOn": [
+                "spaces-and-permissions"
             ]
         },
         {
@@ -295,6 +311,21 @@
                 "GET /api/ai/status",
                 "POST /api/ai/transform"
             ],
+            "dependsOn": [
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "url-params-filters",
+            "title": "URL parameters support for all document list filters",
+            "status": "done",
+            "area": "frontend",
+            "repo": "Project",
+            "docs": [],
+            "endpoints": [
+                "GET /api/documents"
+            ],
+            "description": "Full URL parameter support for filters (spaceId, authorId, status, sortBy, sortDir, q, page). Preserves filters when navigating via space tree. Restores filter state from URL on page load.",
             "dependsOn": [
                 "documents-crud"
             ]

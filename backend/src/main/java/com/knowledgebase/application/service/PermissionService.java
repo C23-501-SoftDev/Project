@@ -19,8 +19,8 @@ import java.util.List;
  *
  * | Флаг isAdmin | /api/admin/** | Создание/редактирование | Чтение |
  * |--------------|--------------|------------------------|--------|
- * | true         | всегда       | всегда                 | всегда |
- * | false        | никогда      | WRITE/OWNER в space    | любое право в space |
+ * | true         | всегда       | по роли/правам         | всегда |
+ * | false        | никогда      | по роли/правам         | по роли/правам |
  *
  * Используется в @PreAuthorize выражениях и напрямую в сервисах.
  */
@@ -43,15 +43,15 @@ public class PermissionService {
     }
 
     /**
-     * Проверяет, может ли пользователь создавать/редактировать документы в пространстве.
+     * Проверяет, может ли пользователь создавать/редактировать/удалять/восстанавливать документы в пространстве.
      *
      * Логика (обновлено):
-     * - isAdmin=true → всегда true
      * - EDITOR (WRITER) → всегда true
      * - READER/GUEST → true, если есть явное право WRITE или OWNER в пространстве
+     * - isAdmin=true сам по себе не дает прав записи в документы
      *
      * @param userId   ID пользователя
-     * @param isAdmin  флаг администратора
+     * @param isAdmin  флаг администратора (не используется для записи)
      * @param spaceId  ID пространства
      * @return true если операция разрешена
      */
@@ -60,34 +60,32 @@ public class PermissionService {
             return false;
         }
 
-        GlobalRole role = userRepository.findById(userId)
-                .map(com.knowledgebase.domain.model.User::getRole)
-                .orElse(GlobalRole.GUEST);
+        return userRepository.findById(userId)
+                .map(user -> {
+                    // EDITOR -> всегда true (согласно GlobalRole.java)
+                    if (user.getRole() == GlobalRole.EDITOR) {
+                        return true;
+                    }
 
-        if (isAdmin && role != GlobalRole.GUEST) {
-            return true;
-        }
-        
-        // 1. Проверяем глобальную роль (EDITOR всегда может писать)
-        if (role == GlobalRole.EDITOR) {
-            return true;
-        }
-
-        // 2. Если не глобальный редактор, проверяем явные права на пространство (для READER/GUEST):
-        //    личные права и права групп, в которых состоит пользователь (US4.2.2)
-        if (spaceId == null) {
-            return false;
-        }
-        return permissionRepository.hasWriteAccess(spaceId, userId)
-                || groupPermissionRepository.hasWriteAccessViaGroups(spaceId, userId);
+                    // Для всех остальных (включая ADMIN с ролью READER/GUEST):
+                    // проверяем явные права на пространство (WRITE или OWNER) —
+                    // как личные, так и полученные через группы (US4.2.2)
+                    if (spaceId == null) {
+                        return false;
+                    }
+                    return permissionRepository.hasWriteAccess(spaceId, userId)
+                            || groupPermissionRepository.hasWriteAccessViaGroups(spaceId, userId);
+                })
+                .orElse(false);
     }
 
     /**
      * Проверяет, может ли пользователь читать документы в пространстве.
      *
      * Логика (обновлено):
-     * - ADMIN, READER, EDITOR: всегда true (видят все пространства)
+     * - READER, EDITOR: всегда true (видят все пространства)
      * - GUEST: только если есть явное право на пространство
+     * - isAdmin=true (не GUEST): всегда true
      *
      * @param userId   ID пользователя
      * @param isAdmin  флаг администратора
@@ -101,9 +99,11 @@ public class PermissionService {
 
         return userRepository.findById(userId)
                 .map(user -> {
+                    // ADMIN (не GUEST) видит всё
                     if (isAdmin && user.getRole() != GlobalRole.GUEST) {
                         return true;
                     }
+                    // READER и EDITOR: всегда true
                     if (user.getRole() == GlobalRole.READER || user.getRole() == GlobalRole.EDITOR) {
                         return true;
                     }
@@ -116,11 +116,7 @@ public class PermissionService {
 
     /**
      * Возвращает список типов прав пользователя в пространстве.
-
      * Используется в GET /api/user/permissions?spaceId={id}
-     *
-     * Для ADMIN возвращает [READ, WRITE, OWNER] — полный набор прав.
-     * Для остальных — фактические права из space_permissions.
      *
      * @param userId   ID пользователя
      * @param isAdmin  флаг администратора
@@ -134,30 +130,29 @@ public class PermissionService {
 
         return userRepository.findById(userId)
                 .map(user -> {
-                    if (isAdmin && user.getRole() != GlobalRole.GUEST) {
-                        // ADMIN (кроме GUEST) имеет все права неявно
-                        return List.of(PermissionType.READ, PermissionType.WRITE, PermissionType.OWNER);
-                    }
-
-                    // Базовые права на основе роли
                     java.util.Set<PermissionType> types = new java.util.HashSet<>();
-                    if (user.getRole() != GlobalRole.GUEST) {
-                        types.add(PermissionType.READ); // Все видят всё (кроме GUEST, но canRead это разрулит)
+                    
+                    // Базовое чтение
+                    if ((isAdmin && user.getRole() != GlobalRole.GUEST) || 
+                        user.getRole() == GlobalRole.READER || 
+                        user.getRole() == GlobalRole.EDITOR) {
+                        types.add(PermissionType.READ);
                     }
                     
+                    // EDITOR всегда имеет WRITE
                     if (user.getRole() == GlobalRole.EDITOR) {
                         types.add(PermissionType.WRITE);
                     }
                     
-                    // Добавляем явные права из БД (они могут дать WRITE пользователю с ролью READER или GUEST):
-                    // личные права и права групп, в которых состоит пользователь (US4.2.2)
+                    // Явные права из БД: личные и полученные через группы (US4.2.2).
+                    // Они могут дать WRITE пользователю с ролью READER или GUEST.
                     if (spaceId != null) {
                         permissionRepository.findBySpaceIdAndUserId(spaceId, userId)
                                 .forEach(p -> types.add(p.getPermissionType()));
                         types.addAll(groupPermissionRepository.findTypesBySpaceIdAndMemberUserId(spaceId, userId));
                     }
 
-                    // Если есть WRITE или OWNER, READ не нужен в списке (т.к. WRITE подразумевает READ)
+                    // Если есть WRITE или OWNER, READ не нужен в списке
                     if (types.contains(PermissionType.WRITE) || types.contains(PermissionType.OWNER)) {
                         types.remove(PermissionType.READ);
                     }
@@ -169,7 +164,6 @@ public class PermissionService {
 
     /**
      * Возвращает флаги прав для UI (canRead, canWrite, canCreate).
-     * Используется фронтендом для скрытия кнопок редактирования.
      *
      * @param userId   ID пользователя
      * @param isAdmin  флаг администратора

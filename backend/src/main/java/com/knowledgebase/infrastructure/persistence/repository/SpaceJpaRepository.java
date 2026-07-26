@@ -4,6 +4,7 @@ import com.knowledgebase.infrastructure.persistence.entity.SpaceJpaEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +26,15 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
 
     Page<SpaceJpaEntity> findByOwnerIdAndIsDeletedFalse(Long ownerId, Pageable pageable);
 
+    Page<SpaceJpaEntity> findByOwnerIdAndIsDeletedTrue(Long ownerId, Pageable pageable);
+
+    Page<SpaceJpaEntity> findByOwnerId(Long ownerId, Pageable pageable);
+
+    List<SpaceJpaEntity> findByIsDeletedFalse(org.springframework.data.domain.Sort sort);
+
     Page<SpaceJpaEntity> findByIsDeletedFalse(Pageable pageable);
+
+    List<SpaceJpaEntity> findByIsDeletedFalseOrderByCreatedAtDesc();
 
     Page<SpaceJpaEntity> findByIsDeletedTrue(Pageable pageable);
 
@@ -34,4 +43,19 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
     long countByIsDeletedFalse();
 
     long countByIsDeletedTrue();
+
+    long countByOwnerIdAndIsDeletedFalse(Long ownerId);
+
+    long countByOwnerIdAndIsDeletedTrue(Long ownerId);
+
+    long countByOwnerId(Long ownerId);
+
+    @Query("SELECT DISTINCT s.ownerId FROM SpaceJpaEntity s")
+    List<Long> findDistinctOwnerIds();
+
+    @Query("SELECT DISTINCT s.ownerId FROM SpaceJpaEntity s WHERE s.isDeleted = false")
+    List<Long> findDistinctOwnerIdsByIsDeletedFalse();
+
+    @Query("SELECT DISTINCT s.ownerId FROM SpaceJpaEntity s WHERE s.isDeleted = true")
+    List<Long> findDistinctOwnerIdsByIsDeletedTrue();
 }

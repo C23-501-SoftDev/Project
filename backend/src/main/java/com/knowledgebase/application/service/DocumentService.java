@@ -7,12 +7,17 @@ import com.knowledgebase.domain.exception.SpaceNotFoundException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
+import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.Space;
 import com.knowledgebase.domain.model.User;
+import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.knowledgebase.domain.repository.TemplateRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import org.slf4j.Logger;
@@ -21,8 +26,13 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Set;
+
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -39,15 +49,22 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final DocumentContentRepository contentRepository;
     private final SpaceRepository spaceRepository;
+    private final SpacePermissionRepository permissionRepository;
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
     private final RequirementNumberService requirementNumberService;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditService auditService;
 
+    private static final int MAX_SEARCH_QUERY_LENGTH = 200;
+    private static final int MAX_SEARCH_PAGE_SIZE = 50;
+    private static final LocalDateTime SEARCH_MIN_DATE = LocalDateTime.of(1970, 1, 1, 0, 0);
+    private static final LocalDateTime SEARCH_MAX_DATE = LocalDateTime.of(9999, 12, 31, 23, 59, 59, 999_999_999);
+
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
                            SpaceRepository spaceRepository,
+                           SpacePermissionRepository permissionRepository,
                            TemplateRepository templateRepository,
                            UserRepository userRepository,
                            RequirementNumberService requirementNumberService,
@@ -56,6 +73,7 @@ public class DocumentService {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
+        this.permissionRepository = permissionRepository;
         this.templateRepository = templateRepository;
         this.userRepository = userRepository;
         this.requirementNumberService = requirementNumberService;
@@ -70,18 +88,9 @@ public class DocumentService {
      * @param title    заголовок
      * @param content  содержимое Markdown
      * @param spaceId  ID пространства
-     * @param authorId ID автора
-     * @return созданный документ
-     */
-    /**
-     * Создаёт новый документ.
-     * Сначала сохраняет метаданные в БД, затем контент в Git.
-     *
-     * @param title    заголовок
-     * @param content  содержимое Markdown
-     * @param spaceId  ID пространства
      * @param parentId ID родительского документа
      * @param authorId ID автора
+     * @param templateId ID шаблона (опционально)
      * @return созданный документ
      */
     @Transactional
@@ -103,7 +112,7 @@ public class DocumentService {
         if (templateId != null) {
             actualContent = templateRepository.findById(templateId)
                 .map(com.knowledgebase.domain.model.Template::getContent)
-                .orElse(content);
+                .orElse(actualContent);
             actualContent = requirementNumberService.numberRequirements(actualContent, spaceId, templateId);
         }
 
@@ -252,12 +261,21 @@ public class DocumentService {
             if (!oldPath.equals(newPath)) {
                 contentRepository.moveContent(oldPath, newPath, "Rename document to: " + title);
                 document.updateGitFilePath(newPath);
-                documentRepository.save(document);
+                updatedMetadata = documentRepository.save(document);
+            }
+
+            String actualContent = content;
+            if (document.getTemplateId() != null) {
+                actualContent = requirementNumberService.numberMissingRequirements(
+                        actualContent,
+                        document.getSpaceId(),
+                        document.getTemplateId()
+                );
             }
 
             contentRepository.saveContent(
                     newPath,
-                    content,
+                    actualContent,
                     "Update document: " + document.getTitle(),
                     "System",
                     "system@knowledgebase.com"
@@ -281,12 +299,13 @@ public class DocumentService {
 
     /**
      * Удаляет документ (переводит в статус DELETED и перемещает файл в .archive/).
+     * Дочерние документы привязываются к родителю удаляемого документа.
+     *
+     * @param id ID документа
+     * @param reparentChildren если true, дочерние документы перепривязываются к родителю (используется при обычном удалении)
      */
     @Transactional
-    public void deleteDocument(Long id) {
-        if (documentRepository.hasChildren(id)) {
-            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
-        }
+    public void deleteDocument(Long id, boolean reparentChildren) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
@@ -294,13 +313,34 @@ public class DocumentService {
             return;
         }
 
+        if (reparentChildren) {
+            // Перепривязываем дочерние документы к родителю текущего документа
+            Long newParentId = document.getParentDocumentId();
+            List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                    .filter(d -> id.equals(d.getParentDocumentId()))
+                    .toList();
+            
+            for (Document child : children) {
+                child.setParentDocumentId(newParentId);
+                documentRepository.save(child);
+                log.debug("Дочерний документ ID {} перепривязан к новому родителю ID {}", child.getId(), newParentId);
+            }
+        }
+
         log.info("Архивация документа ID {}: title='{}'", id, document.getTitle());
 
         String oldPath = document.getGitFilePath();
-        String newPath = ".archive/" + oldPath;
+        // Если документ уже имеет путь в архиве, избегаем двойной архивации
+        String newPath = oldPath.startsWith(".archive/") ? oldPath : ".archive/" + oldPath;
 
-        // 1. Перемещаем файл в Git
-        contentRepository.moveContent(oldPath, newPath, "Archive document: " + document.getTitle());
+        // 1. Перемещаем файл в Git, если он существует и еще не в архиве
+        if (!oldPath.startsWith(".archive/")) {
+            try {
+                contentRepository.moveContent(oldPath, newPath, "Archive document: " + document.getTitle());
+            } catch (Exception e) {
+                log.warn("Не удалось архивировать файл документа {}: {}", id, e.getMessage());
+            }
+        }
 
         // 2. Обновляем метаданные в БД
         document.archive(newPath);
@@ -309,6 +349,15 @@ public class DocumentService {
         auditService.record("DOCUMENT_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
     }
+
+    /**
+     * Удаляет документ с перепривязкой дочерних документов.
+     */
+    @Transactional
+    public void deleteDocument(Long id) {
+        deleteDocument(id, true);
+    }
+
 
     /**
      * Удаляет документ навсегда (hard-delete).
@@ -334,9 +383,12 @@ public class DocumentService {
 
     /**
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
+     *
+     * @param id ID документа
+     * @param keepHierarchy если true, сохраняет текущего родителя (используется при восстановлении пространства)
      */
     @Transactional
-    public void restoreDocument(Long id) {
+    public void restoreDocument(Long id, boolean keepHierarchy) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() != DocumentStatus.DELETED) {
@@ -353,20 +405,85 @@ public class DocumentService {
                 "Нельзя восстановить документ в удаленном (неактивном) пространстве");
         }
 
+        // Проверяем родителя при восстановлении
+        if (!keepHierarchy && document.getParentDocumentId() != null) {
+            Document parent = documentRepository.findById(document.getParentDocumentId()).orElse(null);
+            if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
+                // Ищем первого неудаленного предка
+                Long newParentId = findFirstActiveAncestor(document.getParentDocumentId());
+                document.setParentDocumentId(newParentId);
+                log.info("Родитель документа ID {} удален. Установлен новый предок ID {}", id, newParentId);
+            }
+        }
+        
+        // При восстановлении пространства (keepHierarchy=true) мы НЕ должны менять родителя,
+        // но текущий код в deleteDocument перепривязывает детей к дедушке!
+        // Это и есть причина потери иерархии при удалении.
+
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
         String archivedPath = document.getGitFilePath();
-        String originalPath = archivedPath.replace(".archive/", "");
+        String originalPath = archivedPath.startsWith(".archive/") ? archivedPath.substring(".archive/".length()) : archivedPath;
 
-        // 1. Перемещаем файл в Git
-        contentRepository.moveContent(archivedPath, originalPath, "Restore document: " + document.getTitle());
+        // 1. Перемещаем файл из Git архива обратно, если он там
+        if (archivedPath.startsWith(".archive/")) {
+            try {
+                contentRepository.moveContent(archivedPath, originalPath, "Restore document: " + document.getTitle());
+            } catch (Exception e) {
+                log.warn("Не удалось восстановить файл документа {} из архива: {}", id, e.getMessage());
+            }
+        }
 
         // 2. Обновляем метаданные в БД
         document.restore(originalPath);
+        // Сброс флага восстановления
+        document.markAsDeletedWithSpace(false);
         documentRepository.save(document);
+        documentRepository.flush();
+
+        // Проверяем контент после восстановления
+        if (contentRepository.findContentByPath(originalPath).orElse("").isEmpty()) {
+            log.error("После восстановления документ пуст: {}. Попытка восстановить из .archive/", originalPath);
+            // Если документ пуст, пробуем принудительно восстановить из архивной версии, 
+            // так как moveContent мог переместить файл, но контент не обновился.
+            // Пытаемся найти контент в исходной архивной локации (если файл там еще остался) 
+            // или в истории git, но пока пробуем просто прочитать архив.
+            try {
+                String archivedContent = contentRepository.findContentByPath(archivedPath).orElse("");
+                if (!archivedContent.isEmpty()) {
+                    contentRepository.saveContent(originalPath, archivedContent, "Restore content from archive: " + document.getTitle(), "System", "system@knowledgebase.com");
+                    log.info("Контент успешно восстановлен из архива для документа: {}", originalPath);
+                }
+            } catch (Exception e) {
+                log.error("Не удалось восстановить контент из архива", e);
+            }
+        }
 
         auditService.record("DOCUMENT_RESTORED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
+    }
+
+
+    /**
+     * Восстанавливает документ с автоматическим поиском живого предка.
+     */
+    @Transactional
+    public void restoreDocument(Long id) {
+        restoreDocument(id, false);
+    }
+
+    private Long findFirstActiveAncestor(Long parentId) {
+        if (parentId == null) {
+            return null;
+        }
+        Document parent = documentRepository.findById(parentId).orElse(null);
+        if (parent == null) {
+            return null;
+        }
+        if (parent.getStatus() != DocumentStatus.DELETED) {
+            return parent.getId();
+        }
+        return findFirstActiveAncestor(parent.getParentDocumentId());
     }
 
     /**
@@ -398,14 +515,88 @@ public class DocumentService {
 
     /**
      * Возвращает список документов в пространстве.
-
      */
     public List<Document> getDocumentsInSpace(Long spaceId, boolean includeDeleted) {
         // Пространство может быть soft-удалённым (сценарии корзины) — проверяем только существование.
         if (!spaceRepository.findByIdIncludingDeleted(spaceId).isPresent()) {
             throw new SpaceNotFoundException(spaceId);
         }
-        return documentRepository.findBySpaceId(spaceId, includeDeleted);
+        // Получаем документы из репозитория
+        List<Document> documents = documentRepository.findBySpaceId(spaceId, includeDeleted);
+        
+        // Дополнительно фильтруем удаленные документы, если они не должны быть включены
+        if (!includeDeleted) {
+            return documents.stream()
+                    .filter(d -> d.getStatus() != DocumentStatus.DELETED)
+                    .collect(Collectors.toList());
+        }
+        
+        return documents;
+    }
+
+    /**
+     * Ищет документы по заголовку с учётом прав доступа.
+     */
+    public Page<Document> searchDocumentsByTitle(String query,
+                                                 LocalDate dateFrom,
+                                                 LocalDate dateTo,
+                                                 Long userId,
+                                                 boolean isAdmin,
+                                                 int page,
+                                                 int size) {
+        validateSearchParameters(query, dateFrom, dateTo, page, size);
+
+        Pageable pageable = PageRequest.of(page, size);
+        String normalizedQuery = query != null ? query.trim() : "";
+        LocalDateTime effectiveFrom = dateFrom != null ? dateFrom.atStartOfDay() : SEARCH_MIN_DATE;
+        LocalDateTime effectiveTo = dateTo != null ? dateTo.atTime(LocalTime.MAX) : SEARCH_MAX_DATE;
+
+        if (userId == null) {
+            return Page.empty(pageable);
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return Page.empty(pageable);
+        }
+
+        GlobalRole role = user.getRole();
+        if (isAdmin && role != GlobalRole.GUEST) {
+            return documentRepository.searchByTitle(normalizedQuery, effectiveFrom, effectiveTo, pageable);
+        }
+
+        if (role == GlobalRole.READER || role == GlobalRole.EDITOR) {
+            return documentRepository.searchByTitle(normalizedQuery, effectiveFrom, effectiveTo, pageable);
+        }
+
+        Set<Long> accessibleSpaceIds = permissionRepository.findByUserId(userId).stream()
+                .map(SpacePermission::getSpaceId)
+                .collect(Collectors.toSet());
+
+        if (accessibleSpaceIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        return documentRepository.searchByTitleInSpaces(accessibleSpaceIds, normalizedQuery, effectiveFrom, effectiveTo, pageable);
+    }
+
+    private void validateSearchParameters(String query, LocalDate dateFrom, LocalDate dateTo, int page, int size) {
+        String normalizedQuery = query != null ? query.trim() : "";
+        if (normalizedQuery.isBlank() && dateFrom == null && dateTo == null) {
+            throw new IllegalArgumentException("Укажите поисковую строку или хотя бы одну дату");
+        }
+        if (dateFrom != null && dateTo != null && dateFrom.isAfter(dateTo)) {
+            throw new IllegalArgumentException("Дата начала не может быть позже даты окончания");
+        }
+        if (!normalizedQuery.isBlank() && normalizedQuery.length() > MAX_SEARCH_QUERY_LENGTH) {
+            throw new IllegalArgumentException("Поисковая строка не может превышать " + MAX_SEARCH_QUERY_LENGTH + " символов");
+        }
+        if (page < 0) {
+            throw new IllegalArgumentException("Номер страницы не может быть отрицательным");
+        }
+        if (size < 1 || size > MAX_SEARCH_PAGE_SIZE) {
+            throw new IllegalArgumentException("Размер страницы должен быть от 1 до " + MAX_SEARCH_PAGE_SIZE);
+        }
     }
 
     /**
@@ -455,16 +646,22 @@ public class DocumentService {
     }
 
     /**
-     * Возвращает список документов в пространстве с пагинацией на уровне БД.
+     * Возвращает список документов в пространстве (возможно, с фильтрацией по автору) с пагинацией на уровне БД.
      */
-    public List<Document> getDocumentsInSpacePaged(Long spaceId, boolean includeDeleted, int page, int size) {
+    public List<Document> getDocumentsInSpacePaged(Long spaceId, Long authorId, boolean includeDeleted, int page, int size) {
         if (!spaceRepository.findById(spaceId).isPresent()) {
             throw new SpaceNotFoundException(spaceId);
+        }
+        if (authorId != null) {
+            return documentRepository.findBySpaceIdAndAuthorIdPaged(spaceId, authorId, includeDeleted, page, size);
         }
         return documentRepository.findBySpaceIdPaged(spaceId, includeDeleted, page, size);
     }
 
-    public long countDocumentsInSpace(Long spaceId, boolean includeDeleted) {
+    public long countDocumentsInSpace(Long spaceId, Long authorId, boolean includeDeleted) {
+        if (authorId != null) {
+            return documentRepository.countBySpaceIdAndAuthorId(spaceId, authorId, includeDeleted);
+        }
         return documentRepository.countBySpaceId(spaceId, includeDeleted);
     }
 
@@ -480,5 +677,7 @@ public class DocumentService {
         public Document getDocument() { return document; }
         public List<DocumentTreeNode> getChildren() { return children; }
     }
-
+    public List<User> findDistinctAuthorsByAccessibleSpaces(Long userId) {
+        return documentRepository.findDistinctAuthorsByAccessibleSpaces(userId);
+    }
 }

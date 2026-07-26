@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Сервис управления пространствами документов (Application Layer).
@@ -46,6 +47,7 @@ public class SpaceService {
     private final DocumentService documentService;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditService auditService;
+    private final com.knowledgebase.domain.repository.DocumentRepository documentRepository;
 
     public SpaceService(SpaceRepository spaceRepository,
                         SpacePermissionRepository permissionRepository,
@@ -55,7 +57,8 @@ public class SpaceService {
                         com.knowledgebase.domain.repository.DocumentContentRepository contentRepository,
                         DocumentService documentService,
                         ApplicationEventPublisher eventPublisher,
-                        AuditService auditService) {
+                        AuditService auditService,
+                        com.knowledgebase.domain.repository.DocumentRepository documentRepository) {
         this.spaceRepository = spaceRepository;
         this.permissionRepository = permissionRepository;
         this.groupPermissionRepository = groupPermissionRepository;
@@ -65,6 +68,7 @@ public class SpaceService {
         this.documentService = documentService;
         this.eventPublisher = eventPublisher;
         this.auditService = auditService;
+        this.documentRepository = documentRepository;
     }
 
     /**
@@ -224,17 +228,20 @@ public class SpaceService {
         Space space = spaceRepository.findById(spaceId)
                 .orElseThrow(() -> new SpaceNotFoundException(spaceId));
 
-        // Сначала мягко удаляем документы (от листьев к корням — deleteDocument
-        // запрещает удалять документ с активными дочерними документами)
-        List<com.knowledgebase.domain.model.Document> documents =
-                sortChildrenFirst(documentService.getDocumentsInSpace(spaceId, false));
-        for (com.knowledgebase.domain.model.Document doc : documents) {
-            documentService.deleteDocument(doc.getId());
-        }
-
-        // Затем устанавливаем флаг удаления самому пространству
+        // Устанавливаем флаг удаления
         space.softDelete();
         spaceRepository.save(space);
+
+        List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, false);
+        for (com.knowledgebase.domain.model.Document doc : documents) {
+            // Удаляем документ, перепривязывать детей НЕ нужно (false), 
+            // так как мы сохраняем структуру в БД для восстановления
+            documentService.deleteDocument(doc.getId(), false);
+            
+            // Устанавливаем флаг, что документ удален при удалении пространства
+            doc.markAsDeletedWithSpace(true);
+            documentRepository.save(doc);
+        }
 
         auditService.record("SPACE_DELETED", AuditService.RESOURCE_SPACE, spaceId,
                 "name='" + space.getName() + "', documents=" + documents.size());
@@ -288,19 +295,50 @@ public class SpaceService {
         // Восстанавливаем пространство
         space.restore();
         spaceRepository.save(space);
+        spaceRepository.flush();
 
-        // Восстанавливаем документы в пространстве
+        // Восстанавливаем документы в пространстве в порядке иерархии (сначала родители, потом дети)
+        // Восстанавливаем только те документы, которые стали DELETED из-за удаления всего пространства.
+        // Для этого используем время обновления (updatedAt) или сравнение с временем удаления пространства.
+        // Так как `Document` не хранит информацию о том, КЕМ и ПОЧЕМУ он был удален,
+        // мы предполагаем, что если статус DELETED, но он не был удален "давно", это удаление пространства.
+        // УПРОЩЕНИЕ: в текущей модели достаточно проверить, не был ли документ в архиве до удаления пространства.
+        // Поскольку такой информации нет, мы вводим логику: при удалении пространства, все документы получают
+        // updatedAt, равный времени удаления пространства.
+        
         List<com.knowledgebase.domain.model.Document> documents = documentService.getDocumentsInSpace(spaceId, true);
-        for (com.knowledgebase.domain.model.Document doc : documents) {
-            // Восстанавливаем документ только если он был удален вместе с пространством
-            // (в этой реализации: проверяем, что статус DELETED)
-            if (doc.getStatus() == com.knowledgebase.domain.model.DocumentStatus.DELETED) {
-                documentService.restoreDocument(doc.getId());
-            }
-        }
+        
+        // ВАЖНО: При удалении пространства мы должны были обновить updatedAt для всех его документов.
+        // Это позволит отличить их от документов, удаленных ранее.
+        // До предположения, что это реализовано, добавим проверку статуса.
+        
+        java.util.Map<Long, List<com.knowledgebase.domain.model.Document>> childrenMap = documents.stream()
+                .filter(d -> d.getParentDocumentId() != null)
+                .collect(java.util.stream.Collectors.groupingBy(com.knowledgebase.domain.model.Document::getParentDocumentId));
+
+        List<com.knowledgebase.domain.model.Document> roots = documents.stream()
+                .filter(d -> d.getParentDocumentId() == null)
+                .toList();
+
+        restoreHierarchy(roots, childrenMap);
 
         auditService.record("SPACE_RESTORED", AuditService.RESOURCE_SPACE, spaceId,
                 "name='" + space.getName() + "'");
+    }
+
+    private void restoreHierarchy(List<com.knowledgebase.domain.model.Document> nodes, 
+                                 java.util.Map<Long, List<com.knowledgebase.domain.model.Document>> childrenMap) {
+        for (com.knowledgebase.domain.model.Document doc : nodes) {
+            // Восстанавливаем только если документ был помечен как удаленный вместе с пространством
+            if (doc.getStatus() == com.knowledgebase.domain.model.DocumentStatus.DELETED &&
+                doc.isDeletedWithSpace()) {
+                documentService.restoreDocument(doc.getId(), true);
+            }
+            List<com.knowledgebase.domain.model.Document> children = childrenMap.getOrDefault(doc.getId(), java.util.Collections.emptyList());
+            if (!children.isEmpty()) {
+                restoreHierarchy(children, childrenMap);
+            }
+        }
     }
 
     /**
@@ -343,7 +381,18 @@ public class SpaceService {
      * Возвращает пространства по фильтру статуса (для ADMIN).
      */
     public List<Space> getSpacesByStatus(String status, int page, int size) {
-        if ("deleted".equals(status)) {
+        return getSpacesByStatusAndOwner(status, null, page, size);
+    }
+
+    /**
+     * Возвращает пространства по фильтру статуса и владельца (для ADMIN).
+     */
+    public List<Space> getSpacesByStatusAndOwner(String status, Long ownerId, int page, int size) {
+        if (ownerId != null) {
+            return spaceRepository.findByOwnerIdWithStatus(ownerId, status, page, size);
+        }
+        
+        if ("deleted".equals(status) || "inactive".equals(status)) {
             return spaceRepository.findDeleted(page, size);
         } else if ("all".equals(status)) {
             return spaceRepository.findAllIncludeDeleted(page, size);
@@ -355,12 +404,35 @@ public class SpaceService {
      * Возвращает количество пространств по фильтру статуса.
      */
     public long countSpacesByStatus(String status) {
-        if ("deleted".equals(status)) {
+        return countSpacesByStatusAndOwner(status, null);
+    }
+
+    /**
+     * Возвращает количество пространств по фильтру статуса и владельца.
+     */
+    public long countSpacesByStatusAndOwner(String status, Long ownerId) {
+        if (ownerId != null) {
+            return spaceRepository.countByOwnerIdWithStatus(ownerId, status);
+        }
+        
+        if ("deleted".equals(status) || "inactive".equals(status)) {
             return spaceRepository.countDeleted();
         } else if ("all".equals(status)) {
             return spaceRepository.countAllIncludeDeleted();
         }
         return spaceRepository.count();
+    }
+
+    /**
+     * Возвращает список администраторов, владеющих пространствами с учётом статуса.
+     */
+    public List<com.knowledgebase.domain.model.User> getAdminSpaceOwners(String status) {
+        List<Long> ownerIds = spaceRepository.findDistinctOwnerIdsByStatus(status);
+        if (ownerIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        
+        return userRepository.findActiveByIds(ownerIds);
     }
 
     /**
@@ -372,8 +444,15 @@ public class SpaceService {
      * @param size      размер страницы
      * @return список доступных пространств
      */
-    public List<Space> getSpacesForUser(Long userId, boolean isAdmin, int page, int size) {
-        return getSpacesForUser(userId, isAdmin, null, page, size);
+    /**
+     * Возвращает пространства, доступные пользователю.
+     *
+     * @param userId    ID текущего пользователя
+     * @param isAdmin   true если пользователь ADMIN
+     * @return список доступных пространств
+     */
+    public List<Space> getSpacesForUser(Long userId, boolean isAdmin) {
+        return getSpacesForUser(userId, isAdmin, null);
     }
 
     /**
@@ -381,17 +460,14 @@ public class SpaceService {
      *
      * @param userId         ID текущего пользователя
      * @param isAdmin        true если пользователь ADMIN
-     * @param requiredAccess минимально требуемый тип права (может быть null для любого доступа)
-     * @param page           номер страницы
-     * @param size           размер страницы
+     * @param requiredAccess минимально требуемый тип права
      * @return список доступных пространств
      */
-    public List<Space> getSpacesForUser(Long userId, boolean isAdmin, PermissionType requiredAccess, int page, int size) {
+    public List<Space> getSpacesForUser(Long userId, boolean isAdmin, PermissionType requiredAccess) {
         if (userId == null) {
             return java.util.Collections.emptyList();
         }
 
-        // Проверяем роль пользователя
         com.knowledgebase.domain.model.User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
             return java.util.Collections.emptyList();
@@ -399,31 +475,87 @@ public class SpaceService {
 
         com.knowledgebase.domain.model.GlobalRole role = user.getRole();
 
-        // Если запрашивается доступ на запись (WRITE/OWNER), то ADMIN-READER должен видеть только разрешенные пространства,
-        // так же как и обычный READER. ADMIN-EDITOR по-прежнему видит всё.
         if (isAdmin && role != com.knowledgebase.domain.model.GlobalRole.GUEST) {
-            if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
-                if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
-                    // Для ADMIN с ролью READER при запросе WRITE проверяем явные права
+            if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
+                if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
                     return findSpacesByExplicitPermissions(userId, requiredAccess);
                 }
             }
-            return spaceRepository.findAll(page, size);
+            return spaceRepository.findAllActive();
         }
 
-        // EDITOR всегда может писать во все пространства
         if (role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
-            return spaceRepository.findAll(page, size);
+            return spaceRepository.findAllActive();
         }
 
-        // READER и GUEST: только пространства с явными правами, если требуется доступ выше READ
-        // Если требуется просто READ, READER видит всё.
-        if (role == com.knowledgebase.domain.model.GlobalRole.READER && (requiredAccess == null || requiredAccess == PermissionType.READ)) {
-            return spaceRepository.findAll(page, size);
+        if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
+            if (requiredAccess == null || requiredAccess == PermissionType.READ) {
+                return spaceRepository.findAllActive();
+            }
+            return findSpacesByExplicitPermissions(userId, requiredAccess);
         }
 
-        // В остальных случаях (GUEST или READER, которому нужен WRITE/OWNER) — только по записям в разрешениях
         return findSpacesByExplicitPermissions(userId, requiredAccess);
+    }
+
+    /**
+     * Возвращает пространства пользователя с поиском по названию.
+     */
+    public List<Space> searchSpacesForUser(Long userId, boolean isAdmin, PermissionType requiredAccess, String query, int page, int size) {
+        if (query == null || query.isBlank()) {
+            return getSpacesForUser(userId, isAdmin, requiredAccess);
+        }
+
+        String normalizedQuery = query.trim().toLowerCase(Locale.ROOT);
+        List<Space> matchedSpaces = getAccessibleSpaces(userId, isAdmin, requiredAccess).stream()
+                .filter(space -> space.getName() != null && space.getName().toLowerCase(Locale.ROOT).contains(normalizedQuery))
+                .toList();
+        return paginate(matchedSpaces, page, size);
+    }
+
+    private List<Space> getAccessibleSpaces(Long userId, boolean isAdmin, PermissionType requiredAccess) {
+        if (userId == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        com.knowledgebase.domain.model.User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        com.knowledgebase.domain.model.GlobalRole role = user.getRole();
+
+        if (isAdmin && role != com.knowledgebase.domain.model.GlobalRole.GUEST) {
+            if (requiredAccess == PermissionType.WRITE || requiredAccess == PermissionType.OWNER) {
+                if (role == com.knowledgebase.domain.model.GlobalRole.READER) {
+                    return findSpacesByExplicitPermissions(userId, requiredAccess);
+                }
+            }
+            return spaceRepository.findAllActive();
+        }
+
+        if (role == com.knowledgebase.domain.model.GlobalRole.EDITOR) {
+            return spaceRepository.findAllActive();
+        }
+
+        if (role == com.knowledgebase.domain.model.GlobalRole.READER && (requiredAccess == null || requiredAccess == PermissionType.READ)) {
+            return spaceRepository.findAllActive();
+        }
+
+        return findSpacesByExplicitPermissions(userId, requiredAccess);
+    }
+
+    private List<Space> paginate(List<Space> spaces, int page, int size) {
+        if (spaces.isEmpty() || size <= 0) {
+            return java.util.Collections.emptyList();
+        }
+
+        int fromIndex = Math.min(Math.max(page, 0) * size, spaces.size());
+        int toIndex = Math.min(fromIndex + size, spaces.size());
+        if (fromIndex >= toIndex) {
+            return java.util.Collections.emptyList();
+        }
+        return spaces.subList(fromIndex, toIndex);
     }
 
     private List<Space> findSpacesByExplicitPermissions(Long userId, PermissionType requiredAccess) {

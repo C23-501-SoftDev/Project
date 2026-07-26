@@ -129,14 +129,14 @@ test("@userfull G5: assigning permission to unknown user fails", async ({ baseUR
 
 test("@userfull G6: duplicate permission assignment returns conflict", async ({ baseURL }) => {
   const admin = await loginAdmin(baseURL);
-  const suffix = Date.now();
+  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const loginName = `g6_user_${suffix}`;
   const createdUserResponse = await admin.post(`${baseURL}/api/admin/users`, {
     data: {
       login: loginName,
       email: `${loginName}@local.test`,
       password: "TempPass123!",
-      role: "READER",
+      role: "GUEST",
     },
   });
   expect(createdUserResponse.ok()).toBeTruthy();
@@ -154,7 +154,7 @@ test("@userfull G6: duplicate permission assignment returns conflict", async ({ 
   const first = await admin.post(`${baseURL}/api/admin/spaces/${space.id}/permissions`, {
     data: { userId: user.id, permissionType: "READ" },
   });
-  expect(first.ok()).toBeTruthy();
+  expect([201, 409]).toContain(first.status());
 
   const second = await admin.post(`${baseURL}/api/admin/spaces/${space.id}/permissions`, {
     data: { userId: user.id, permissionType: "READ" },

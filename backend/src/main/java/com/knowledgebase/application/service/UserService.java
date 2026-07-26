@@ -133,7 +133,7 @@ public class UserService {
         boolean oldIsAdmin = user.getIsAdmin();
 
         // Применяем изменения через метод домена
-        user.updateProfile(login, email, role, isAdmin);
+        user.updateProfile(login, email, role, isAdmin, null);
 
         User updated = userRepository.save(user);
 
@@ -142,6 +142,17 @@ public class UserService {
                         + ", isAdmin: " + oldIsAdmin + " -> " + updated.getIsAdmin());
         log.info("Пользователь обновлён: id={}", userId);
         return updated;
+    }
+
+    /**
+     * Поиск пользователей по части логина или ФИО. Возвращает только активных.
+     */
+    public List<User> searchUsers(String query, int page, int size, boolean includeDeleted) {
+        return userRepository.search(query, page, size, includeDeleted);
+    }
+
+    public long countSearchUsers(String query, boolean includeDeleted) {
+        return userRepository.countSearch(query, includeDeleted);
     }
 
     /**
@@ -174,10 +185,16 @@ public class UserService {
      * @param userId        ID удаляемого пользователя
      * @param actingAdminId ID администратора, выполняющего операцию (новый владелец пространств)
      * @throws UserNotFoundException если пользователь не найден
+     * @throws AccessDeniedException если удаляют системного администратора (ID=1)
      * @throws ConflictException     если администратор пытается удалить сам себя
      */
     @Transactional
     public User deleteUser(Long userId, Long actingAdminId) {
+        // Запрещаем удаление системного администратора (ID=1)
+        if (userId.equals(1L)) {
+            throw new AccessDeniedException("Удаление системного администратора запрещено");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -185,10 +202,9 @@ public class UserService {
             throw new ConflictException("Администратор не может удалить сам себя");
         }
 
-        // Пространства удаляемого пользователя переходят администратору, выполняющему удаление
-        if (actingAdminId != null) {
-            spaceService.transferOwnership(userId, actingAdminId);
-        }
+        // Пространства удаляемого пользователя переходят администратору, выполняющему удаление.
+        // Если вызов пришёл без контекста администратора — владение переходит системному (ID=1).
+        spaceService.transferOwnership(userId, actingAdminId != null ? actingAdminId : 1L);
 
         // Выполняем soft-delete через доменный метод
         user.softDelete();
@@ -275,5 +291,42 @@ public class UserService {
      */
     public long countUsersIncludingDeleted() {
         return userRepository.countAll();
+    }
+
+    /**
+     * Возвращает список пользователей с применением всех фильтров и пагинацией.
+     *
+     * @param page номер страницы (0-based)
+     * @param size размер страницы
+     * @param sortBy поле сортировки
+     * @param sortDir направление сортировки
+     * @param statusFilter статус: "active", "deleted", "all"
+     * @param roles фильтр по ролям (null или пустой = без фильтра)
+     * @param isAdmin фильтр по статусу админа (null или пустой = без фильтра)
+     * @param search поиск по логину/email (null или пустой = без фильтра)
+     * @return список пользователей
+     */
+    public List<User> getUsersWithFilters(int page, int size, String sortBy, String sortDir,
+                                          String statusFilter, List<String> roles, List<String> isAdmin, String search) {
+        Boolean includeDeleted = switch (statusFilter) {
+            case "deleted" -> false;
+            case "all" -> true;
+            default -> null;
+        };
+
+        return userRepository.findAllWithFilters(page, size, sortBy, sortDir, includeDeleted, roles, isAdmin, search);
+    }
+
+    /**
+     * Возвращает общее количество пользователей с применением фильтров.
+     */
+    public long countUsersWithFilters(String statusFilter, List<String> roles, List<String> isAdmin, String search) {
+        Boolean includeDeleted = switch (statusFilter) {
+            case "deleted" -> false;
+            case "all" -> true;
+            default -> null;
+        };
+
+        return userRepository.countWithFilters(includeDeleted, roles, isAdmin, search);
     }
 }

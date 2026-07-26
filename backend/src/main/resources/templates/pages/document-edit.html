@@ -5,7 +5,7 @@
         <div style="display:flex; align-items:center; gap:12px;">
             <a href="/" class="button-secondary" style="min-width:auto; padding:6px 12px; text-decoration:none;">&larr;
                 Назад</a>
-            <h2 style="margin:0; font-size:18px;" id="headerTitle">Редактирование</h2>
+            <h2 style="margin:0; font-size:18px; max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="headerTitle" title="">Редактирование</h2>
         </div>
         <div class="editor-actions" style="display: flex; align-items: center; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 6px;">
@@ -22,7 +22,7 @@
             <label
                 style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">Название</label>
             <input type="text" id="docTitleField"
-                style="height: 40px; padding: 9px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 14px; background: #fff; color: var(--text-secondary); transition: var(--transition); outline: none; min-width: 280px;">
+                style="height: 40px; padding: 9px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 14px; background: #fff; color: var(--text-secondary); transition: var(--transition); outline: none; min-width: 280px; max-width: 400px;">
         </div>
         <div class="field" style="display:flex; align-items:center; gap:6px;">
             <label
@@ -333,6 +333,7 @@
                 console.log("Save successful, response:", result);
                 currentDoc = result;
                 document.getElementById('headerTitle').textContent = title;
+                document.getElementById('headerTitle').title = title;
                 updateStatusBadge();
                 showToast('Сохранено');
                 setTimeout(() => {
@@ -359,6 +360,7 @@
 
                 document.getElementById('docTitleField').value = doc.title || '';
                 document.getElementById('headerTitle').textContent = doc.title || 'Без названия';
+                document.getElementById('headerTitle').title = doc.title || '';
                 textarea.value = doc.content || '';
 
                 const statusField = document.getElementById('docStatusField');
@@ -387,7 +389,7 @@
                 console.error('Failed to load document:', e);
                 // showToast assumes a global function exists, which it might given the context of other templates
                 if (typeof showToast === 'function') {
-                    showToast('Ошибка при загрузке документа', 'error');
+                    showToast(e.message || 'Ошибка при загрузке документа', 'error');
                 }
             }
         }

@@ -245,15 +245,15 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isOk());
 
-        // без includeDeleted - только активные
-        mockMvc.perform(get("/api/admin/users?page=0&size=20&includeDeleted=false")
+        // без status - только активные (default status=active)
+        mockMvc.perform(get("/api/admin/users?page=0&size=20&status=active")
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(1)))
                 .andExpect(jsonPath("$.content[0].isDeleted", is(false)));
 
-        // с includeDeleted=true - все пользователи
-        mockMvc.perform(get("/api/admin/users?page=0&size=20&includeDeleted=true")
+        // с status=all - все пользователи
+        mockMvc.perform(get("/api/admin/users?page=0&size=20&status=all")
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(greaterThanOrEqualTo(2))));

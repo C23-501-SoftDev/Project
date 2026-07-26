@@ -171,6 +171,45 @@ class SpaceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void mySpaces_searchFiltersByName_andReturnsEmptyListWhenNothingMatches() throws Exception {
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
+        User reader = persistUser("reader", "reader123", "reader@knowledgebase.local", GlobalRole.READER);
+
+        String adminJwt = loginAndGetJwt("admin", "admin123");
+        String readerJwt = loginAndGetJwt("reader", "reader123");
+
+        String alphaName = "Alpha Space " + uniqueLogin("kb");
+        String betaName = "Beta Space " + uniqueLogin("kb");
+
+        mockMvc.perform(post("/api/admin/spaces")
+                        .cookie(jwtCookie(adminJwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","description":"desc"}
+                                """.formatted(alphaName)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        mockMvc.perform(post("/api/admin/spaces")
+                        .cookie(jwtCookie(adminJwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","description":"desc"}
+                                """.formatted(betaName)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        mockMvc.perform(get("/api/spaces/search?q=alpha").cookie(jwtCookie(readerJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name", is(alphaName)));
+
+        mockMvc.perform(get("/api/spaces/search?q=missing-space").cookie(jwtCookie(readerJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", is(empty())));
+    }
+
+    @Test
     void grantPermission_toNonExistingUser_orSpace_returns404() throws Exception {
         persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
         String adminJwt = loginAndGetJwt("admin", "admin123");

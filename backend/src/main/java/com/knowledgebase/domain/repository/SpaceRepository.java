@@ -47,6 +47,11 @@ public interface SpaceRepository {
     List<Space> findAll(int page, int size);
 
     /**
+     * Возвращает все активные пространства без пагинации.
+     */
+    List<Space> findAllActive();
+
+    /**
      * Возвращает только удаленные пространства (для ADMIN).
      */
     List<Space> findDeleted(int page, int size);
@@ -57,6 +62,11 @@ public interface SpaceRepository {
     List<Space> findAllIncludeDeleted(int page, int size);
 
     /**
+     * Возвращает пространства владельца с учётом статуса и пагинацией.
+     */
+    List<Space> findByOwnerIdWithStatus(Long ownerId, String status, int page, int size);
+
+    /**
      * Возвращает общее количество удаленных пространств.
      */
     long countDeleted();
@@ -65,6 +75,11 @@ public interface SpaceRepository {
      * Возвращает общее количество пространств (включая удаленные).
      */
     long countAllIncludeDeleted();
+
+    /**
+     * Возвращает количество пространств владельца с учётом статуса.
+     */
+    long countByOwnerIdWithStatus(Long ownerId, String status);
 
     /**
      * Возвращает пространства, которыми владеет пользователь.
@@ -91,4 +106,16 @@ public interface SpaceRepository {
      * Возвращает общее количество пространств.
      */
     long count();
+
+    /**
+     * Возвращает ID всех владельцев пространств.
+     */
+    java.util.List<Long> findDistinctOwnerIds();
+
+    /**
+     * Возвращает ID владельцев пространств с учётом статуса.
+     */
+    java.util.List<Long> findDistinctOwnerIdsByStatus(String status);
+
+    void flush();
 }

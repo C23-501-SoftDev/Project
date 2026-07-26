@@ -70,7 +70,7 @@
             </style>
             <div style="display:flex; gap:12px; justify-content:flex-end; margin-top: 24px;">
                 <button type="button" class="button-secondary" onclick="location.href='/'">Отмена</button>
-                <button type="submit" class="button-primary" id="submitBtn">Создать и перейти к редактору</button>
+                <button type="submit" class="button-primary" id="submitBtn">Сохранить</button>
             </div>
         </form>
     </div>
@@ -153,7 +153,7 @@
             }
         } catch (e) { 
             console.error('Failed to fetch spaces:', e);
-            showToast('Ошибка при загрузке пространств', 'error');
+            showToast(e.message || 'Ошибка при загрузке пространств', 'error');
         }
     }
 
@@ -208,10 +208,10 @@
                 body: JSON.stringify(body)
             });
             showToast('Документ успешно создан');
-            setTimeout(() => { location.href = `/documents/${document.id}/edit`; }, 1000);
+            setTimeout(() => { location.href = '/'; }, 1000);
         } catch (e) {
             btn.disabled = false;
-            btn.textContent = 'Создать и перейти к редактору';
+            btn.textContent = 'Сохранить';
         }
     }
 

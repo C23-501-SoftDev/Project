@@ -34,11 +34,14 @@ class PermissionIntegrationTest extends IntegrationTestBase {
                 .andReturn().getResponse().getContentAsString();
         long spaceId = Long.parseLong(spaceResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
+        // Создатель пространства получает OWNER, роль EDITOR даёт WRITE.
+        // READ в списке не дублируется: PermissionService убирает его, когда есть WRITE/OWNER
+        // (WRITE подразумевает чтение). Флаги для UI при этом остаются полными.
         mockMvc.perform(get("/api/user/permissions?spaceId=" + spaceId)
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.spaceId", is((int) spaceId)))
-                .andExpect(jsonPath("$.permissions", containsInAnyOrder("READ", "WRITE", "OWNER")))
+                .andExpect(jsonPath("$.permissions", containsInAnyOrder("WRITE", "OWNER")))
                 .andExpect(jsonPath("$.canRead", is(true)))
                 .andExpect(jsonPath("$.canEdit", is(true)))
                 .andExpect(jsonPath("$.canCreate", is(true)));
