@@ -49,6 +49,18 @@
 - **endpoints**: `GET /api/admin/audit`
 - **docs**: `.../F4.1 Управление пользователями (RBAC)/US4.1.5 Логирование действий системы/description.md`
 
+### admin-groups-ui — Admin Panel: группы, членство и права групп в интерфейсе (US4.1.8 / US4.1.9 / US4.2.2)
+- **status**: done
+- **dependsOn**: `user-groups`, `admin-panel-ui`
+- **endpoints**: `GET /admin/groups` (новых REST-эндпоинтов нет — UI использует существующий API)
+- **docs**: `.../US4.1.8 Создание и управление группами/description.md`, `.../US4.1.9 Управление членством в группах/description.md`
+
+### ai-text-assistant — Нейроассистент редактирования текста (routerai)
+- **status**: done
+- **dependsOn**: `documents-crud`
+- **endpoints**: `GET /api/ai/status`, `POST /api/ai/transform`
+- **config**: `AI_ENABLED`, `AI_API_KEY`, `AI_MODEL` (по умолчанию `deepseek/deepseek-v4-pro`), `AI_BASE_URL`, `AI_TIMEOUT_SECONDS`
+
 ### user-groups — User groups: CRUD, membership and group space permissions (US4.1.8 / US4.1.9 / US4.2.2)
 - **status**: done
 - **dependsOn**: `admin-users-crud`, `spaces-and-permissions`
