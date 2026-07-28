@@ -12,6 +12,7 @@
                 <span>Статус:</span>
                 <span id="statusBadge" class="badge">Draft</span>
             </div>
+            <span id="autosaveStatus" class="autosave-status" data-state="saved">Сохранено</span>
             <button class="button-primary" id="saveBtn">Сохранить (Ctrl+S)</button>
         </div>
     </div>
@@ -100,6 +101,31 @@
 <!-- Подключаем marked.js для рендеринга Markdown -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+<style>
+.autosave-status {
+    font-size: 13px;
+    color: #6B7280;
+    font-weight: 500;
+    transition: color 0.15s ease;
+}
+
+.autosave-status[data-state="saved"] {
+    color: #059669;
+}
+
+.autosave-status[data-state="unsaved"] {
+    color: #D97706;
+}
+
+.autosave-status[data-state="saving"] {
+    color: #3B82F6;
+}
+
+.autosave-status[data-state="error"] {
+    color: #DC2626;
+}
+</style>
+
 <script>
     (function () {
         const docId = document.getElementById('documentId').value;
@@ -109,8 +135,14 @@
         const attachmentList = document.getElementById('attachmentList');
         const dropzone = document.getElementById('attachmentDropzone');
         const chooseButton = document.getElementById('attachChooseBtn');
+        const titleField = document.getElementById('docTitleField');
+        
+        // State management
         let currentDoc = null;
         let canManageAttachments = false;
+        let documentLoaded = false;
+        let autosaveTimer = null;
+        let isSaving = false;
 
         function updateStatusBadge() {
             const status = document.getElementById('docStatusField').value;
@@ -279,48 +311,136 @@
             renderPreview();
         }
 
-        async function saveDocument() {
-            console.log("Save button clicked, docId:", docId);
-            const title = document.getElementById('docTitleField').value.trim();
+        /**
+         * Update the autosave status indicator
+         * @param {string} state - One of: saved, unsaved, saving, error
+         */
+        function updateAutosaveStatus(state) {
+            const statusEl = document.getElementById('autosaveStatus');
+            if (!statusEl) return;
+            
+            statusEl.setAttribute('data-state', state);
+            
+            const messages = {
+                saved: 'Сохранено',
+                unsaved: 'Несохранённые изменения',
+                saving: 'Сохранение...',
+                error: 'Ошибка сохранения'
+            };
+            
+            statusEl.textContent = messages[state] || '';
+        }
+
+        /**
+         * Save document with enhanced security and error handling
+         * @param {Object} options - Options object
+         * @param {boolean} options.silent - If true, don't show success toast (for autosave)
+         */
+        async function saveDocument(options = {}) {
+            const silent = options.silent || false;
+            
+            // Clear autosave timer to prevent race conditions
+            if (autosaveTimer) {
+                clearTimeout(autosaveTimer);
+                autosaveTimer = null;
+            }
+            
+            // Client-side validation
+            const title = titleField.value.trim();
             const status = document.getElementById('docStatusField').value;
             const content = textarea.value;
-            console.log("Data to save:", { title, status, content });
 
             if (!title) {
                 showToast('Заголовок не может быть пустым', 'error');
                 return;
             }
+            
+            // Prevent double submission
+            if (isSaving) return;
+            isSaving = true;
 
             const btn = document.getElementById('saveBtn');
             btn.disabled = true;
             btn.textContent = 'Сохранение...';
+            updateAutosaveStatus('saving');
 
             try {
-                console.log("Sending PUT request to:", `/api/documents/${docId}`);
                 const result = await apiFetch(`/api/documents/${docId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({
-                        title,
-                        status,
-                        content
-                    })
+                    body: JSON.stringify({ title, status, content })
                 });
-                console.log("Save successful, response:", result);
+                
+                // Success (200 OK)
                 currentDoc = result;
                 document.getElementById('headerTitle').textContent = title;
                 document.getElementById('headerTitle').title = title;
                 updateStatusBadge();
-                showToast('Сохранено');
-                setTimeout(() => {
-                    location.href = '/';
-                }, 1000);
+                updateAutosaveStatus('saved');
+                
+                if (!silent) {
+                    showToast('Документ сохранён');
+                }
+                
             } catch (e) {
                 console.error('Save failed:', e);
-                showToast('Ошибка сохранения: ' + e.message, 'error');
+                
+                // Handle 401 Unauthorized - session expired
+                if (e.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                // Handle 403 Forbidden - CSRF token expired/missing
+                if (e.status === 403) {
+                    showToast('Ошибка безопасности. Обновите страницу.', 'error');
+                    updateAutosaveStatus('error');
+                    return;
+                }
+                
+                // Handle 400 Bad Request - validation errors
+                // apiFetch already formats fieldErrors into error.message
+                if (e.status === 400) {
+                    showToast(e.message, 'error');
+                    updateAutosaveStatus('error');
+                    return;
+                }
+                
+                // Other errors
+                showToast(e.message || 'Ошибка сохранения', 'error');
+                updateAutosaveStatus('error');
+                
             } finally {
+                isSaving = false;
                 btn.disabled = false;
                 btn.textContent = 'Сохранить (Ctrl+S)';
             }
+        }
+
+        /**
+         * Setup autosave with debounce (3 seconds after last input)
+         */
+        function setupAutosave() {
+            const fields = [textarea, titleField];
+            
+            fields.forEach(field => {
+                field.addEventListener('input', () => {
+                    // Don't autosave until document is fully loaded
+                    if (!documentLoaded) return;
+                    
+                    // Clear previous timer
+                    if (autosaveTimer) {
+                        clearTimeout(autosaveTimer);
+                    }
+                    
+                    // Show unsaved indicator
+                    updateAutosaveStatus('unsaved');
+                    
+                    // Start new timer (3 seconds)
+                    autosaveTimer = setTimeout(() => {
+                        saveDocument({ silent: true });
+                    }, 3000);
+                });
+            });
         }
 
         async function loadDocument() {
@@ -360,9 +480,14 @@
                 updateStatusBadge();
                 renderPreview();
                 await loadAttachments();
+                
+                // Mark document as loaded and enable autosave
+                documentLoaded = true;
+                updateAutosaveStatus('saved');
+                setupAutosave();
+                
             } catch (e) {
                 console.error('Failed to load document:', e);
-                // showToast assumes a global function exists, which it might given the context of other templates
                 if (typeof showToast === 'function') {
                     showToast(e.message || 'Ошибка при загрузке документа', 'error');
                 }

@@ -208,7 +208,9 @@ async function apiFetch(url, options = {}) {
                 } catch (e) {
                 }
             }
-            throw new Error(errorMessage);
+            const error = new Error(errorMessage);
+            error.status = response.status;
+            throw error;
         }
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
