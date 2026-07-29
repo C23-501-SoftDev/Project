@@ -1,0 +1,286 @@
+<div class="admin-groups-page">
+    <div class="header" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+        <h1>Группы пользователей</h1>
+        <button class="button-primary" id="createBtn" onclick="openCreateGroupModal()">+ Создать группу</button>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table id="groupsTable" class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Описание</th>
+                    <th>Участников</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="groupsTbody">
+                <tr>
+                    <td colspan="5" style="text-align:center;">Загрузка...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination" id="groupsPagination" style="margin-top: 20px;">
+        <button class="button-secondary" id="groupsPrevBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Назад</button>
+        <span id="groupsPageInfo" style="margin: 0 10px;">Страница 1 из 1</span>
+        <button class="button-secondary" id="groupsNextBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
+    </div>
+</div>
+
+<!-- Модальное окно группы (создание/редактирование) -->
+<div class="modal" id="groupModal">
+    <div class="modal-content">
+        <h3 id="groupModalTitle">Создать группу</h3>
+        <form id="groupForm" onsubmit="return false;">
+            <div class="form-group">
+                <label>Название *</label>
+                <input type="text" id="groupName" placeholder="Название группы" required>
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="groupDesc" rows="3"></textarea>
+            </div>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="button-primary" id="saveGroupBtn">Сохранить</button>
+                <button class="button-secondary" id="closeGroupModalBtn">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal" id="deleteGroupModal">
+    <div class="modal-content">
+        <p>Вы уверены, что хотите удалить эту группу?</p>
+        <p style="color:#666; font-size:0.9em;">Все участники будут удалены из группы, а её права на пространства — отозваны.</p>
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+            <button class="button-secondary" id="cancelDeleteGroupBtn">Отмена</button>
+            <button class="button-danger" id="confirmDeleteGroupBtn">Удалить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно управления участниками -->
+<div class="modal" id="membersModal">
+    <div class="modal-content">
+        <h3 id="membersModalTitle">Участники группы</h3>
+        <div class="form-group">
+            <label>Добавить пользователя</label>
+            <input type="hidden" id="memberUser">
+            <div class="custom-select" id="memberUserWrapper" data-target="memberUser">
+                <div class="select-styled">-- Выберите пользователя --</div>
+                <div class="select-options"></div>
+            </div>
+        </div>
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:16px;">
+            <button class="button-primary" id="addMemberBtn">Добавить</button>
+            <button class="button-secondary" id="closeMembersModalBtn">Закрыть</button>
+        </div>
+        <div style="margin-top:20px;">
+            <h4>Текущие участники</h4>
+            <div id="membersList" style="margin-top:10px;">
+                <p style="color:#6B7280;">Загрузка...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/custom-select.js}"></script>
+<script>
+    (function () {
+        let state = { page: 0, size: 20, totalPages: 1 };
+        let editingGroupId = null;
+        let managingGroupId = null;
+        let pendingDeleteGroupId = null;
+        let usersList = [];
+        let groupsCache = [];
+
+        async function loadUsersList() {
+            try {
+                const data = await adminFetch('/api/admin/users?page=0&size=1000&includeDeleted=false');
+                usersList = data.content || data.users || [];
+            } catch (e) {
+                console.error('Failed to load users:', e);
+            }
+        }
+
+        async function fetchGroups() {
+            const tbody = document.getElementById('groupsTbody');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Загрузка...</td></tr>';
+            try {
+                const data = await adminFetch(`/api/admin/groups?page=${state.page}&size=${state.size}`);
+                const groups = data.content || [];
+                groupsCache = groups;
+                state.totalPages = data.totalPages || 1;
+
+                if (groups.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Группы не найдены</td></tr>';
+                } else {
+                    tbody.innerHTML = groups.map(g => `
+                        <tr>
+                            <td>${escapeHtml(g.id)}</td>
+                            <td>${escapeHtml(g.name || '')}</td>
+                            <td>${escapeHtml(g.description || '')}</td>
+                            <td>${escapeHtml(g.memberCount != null ? g.memberCount : 0)}</td>
+                            <td class="actions">
+                                <button class="button-secondary" onclick="window.manageMembers(${g.id})">Участники</button>
+                                <button class="button-secondary" onclick="window.editGroup(${g.id})">Редактировать</button>
+                                <button class="button-danger" onclick="window.deleteGroupPrompt(${g.id})">Удалить</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                updatePagination();
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
+                console.error('Failed to fetch groups:', e);
+            }
+        }
+
+        function updatePagination() {
+            const currentPage = state.page + 1;
+            document.getElementById('groupsPageInfo').textContent = `Страница ${currentPage} из ${state.totalPages || 1}`;
+            document.getElementById('groupsPrevBtn').disabled = state.page <= 0;
+            document.getElementById('groupsNextBtn').disabled = state.page >= state.totalPages - 1;
+        }
+
+        function openCreateGroupModal() {
+            editingGroupId = null;
+            document.getElementById('groupModalTitle').textContent = 'Создать группу';
+            document.getElementById('groupName').value = '';
+            document.getElementById('groupDesc').value = '';
+            openModal('groupModal');
+        }
+
+        async function editGroup(id) {
+            editingGroupId = id;
+            try {
+                const group = await adminFetch(`/api/admin/groups/${id}`);
+                document.getElementById('groupModalTitle').textContent = 'Редактировать группу';
+                document.getElementById('groupName').value = group.name || '';
+                document.getElementById('groupDesc').value = group.description || '';
+                openModal('groupModal');
+            } catch (e) { showToast('Ошибка загрузки', 'error'); }
+        }
+
+        async function saveGroup() {
+            const name = document.getElementById('groupName').value.trim();
+            const description = document.getElementById('groupDesc').value.trim();
+            if (!name) { showToast('Название обязательно', 'error'); return; }
+            try {
+                const method = editingGroupId ? 'PUT' : 'POST';
+                const url = editingGroupId ? `/api/admin/groups/${editingGroupId}` : '/api/admin/groups';
+                await adminFetch(url, { method, body: JSON.stringify({ name, description }) });
+                showToast('Успешно сохранено');
+                closeModal('groupModal');
+                fetchGroups();
+            } catch (e) { /* toast уже показан в adminFetch */ }
+        }
+
+        function deleteGroupPrompt(id) {
+            pendingDeleteGroupId = id;
+            openModal('deleteGroupModal');
+        }
+
+        async function confirmDeleteGroup() {
+            if (pendingDeleteGroupId === null) return;
+            try {
+                await adminFetch(`/api/admin/groups/${pendingDeleteGroupId}`, { method: 'DELETE' });
+                showToast('Группа удалена');
+                closeModal('deleteGroupModal');
+                pendingDeleteGroupId = null;
+                fetchGroups();
+            } catch (e) { /* toast показан */ }
+        }
+
+        // ── Участники ──────────────────────────────────────────────────────
+        async function manageMembers(groupId) {
+            managingGroupId = groupId;
+            const g = groupsCache.find(x => x.id === groupId);
+            document.getElementById('membersModalTitle').textContent = 'Участники группы: ' + (g ? g.name : '');
+
+            // заполняем выпадающий список пользователей
+            const wrapper = document.getElementById('memberUserWrapper');
+            wrapper.querySelector('.select-styled').textContent = '-- Выберите пользователя --';
+            wrapper.querySelector('.select-options').innerHTML = '';
+            usersList.forEach(u => {
+                window.populateCustomSelect('memberUserWrapper', u.id, `${u.login} (${u.email})`);
+            });
+            document.getElementById('memberUser').value = '';
+
+            document.getElementById('membersList').innerHTML = '<p style="color:#6B7280;">Загрузка...</p>';
+            openModal('membersModal');
+            window.initCustomSelects();
+            await loadMembers();
+        }
+
+        async function loadMembers() {
+            try {
+                const members = await adminFetch(`/api/admin/groups/${managingGroupId}/members`);
+                const list = document.getElementById('membersList');
+                if (!members || members.length === 0) {
+                    list.innerHTML = '<p style="color:#6B7280;">В группе пока нет участников</p>';
+                } else {
+                    list.innerHTML = members.map(m => `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #E5E7EB;">
+                            <span>${escapeHtml(m.login || 'User')} <span style="color:#6B7280;">(${escapeHtml(m.email || '')})</span></span>
+                            <button class="button-danger" style="padding:4px 8px; font-size:12px;" onclick="window.removeMember(${m.userId})">Удалить</button>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                document.getElementById('membersList').innerHTML = '<p style="color:#6B7280;">Ошибка загрузки</p>';
+            }
+        }
+
+        async function addMember() {
+            const userId = document.getElementById('memberUser').value;
+            if (!userId) { showToast('Выберите пользователя', 'error'); return; }
+            try {
+                await adminFetch(`/api/admin/groups/${managingGroupId}/members`, {
+                    method: 'POST', body: JSON.stringify({ userId: parseInt(userId) })
+                });
+                showToast('Пользователь добавлен');
+                loadMembers();
+                fetchGroups();
+            } catch (e) { /* toast показан */ }
+        }
+
+        async function removeMember(userId) {
+            try {
+                await adminFetch(`/api/admin/groups/${managingGroupId}/members/${userId}`, { method: 'DELETE' });
+                showToast('Пользователь удалён из группы');
+                loadMembers();
+                fetchGroups();
+            } catch (e) { /* toast показан */ }
+        }
+
+        // экспорт в global
+        window.openCreateGroupModal = openCreateGroupModal;
+        window.editGroup = editGroup;
+        window.deleteGroupPrompt = deleteGroupPrompt;
+        window.manageMembers = manageMembers;
+        window.removeMember = removeMember;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadUsersList();
+            await fetchGroups();
+
+            document.getElementById('groupsPrevBtn').addEventListener('click', () => {
+                if (state.page > 0) { state.page--; fetchGroups(); }
+            });
+            document.getElementById('groupsNextBtn').addEventListener('click', () => {
+                if (state.page < state.totalPages - 1) { state.page++; fetchGroups(); }
+            });
+            document.getElementById('saveGroupBtn').addEventListener('click', saveGroup);
+            document.getElementById('closeGroupModalBtn').addEventListener('click', () => closeModal('groupModal'));
+            document.getElementById('cancelDeleteGroupBtn').addEventListener('click', () => closeModal('deleteGroupModal'));
+            document.getElementById('confirmDeleteGroupBtn').addEventListener('click', confirmDeleteGroup);
+            document.getElementById('addMemberBtn').addEventListener('click', addMember);
+            document.getElementById('closeMembersModalBtn').addEventListener('click', () => closeModal('membersModal'));
+        });
+    })();
+</script>

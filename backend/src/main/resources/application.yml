@@ -60,6 +60,27 @@ spring:
     change-log: classpath:db/changelog/master.xml
     enabled: true
 
+  # =====================================================
+  # Mail (SMTP) — асинхронная рассылка email-уведомлений (US4.3.1 / US4.3.2)
+  # Реальная отправка включается флагом app.notifications.enabled=true;
+  # параметры подключения берутся из переменных окружения.
+  # =====================================================
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:true}
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 # =====================================================
 # Сервер
 # =====================================================
@@ -80,6 +101,11 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+  health:
+    # SMTP не должен влиять на /actuator/health — иначе недоступность
+    # почтового сервера ломает docker healthcheck приложения.
+    mail:
+      enabled: false
 
 # =====================================================
 # SpringDoc / Swagger UI
@@ -99,6 +125,27 @@ springdoc:
 # Секретный ключ должен быть не менее 256 бит (32 символа)
 # =====================================================
 app:
+  # =====================================================
+  # Email-уведомления (US4.3.1 / US4.3.2)
+  # enabled=false → письма не уходят по SMTP, факт логируется (dev/test).
+  # enabled=true  → используется JavaMailSender (spring.mail.*).
+  # =====================================================
+  notifications:
+    enabled: ${NOTIFICATIONS_ENABLED:false}
+    from: ${NOTIFICATIONS_FROM:no-reply@knowledgebase.local}
+    admin-email: ${NOTIFICATIONS_ADMIN_EMAIL:admin@knowledgebase.local}
+
+  # =====================================================
+  # Нейроассистент редактирования текста (routerai.ru, OpenAI-совместимый)
+  # enabled=false → эндпоинт /api/ai/** отвечает 503, кнопка в UI скрыта.
+  # =====================================================
+  ai:
+    enabled: ${AI_ENABLED:false}
+    base-url: ${AI_BASE_URL:https://routerai.ru/api/v1}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:deepseek/deepseek-v4-pro}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:60}
+
   jwt:
     # ВАЖНО: В prod заменить на ENV-переменную JWT_SECRET_KEY
     secret-key: "knowledge-base-secret-key-for-jwt-signing-minimum-256-bits-long!"

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-07-14",
+    "updatedAt": "2026-07-22",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -134,7 +134,7 @@
         {
             "featureId": "space-crud",
             "title": "Spaces: Full CRUD operations for Admin",
-            "status": "pending",
+            "status": "done",
             "area": "backend",
             "repo": "Project",
             "docs": [
@@ -209,6 +209,107 @@
             "repo": "Project",
             "docs": [
                 "../../Docs/documents/backlog-descriptions/E1 Управление контентом (Content Management)/F1.1 Редактор документов/US1.1.2 CRUD сущности Document/description.md"
+            ],
+            "dependsOn": [
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "add-email-notifications",
+            "title": "Email notifications: async event-driven email + admin SMTP test",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.3 Системные уведомления/US4.3.1 Рассылка Email-уведомлений/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.3 Системные уведомления/US4.3.2 Настройка параметров SMTP и асинхронной рассылки/description.md"
+            ],
+            "description": "Asynchronous email notification subsystem. Listens to UserCreatedEvent, SpacePermissionGrantedEvent, and DocumentUpdatedEvent (AFTER_COMMIT) and sends email via JavaMailSender on a dedicated thread pool. Sender is configuration-driven (real SMTP vs logging no-op). Adds an admin test-email endpoint.",
+            "endpoints": [
+                "POST /api/admin/notifications/test"
+            ],
+            "dependsOn": [
+                "admin-users-crud",
+                "spaces-and-permissions",
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "audit-log",
+            "title": "Audit log: system action logging + admin audit endpoint",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.5 Логирование действий системы/description.md"
+            ],
+            "description": "US4.1.5. AuditService records critical user actions (documents, spaces, users, groups, permissions) into audit_log with timestamp, user_id, action_type, resource, details and ip_address. Admin-only endpoint with filtering by user, action type and date range.",
+            "endpoints": [
+                "GET /api/admin/audit"
+            ],
+            "dependsOn": [
+                "admin-users-crud",
+                "space-crud",
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "user-groups",
+            "title": "User groups: CRUD, membership and group space permissions",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.8 Создание и управление группами/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.9 Управление членством в группах/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.2 Механизм назначения прав на Пространства/description.md"
+            ],
+            "description": "US4.1.8 + US4.1.9 + group part of US4.2.2. Group CRUD, membership management and space_group_permissions. Members inherit group permissions in access checks (canRead/canWrite, space lists). Deleting a group revokes its permissions; removing a member revokes inherited access.",
+            "endpoints": [
+                "GET/POST /api/admin/groups",
+                "GET/PUT/DELETE /api/admin/groups/{id}",
+                "GET/POST /api/admin/groups/{id}/members",
+                "DELETE /api/admin/groups/{id}/members/{userId}",
+                "POST /api/admin/spaces/{spaceId}/group-permissions",
+                "GET /api/admin/spaces/{spaceId}/group-permissions",
+                "DELETE /api/admin/group-permissions/{permId}"
+            ],
+            "dependsOn": [
+                "admin-users-crud",
+                "spaces-and-permissions"
+            ]
+        },
+        {
+            "featureId": "admin-groups-ui",
+            "title": "Admin Panel: groups, membership and group space permissions UI",
+            "status": "done",
+            "area": "frontend+backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.8 Создание и управление группами/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.9 Управление членством в группах/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.2 Управление Пространствами/US4.2.2 Механизм назначения прав на Пространства/description.md"
+            ],
+            "description": "Admin UI for the group backend: /admin/groups page with group CRUD and a member management dialog, plus a subject selector (user/group) in the space permissions dialog listing both kinds of grants. No new REST endpoints.",
+            "endpoints": [
+                "GET /admin/groups"
+            ],
+            "dependsOn": [
+                "user-groups",
+                "admin-panel-ui"
+            ]
+        },
+        {
+            "featureId": "ai-text-assistant",
+            "title": "AI assistant: rewrite document text by style via routerai",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [],
+            "description": "Server-side proxy to an OpenAI-compatible provider (routerai.ru). Fixed action catalogue (formal, professional, simple, friendly, shorter, longer, grammar); the client sends only an action key. Assistant button in the document editor applies the result to the selection or the whole text. Optional: disabled or key-less installations hide the button and answer 503.",
+            "endpoints": [
+                "GET /api/ai/status",
+                "POST /api/ai/transform"
             ],
             "dependsOn": [
                 "documents-crud"
