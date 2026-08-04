@@ -279,25 +279,36 @@ public class DocumentService {
         return contentRepository.findContentByPath(document.getGitFilePath())
                 .orElse("");
     }
+
+    /**
+     * Обновляет документ (сохранена перегрузка для обратной совместимости тестов).
+     */
+    @Transactional
+    public Document updateDocument(Long id, String title, String content, DocumentStatus status, Long parentId, Long editorId) {
+        if (status != null) {
+            throw new DocumentValidationException("Нельзя менять статус документа через обычное редактирование");
+        }
+        return updateDocument(id, title, content, parentId, editorId);
+    }
     /**
      * Обновляет документ.
      * Изменяет метаданные в БД и создаёт новый коммит в Git при изменении контента.
      */
     @Transactional
-    public Document updateDocument(Long id, String title, String content, DocumentStatus status, Long parentId, Long editorId) {
+    public Document updateDocument(Long id, String title, String content, Long parentId, Long editorId) {
         Document document = getDocumentById(id);
         User editor = userRepository.findById(editorId)
                 .orElseThrow(() -> new UserNotFoundException(editorId));
 
-        log.debug("Обновление документа ID {}: title='{}', status={}, parentId={}", id, title, status, parentId);
+        log.debug("Обновление документа ID {}: title='{}', parentId={}", id, title, parentId);
 
         validateHierarchy(id, parentId, document.getSpaceId());
         if (title != null) {
             validateTitleUniqueness(title, document.getSpaceId(), parentId, id);
         }
 
-        // Обновляем метаданные в БД
-        document.updateMetadata(title, status);
+        // Обновляем метаданные в БД (без изменения статуса через обычный PUT)
+        document.updateMetadata(title, document.getStatus());
         if (parentId != null) {
             document.setParentDocumentId(parentId);
         }

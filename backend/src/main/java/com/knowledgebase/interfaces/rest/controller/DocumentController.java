@@ -134,7 +134,7 @@ public class DocumentController {
             @AuthenticationPrincipal User currentUser) {
 
         Document document = documentService.updateDocument(
-                id, request.title(), request.content(), request.status(), request.parentId(), currentUser.getId());
+                id, request.title(), request.content(), request.parentId(), currentUser.getId());
 
         String content = documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
