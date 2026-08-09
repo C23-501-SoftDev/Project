@@ -3,7 +3,32 @@
         <h1>Корзина документов</h1>
     </div>
 
-    <div style="overflow-x:auto; margin-top: 20px;">
+    <div class="filter-bar" style="margin-bottom: 20px;">
+        <div class="filter-group">
+            <label>Пространство:</label>
+            <div class="custom-select" id="spaceFilterWrapper" data-target="spaceFilter" style="width: 200px;">
+                <div class="select-styled">Все пространства</div>
+                <div class="select-options">
+                    <div class="select-option" data-value="">Все пространства</div>
+                </div>
+            </div>
+            <input type="hidden" id="spaceFilter" value="">
+        </div>
+        <div class="filter-group">
+            <label>Автор:</label>
+            <div class="custom-select" id="authorFilterWrapper" data-target="authorFilter" style="width: 180px;">
+                <div class="select-styled">Все авторы</div>
+                <div class="select-options">
+                    <div class="select-option" data-value="">Все авторы</div>
+                </div>
+            </div>
+            <input type="hidden" id="authorFilter" value="">
+        </div>
+        <button class="button-primary" id="applyFiltersBtn">Применить</button>
+        <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
+    </div>
+
+    <div style="overflow-x:auto;">
         <table id="recycleBinTable" class="data-table">
             <thead>
                 <tr>
@@ -28,14 +53,57 @@
     </div>
 </div>
 
+<script th:src="@{/js/custom-select.js}"></script>
 <script>
     (function () {
+        async function loadFilterOptions() {
+            try {
+                const [spaces, authors] = await Promise.all([
+                    adminFetch('/api/admin/documents/recycle-bin/spaces').catch(() => []),
+                    adminFetch('/api/admin/documents/recycle-bin/authors').catch(() => [])
+                ]);
+
+                const spaceOptions = document.querySelector('#spaceFilterWrapper .select-options');
+                if (spaceOptions) {
+                    let html = '<div class="select-option" data-value="">Все пространства</div>';
+                    spaces.forEach(s => {
+                        html += `<div class="select-option" data-value="${s.id}">${escapeHtml(s.name)}</div>`;
+                    });
+                    spaceOptions.innerHTML = html;
+                }
+
+                const authorOptions = document.querySelector('#authorFilterWrapper .select-options');
+                if (authorOptions) {
+                    let html = '<div class="select-option" data-value="">Все авторы</div>';
+                    authors.forEach(a => {
+                        html += `<div class="select-option" data-value="${a.id}">${escapeHtml(a.login)}</div>`;
+                    });
+                    authorOptions.innerHTML = html;
+                }
+
+                if (typeof initCustomSelects === 'function') {
+                    initCustomSelects();
+                }
+            } catch (e) {
+                console.error('Failed to load filter options:', e);
+            }
+        }
+
         async function fetchRecycleBin() {
             const tbody = document.getElementById('recycleBinTbody');
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Загрузка...</td></tr>';
 
+            const spaceId = document.getElementById('spaceFilter').value;
+            const authorId = document.getElementById('authorFilter').value;
+
+            let url = '/api/admin/documents/recycle-bin';
+            const params = new URLSearchParams();
+            if (spaceId) params.set('spaceId', spaceId);
+            if (authorId) params.set('authorId', authorId);
+            if (params.toString()) url += '?' + params.toString();
+
             try {
-                const docs = await adminFetch('/api/admin/documents/recycle-bin');
+                const docs = await adminFetch(url);
                 
                 if (!docs || docs.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Корзина пуста</td></tr>';
@@ -67,6 +135,7 @@
                 await adminFetch(`/api/admin/documents/${id}/restore`, { method: 'POST' });
                 showToast('Документ успешно восстановлен');
                 fetchRecycleBin();
+                loadFilterOptions();
             } catch (e) {
                 showToast('Ошибка восстановления документа', 'error');
                 console.error('Failed to restore document:', e);
@@ -75,8 +144,21 @@
 
         window.restoreDocument = restoreDocument;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            fetchRecycleBin();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadFilterOptions();
+            await fetchRecycleBin();
+
+            document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+                fetchRecycleBin();
+            });
+
+            document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+                document.getElementById('spaceFilter').value = '';
+                document.querySelector('#spaceFilterWrapper .select-styled').textContent = 'Все пространства';
+                document.getElementById('authorFilter').value = '';
+                document.querySelector('#authorFilterWrapper .select-styled').textContent = 'Все авторы';
+                fetchRecycleBin();
+            });
         });
     })();
 </script>

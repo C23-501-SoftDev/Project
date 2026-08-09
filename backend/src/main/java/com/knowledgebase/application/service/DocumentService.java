@@ -572,6 +572,45 @@ public class DocumentService {
     }
 
     /**
+     * Получить список удаленных документов для административной корзины с фильтрацией.
+     */
+    public List<Document> getRecycleBinDocuments(Long spaceId, Long authorId) {
+        return documentRepository.findDeletedDocuments(spaceId, authorId);
+    }
+    /**
+     * Получить список пространств, в которых есть удаленные документы.
+     */
+    public List<Space> getRecycleBinSpaces() {
+        Set<Long> spaceIds = documentRepository.findAll(true).stream()
+                .filter(d -> d.getStatus() == DocumentStatus.DELETED)
+                .map(Document::getSpaceId)
+                .collect(Collectors.toSet());
+
+        if (spaceIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return spaceRepository.findAllByIdIn(spaceIds);
+    }
+
+    /**
+     * Получить список авторов, у которых есть удаленные документы.
+     */
+    public List<User> getRecycleBinAuthors() {
+        Set<Long> authorIds = documentRepository.findAll(true).stream()
+                .filter(d -> d.getStatus() == DocumentStatus.DELETED)
+                .map(Document::getAuthorId)
+                .collect(Collectors.toSet());
+
+        if (authorIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return authorIds.stream()
+                .map(id -> userRepository.findById(id).orElse(null))
+                .filter(u -> u != null)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Возвращает список авторов для доступных пространств.
      */
     public List<User> findDistinctAuthorsByAccessibleSpaces(Long userId) {
