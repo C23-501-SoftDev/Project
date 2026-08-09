@@ -245,6 +245,19 @@ public class PageController {
     }
 
     /**
+     * GET /admin/recycle-bin
+     * Панель администратора — корзина документов.
+     */
+    @GetMapping("/admin/recycle-bin")
+    public String adminRecycleBin(@AuthenticationPrincipal User user, Model model) {
+        model.addAttribute("pageTitle", "Корзина документов");
+        model.addAttribute("currentUser", user);
+        model.addAttribute("activePage", "recycle-bin");
+        model.addAttribute("content", "pages/admin-recycle-bin");
+        return "admin-layout";
+    }
+
+    /**
      * GET /admin/groups
      * Панель администратора — управление группами пользователей (US4.1.8 / US4.1.9).
      */
