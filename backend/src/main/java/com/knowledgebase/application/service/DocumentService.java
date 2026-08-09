@@ -578,14 +578,61 @@ public class DocumentService {
         return documentRepository.findDistinctAuthorsByAccessibleSpaces(userId);
     }
     /**
+     * Класс узла дерева документов для боковой панели.
+     */
+    public static class DocumentTreeNode {
+        private final Document document;
+        private final List<DocumentTreeNode> children;
+
+        public DocumentTreeNode(Document document, List<DocumentTreeNode> children) {
+            this.document = document;
+            this.children = children;
+        }
+
+        public Document getDocument() {
+            return document;
+        }
+
+        public List<DocumentTreeNode> getChildren() {
+            return children;
+        }
+    }
+
+    /**
      * Возвращает иерархию документов для списка пространств.
      */
-    public Map<Long, List<Document>> getHierarchiesForSpaces(List<Long> spaceIds) {
+    public Map<Long, List<DocumentTreeNode>> getHierarchiesForSpaces(List<Long> spaceIds) {
         if (spaceIds == null || spaceIds.isEmpty()) {
             return Collections.emptyMap();
         }
         List<Document> docs = documentRepository.findBySpaceIdIn(spaceIds, false);
-        return docs.stream().collect(Collectors.groupingBy(Document::getSpaceId));
+        Map<Long, List<Document>> bySpace = docs.stream().collect(Collectors.groupingBy(Document::getSpaceId));
+
+        Map<Long, List<DocumentTreeNode>> result = new java.util.HashMap<>();
+        for (Map.Entry<Long, List<Document>> entry : bySpace.entrySet()) {
+            result.put(entry.getKey(), buildTree(entry.getValue()));
+        }
+        return result;
+    }
+
+    private List<DocumentTreeNode> buildTree(List<Document> documents) {
+        Map<Long, DocumentTreeNode> nodeMap = new java.util.LinkedHashMap<>();
+        List<DocumentTreeNode> roots = new ArrayList<>();
+
+        for (Document doc : documents) {
+            nodeMap.put(doc.getId(), new DocumentTreeNode(doc, new ArrayList<>()));
+        }
+
+        for (Document doc : documents) {
+            DocumentTreeNode node = nodeMap.get(doc.getId());
+            Long parentId = doc.getParentDocumentId();
+            if (parentId != null && nodeMap.containsKey(parentId)) {
+                nodeMap.get(parentId).getChildren().add(node);
+            } else {
+                roots.add(node);
+            }
+        }
+        return roots;
     }
 
     /**
