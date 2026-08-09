@@ -11,15 +11,10 @@
     <changeSet id="033-add-document-previous-status-and-parent" author="knowledgebase-dev">
         <comment>Добавление полей previous_status и previous_parent_id для мягкого удаления и восстановления документов</comment>
 
-        <addColumn tableName="documents">
-            <column name="previous_status" type="VARCHAR(50)" remarks="Предыдущий статус документа перед удалением (Draft / Published)">
-                <constraints nullable="true"/>
-            </column>
-            <column name="previous_parent_id" type="BIGINT" remarks="Предыдущий идентификатор родительского документа">
-                <constraints nullable="true"/>
-            </column>
-        </addColumn>
-
+        <sql>
+            ALTER TABLE documents ADD COLUMN IF NOT EXISTS previous_status VARCHAR(50);
+            ALTER TABLE documents ADD COLUMN IF NOT EXISTS previous_parent_id BIGINT;
+        </sql>
         <rollback>
             <dropColumn tableName="documents" columnName="previous_parent_id"/>
             <dropColumn tableName="documents" columnName="previous_status"/>
