@@ -134,7 +134,7 @@
                             <td>${d.deletedAt ? escapeHtml(d.deletedAt.replace('T', ' ')) : ''}</td>
                             <td class="actions" style="display:flex; gap:8px;">
                                 <button class="button-primary" onclick="window.restoreDocument(${d.id})">Восстановить</button>
-                                <button class="button-secondary" style="background-color: #f8d7da; color: #721c24; border-color: #f5c6cb;" onclick="window.promptHardDelete(${d.id}, '${escapeHtml(d.title || '').replace(/'/g, "\\'")}')">Удалить навсегда</button>
+                                <button class="button-danger" onclick="window.promptHardDelete(${d.id}, '${escapeHtml(d.title || '').replace(/'/g, "\\'")}')">Удалить навсегда</button>
                             </td>
                         </tr>
                     `).join('');
