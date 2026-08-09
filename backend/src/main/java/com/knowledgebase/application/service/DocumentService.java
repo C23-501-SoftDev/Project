@@ -439,17 +439,39 @@ public class DocumentService {
      */
     @Transactional
     public void hardDeleteDocument(Long id) {
-        if (documentRepository.hasChildren(id)) {
-            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
-        }
         Document document = getDocumentById(id);
+        if (document.getStatus() != DocumentStatus.DELETED) {
+            throw new DocumentValidationException("Можно окончательно удалить только документы со статусом DELETED");
+        }
+
         log.info("Полное удаление документа ID {}: title='{}'", id, document.getTitle());
+
+        // Перед физическим удалением документа его прямые дети должны перейти к родителю удаляемого документа (или стать корневыми)
+        Long grandparentOrParentId = document.getParentDocumentId();
+        List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                .filter(d -> id.equals(d.getParentDocumentId()))
+                .toList();
+
+        for (Document child : children) {
+            child.setParentDocumentId(grandparentOrParentId);
+            if (child.getPreviousParentId() != null && child.getPreviousParentId().equals(id)) {
+                child.setPreviousParentId(grandparentOrParentId);
+            }
+            documentRepository.save(child);
+            log.debug("При жестком удалении дочерний документ ID {} перепривязан к родителю ID {}", child.getId(), grandparentOrParentId);
+        }
 
         // 1. Удаляем из БД
         documentRepository.deleteById(id);
 
         // 2. Удаляем файл из Git
-        contentRepository.deleteContent(document.getGitFilePath(), "Hard delete document: " + document.getTitle());
+        if (document.getGitFilePath() != null) {
+            try {
+                contentRepository.deleteContent(document.getGitFilePath(), "Hard delete document: " + document.getTitle());
+            } catch (Exception e) {
+                log.warn("Не удалось удалить файл документа {} из Git: {}", id, e.getMessage());
+            }
+        }
 
         auditService.record("DOCUMENT_HARD_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
