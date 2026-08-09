@@ -383,6 +383,26 @@ public class DocumentService {
             return;
         }
 
+        Long grandparentOrParentId = document.getParentDocumentId();
+
+        if (reparentChildren) {
+            List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                    .filter(d -> id.equals(d.getParentDocumentId()))
+                    .toList();
+
+            for (Document child : children) {
+                if (child.getPreviousParentId() == null) {
+                    child.setPreviousParentId(id);
+                }
+                child.setParentDocumentId(grandparentOrParentId);
+                documentRepository.save(child);
+                log.debug(
+                    "Дочерний документ ID {} переприведен к дедушке ID {}, сохранен previousParentId={}",
+                    child.getId(), grandparentOrParentId, id
+                );
+            }
+        }
+
         log.info("Архивация документа ID {}: title='{}'", id, document.getTitle());
 
         String oldPath = document.getGitFilePath();
@@ -407,11 +427,11 @@ public class DocumentService {
     }
 
     /**
-     * Удаляет документ с перепривязкой дочерних элементов (базовое удаление без рекурсивного переподчинения дерева в первом этапе).
+     * Удаляет документ с перепривязкой дочерних элементов.
      */
     @Transactional
     public void deleteDocument(Long id) {
-        deleteDocument(id, false);
+        deleteDocument(id, true);
     }
 
     /**
@@ -437,9 +457,6 @@ public class DocumentService {
 
     /**
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
-     *
-     * @param id ID документа
-     * @param keepHierarchy если true, сохраняет текущего родителя (используется при восстановлении пространства)
      */
     @Transactional
     public void restoreDocument(Long id, boolean keepHierarchy) {
@@ -456,7 +473,15 @@ public class DocumentService {
         
         if (space.isDeleted()) {
             throw new com.knowledgebase.domain.exception.ConflictException(
-                "Нельзя восстановить документ в удаленном (неактивном) пространстве");
+                "Нельзя восстановить документ в удаленном (неактивном пространстве)");
+        }
+
+        Long targetParentId = document.getPreviousParentId();
+        if (!keepHierarchy && targetParentId != null) {
+            Document parent = documentRepository.findById(targetParentId).orElse(null);
+            if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
+                targetParentId = findFirstActiveAncestor(targetParentId);
+            }
         }
 
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
@@ -474,10 +499,23 @@ public class DocumentService {
         }
 
         // 2. Обновляем метаданные в БД
-        document.restore(originalPath);
+        document.restore(originalPath, targetParentId);
         // Сброс флага восстановления
         document.markAsDeletedWithSpace(false);
         documentRepository.save(document);
+
+        // Возвращаем обратно детей, которые были временно переподчинены при удалении этого документа
+        List<Document> potentialChildren = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                .filter(d -> id.equals(d.getPreviousParentId()))
+                .toList();
+
+        for (Document child : potentialChildren) {
+            child.setParentDocumentId(id);
+            child.setPreviousParentId(null);
+            documentRepository.save(child);
+            log.debug("Дочерний документ ID {} возвращен под восстановленного родителя ID {}", child.getId(), id);
+        }
+
         documentRepository.flush();
 
         auditService.record("DOCUMENT_RESTORED", AuditService.RESOURCE_DOCUMENT, id,

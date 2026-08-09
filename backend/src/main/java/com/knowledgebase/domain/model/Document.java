@@ -107,20 +107,24 @@ public class Document {
         return deletedWithSpace;
     }
 
-    public void restore(String originalGitPath) {
+    public void restore(String originalGitPath, Long restoredParentId) {
         if (this.previousStatus != null) {
             this.status = this.previousStatus;
         } else {
             this.status = DocumentStatus.DRAFT;
         }
-        if (this.previousParentId != null) {
-            this.parentDocumentId = this.previousParentId;
+        if (restoredParentId != null) {
+            this.parentDocumentId = restoredParentId;
         }
         this.previousStatus = null;
         this.previousParentId = null;
         this.gitFilePath = originalGitPath;
         this.updatedAt = LocalDateTime.now();
         this.deletedWithSpace = false;
+    }
+
+    public void restore(String originalGitPath) {
+        restore(originalGitPath, this.previousParentId);
     }
 
     // Getters
@@ -139,6 +143,12 @@ public class Document {
         this.parentDocumentId = parentDocumentId;
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void setPreviousParentId(Long previousParentId) {
+        this.previousParentId = previousParentId;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }
