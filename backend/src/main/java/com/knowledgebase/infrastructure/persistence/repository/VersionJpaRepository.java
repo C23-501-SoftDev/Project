@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface VersionJpaRepository extends JpaRepository<VersionJpaEntity, Long> {
     List<VersionJpaEntity> findByDocumentIdOrderByCreatedAtDesc(Long documentId);
+    void deleteByDocumentId(Long documentId);
 }
+

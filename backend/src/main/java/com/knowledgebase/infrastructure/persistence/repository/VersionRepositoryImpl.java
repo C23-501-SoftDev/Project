@@ -42,4 +42,10 @@ public class VersionRepositoryImpl implements VersionRepository {
             );
         }).collect(Collectors.toList());
     }
+
+    @Override
+    public void deleteVersionsByDocumentId(Long documentId) {
+        versionJpaRepository.deleteByDocumentId(documentId);
+    }
 }
+

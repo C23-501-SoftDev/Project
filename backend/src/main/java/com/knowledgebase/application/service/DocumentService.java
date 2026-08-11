@@ -26,6 +26,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -47,6 +49,9 @@ import java.util.stream.Collectors;
 public class DocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final DocumentRepository documentRepository;
     private final DocumentContentRepository contentRepository;
@@ -491,7 +496,7 @@ public class DocumentService {
 
         log.info("Полное удаление документа ID {}: title='{}'", id, document.getTitle());
 
-        // Перед физическим удалением документа его прямые дети должны перейти к родителю удаляемого документа (или стать корневыми)
+        // Перепривязываем дочерние документы к дедушке (родителю удаляемого документа)
         Long grandparentOrParentId = document.getParentDocumentId();
         List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
                 .filter(d -> id.equals(d.getParentDocumentId()))
@@ -505,8 +510,9 @@ public class DocumentService {
             documentRepository.save(child);
             log.debug("При жестком удалении дочерний документ ID {} перепривязан к родителю ID {}", child.getId(), grandparentOrParentId);
         }
+        documentRepository.flush();
 
-        // 2. Удаляем файл из Git
+        // 1. Удаляем файл из Git
         if (document.getGitFilePath() != null) {
             try {
                 contentRepository.deleteContent(document.getGitFilePath(), "Hard-delete (Полное удаление) документа: " + document.getTitle());
@@ -515,10 +521,20 @@ public class DocumentService {
             }
         }
 
-        versionRepository.saveVersion(document.getId(), "git-hash-" + System.currentTimeMillis(), document.getAuthorId(), "Hard-delete (Полное удаление) документа: " + document.getTitle());
+        // 2. Очищаем связанные версии и записи аудита перед удалением
+        try {
+            versionRepository.deleteVersionsByDocumentId(id);
+            entityManager.createNativeQuery("DELETE FROM audit_log WHERE resource_id = ? AND resource_type = 'DOCUMENT'")
+                    .setParameter(1, id)
+                    .executeUpdate();
+            entityManager.flush();
+        } catch (Exception e) {
+            log.warn("Не удалось очистить связанные версии/аудит для документа {}: {}", id, e.getMessage());
+        }
 
-        // 1. Удаляем из БД
+        // 3. Удаляем из БД
         documentRepository.deleteById(id);
+        documentRepository.flush();
 
         auditService.record("DOCUMENT_HARD_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
@@ -550,8 +566,8 @@ public class DocumentService {
             Document parent = documentRepository.findById(targetParentId).orElse(null);
             if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
                 targetParentId = findFirstActiveAncestor(targetParentId);
-            }
         }
+    }
 
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
