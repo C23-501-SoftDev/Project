@@ -142,16 +142,21 @@
                 return;
             }
 
-            versionHistoryList.innerHTML = `
-                <div class="git-timeline" style="position:relative; padding-left:24px; margin-top:8px;">
-                    <div style="position:absolute; left:7px; top:8px; bottom:8px; width:2px; background:#E5E7EB;"></div>
-                    ${versions.map((v, index) => {
-                const dateObj = v.timestamp ? new Date(v.timestamp) : null;
-                const dateStr = dateObj ? dateObj.toLocaleDateString() : '';
-                const timeStr = dateObj ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+            let showAll = false;
+
+            function buildTimelineHtml() {
+                const displayedVersions = showAll ? versions : versions.slice(0, 5);
+                const hasMore = versions.length > 5;
                 return `
-                        <div style="position:relative; margin-bottom:16px;">
-                            <div style="position:absolute; left:-20px; top:4px; width:12px; height:12px; border-radius:50%; background:#2563EB; border:2px solid #fff; box-shadow:0 0 0 2px #E5E7EB;"></div>
+                    <div class="git-timeline" style="position:relative; padding-left:24px; margin-top:8px;">
+                        <div style="position:absolute; left:7px; top:8px; bottom:8px; width:2px; background:#E5E7EB;"></div>
+                        ${displayedVersions.map((v) => {
+                            const dateObj = v.timestamp ? new Date(v.timestamp) : null;
+                            const dateStr = dateObj ? dateObj.toLocaleDateString() : '';
+                            const timeStr = dateObj ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+                            return `
+                            <div style="position:relative; margin-bottom:16px;">
+                                <div style="position:absolute; left:-20px; top:4px; width:12px; height:12px; border-radius:50%; background:#2563EB; border:2px solid #fff; box-shadow:0 0 0 2px #E5E7EB;"></div>
                             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
                     <div style="min-width:0;">
                                     <div style="font-weight:600; color:#111827; word-break:break-word; font-size:14px;">
@@ -170,7 +175,30 @@
             `;
                     }).join('')}
                 </div>
+                    ${hasMore ? `
+                        <div style="margin-top: 12px; text-align: center;">
+                            <button type="button" id="toggleHistoryBtn" class="button-secondary" style="padding: 8px 16px; font-size: 13px; cursor: pointer;">
+                                ${showAll ? 'Скрыть историю' : `Показать всю историю (${versions.length})`}
+                            </button>
+                        </div>
+                    ` : ''}
             `;
+        }
+
+            versionHistoryList.innerHTML = buildTimelineHtml();
+
+            function attachToggleHandler() {
+                const toggleBtn = document.getElementById('toggleHistoryBtn');
+                if (toggleBtn) {
+                    toggleBtn.addEventListener('click', () => {
+                        showAll = !showAll;
+                        versionHistoryList.innerHTML = buildTimelineHtml();
+                        attachToggleHandler();
+                    });
+                }
+            }
+
+            attachToggleHandler();
         }
 
         async function loadVersionHistory() {
