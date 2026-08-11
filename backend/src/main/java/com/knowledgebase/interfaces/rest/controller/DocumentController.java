@@ -176,8 +176,10 @@ public class DocumentController {
     @PostMapping("/{id}/restore")
     @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
     @Operation(summary = "Восстановить документ", description = "Переводит в статус Published/Draft и перемещает файл из .archive/ в Git")
-    public ResponseEntity<Void> restoreDocument(@PathVariable Long id) {
-        documentService.restoreDocument(id);
+    public ResponseEntity<Void> restoreDocument(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser) {
+        documentService.restoreDocument(id, currentUser.getId());
         return ResponseEntity.noContent().build();
     }
 
@@ -188,8 +190,10 @@ public class DocumentController {
     @DeleteMapping("/{id}")
     @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
     @Operation(summary = "Удалить документ", description = "Переводит в статус Deleted и перемещает файл в .archive/ в Git")
-    public ResponseEntity<Void> deleteDocument(@PathVariable Long id) {
-        documentService.deleteDocument(id);
+    public ResponseEntity<Void> deleteDocument(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser) {
+        documentService.deleteDocument(id, true, currentUser.getId());
         return ResponseEntity.noContent().build();
     }
 

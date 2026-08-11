@@ -421,10 +421,11 @@ public class DocumentService {
      * Дочерние документы привязываются к родителю удаляемого документа.
      *
      * @param id ID документа
-     * @param reparentChildren если true, дочерние документы перепривязываются к родителю (используется при обычном удалении)
+     * @param reparentChildren если true, дочерние документы перепривязываются к родителю
+     * @param userId ID пользователя, выполнившего удаление
      */
     @Transactional
-    public void deleteDocument(Long id, boolean reparentChildren) {
+    public void deleteDocument(Long id, boolean reparentChildren, Long userId) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
@@ -472,7 +473,8 @@ public class DocumentService {
         document.setParentDocumentId(null);
         Document saved = documentRepository.save(document);
 
-        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), saved.getAuthorId(), "Soft-delete (Архивация) документа: " + saved.getTitle());
+        Long actorId = userId != null ? userId : saved.getAuthorId();
+        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), actorId, "Soft-delete (Архивация) документа: " + saved.getTitle());
 
         auditService.record("DOCUMENT_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
@@ -482,7 +484,11 @@ public class DocumentService {
      */
     @Transactional
     public void deleteDocument(Long id) {
-        deleteDocument(id, true);
+        deleteDocument(id, true, null);
+    }
+    @Transactional
+    public void deleteDocument(Long id, Long userId) {
+        deleteDocument(id, true, userId);
     }
     /**
      * Удаляет документ навсегда (hard-delete).
@@ -544,7 +550,7 @@ public class DocumentService {
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
      */
     @Transactional
-    public void restoreDocument(Long id, boolean keepHierarchy) {
+    public void restoreDocument(Long id, boolean keepHierarchy, Long userId) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() != DocumentStatus.DELETED) {
@@ -566,8 +572,8 @@ public class DocumentService {
             Document parent = documentRepository.findById(targetParentId).orElse(null);
             if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
                 targetParentId = findFirstActiveAncestor(targetParentId);
+            }
         }
-    }
 
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
@@ -589,7 +595,8 @@ public class DocumentService {
         document.markAsDeletedWithSpace(false);
         Document saved = documentRepository.save(document);
 
-        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), saved.getAuthorId(), "Restore (Восстановление) документа: " + saved.getTitle());
+        Long actorId = userId != null ? userId : saved.getAuthorId();
+        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), actorId, "Restore (Восстановление) документа: " + saved.getTitle());
 
         // Возвращаем обратно детей, которые были временно переподчинены при удалении этого документа
         List<Document> potentialChildren = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
@@ -613,7 +620,12 @@ public class DocumentService {
      */
     @Transactional
     public void restoreDocument(Long id) {
-        restoreDocument(id, false);
+        restoreDocument(id, false, null);
+    }
+
+    @Transactional
+    public void restoreDocument(Long id, Long userId) {
+        restoreDocument(id, false, userId);
     }
 
     private Long findFirstActiveAncestor(Long parentId) {
