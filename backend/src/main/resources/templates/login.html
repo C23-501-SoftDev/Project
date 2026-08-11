@@ -36,7 +36,7 @@
                 <label for="password">Пароль</label>
                 <input type="password" id="password" name="password" placeholder="Введите пароль" required>
             </div>
-            <div>
+            <div style="display: flex; justify-content: center;">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <button type="submit" class="button-primary">Войти</button>
             </div>

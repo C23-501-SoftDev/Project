@@ -252,3 +252,179 @@ function escapeHtml(str) {
         }
     });
 }
+
+// ── Universal Ellipsis Tooltip Mechanism ─────────────────────────────────────
+(function() {
+    let tooltipEl = null;
+
+    function createTooltip() {
+        if (tooltipEl) return tooltipEl;
+        tooltipEl = document.createElement('div');
+        tooltipEl.className = 'global-ui-tooltip';
+        tooltipEl.style.cssText = `
+            position: fixed;
+            background: #1e293b;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.4;
+            z-index: 99999;
+            pointer-events: none;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            max-width: 320px;
+            word-break: break-word;
+            white-space: normal;
+            display: none;
+        `;
+        document.body.appendChild(tooltipEl);
+        return tooltipEl;
+    }
+
+    function findTruncatedElement(el) {
+        let current = el;
+        while (current && current !== document.body && current !== document.documentElement) {
+            const style = window.getComputedStyle(current);
+            const overflow = style.overflow || style.overflowX || '';
+            const isEllipsis = style.textOverflow === 'ellipsis';
+            const isNowrap = style.whiteSpace === 'nowrap';
+            
+            if (current.scrollWidth > current.clientWidth) {
+                if (overflow.includes('hidden') || isEllipsis || isNowrap) {
+                    return current;
+                }
+            }
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    let activeElement = null;
+
+    function showTooltip(el) {
+        if (!el) return;
+        activeElement = el;
+        const tooltip = createTooltip();
+        
+        tooltip.textContent = el.textContent.trim();
+        tooltip.style.display = 'block';
+        
+        const rect = el.getBoundingClientRect();
+        
+        tooltip.style.opacity = '0';
+        const tooltipWidth = tooltip.offsetWidth;
+        const tooltipHeight = tooltip.offsetHeight;
+        
+        const offset = 8;
+        let top = rect.top - tooltipHeight - offset;
+        let left = rect.left + (rect.width - tooltipWidth) / 2;
+        
+        if (top < 10) {
+            top = rect.bottom + offset;
+        }
+        
+        if (left < 10) {
+            left = 10;
+        } else if (left + tooltipWidth > window.innerWidth - 10) {
+            left = window.innerWidth - tooltipWidth - 10;
+        }
+        
+        tooltip.style.top = top + 'px';
+        tooltip.style.left = left + 'px';
+        
+        setTimeout(() => {
+            if (activeElement === el) {
+                tooltip.style.opacity = '1';
+            }
+        }, 20);
+    }
+
+    function hideTooltip() {
+        activeElement = null;
+        if (tooltipEl) {
+            tooltipEl.style.opacity = '0';
+            setTimeout(() => {
+                if (!activeElement && tooltipEl) {
+                    tooltipEl.style.display = 'none';
+                }
+            }, 150);
+        }
+    }
+
+    document.addEventListener('mouseover', (e) => {
+        const truncated = findTruncatedElement(e.target);
+        if (truncated) {
+            showTooltip(truncated);
+        } else {
+            hideTooltip();
+        }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        if (activeElement) {
+            const related = e.relatedTarget;
+            if (!related || !activeElement.contains(related)) {
+                hideTooltip();
+            }
+        }
+    });
+
+    document.addEventListener('focusin', (e) => {
+        const truncated = findTruncatedElement(e.target);
+        if (truncated) {
+            showTooltip(truncated);
+        }
+    });
+
+    document.addEventListener('focusout', () => {
+        hideTooltip();
+    });
+
+    function makeTruncatedElementsFocusable() {
+        const selectors = [
+            '.space-button',
+            '.document-item a',
+            '.navbar-menu .user-info',
+            '.select-styled',
+            '.select-option',
+            '.badge',
+            '.sidebar-tab',
+            '.form-group label',
+            '.data-table td:not(.actions)',
+            '.text-truncated',
+            '.header h1', '.header h2', '.editor-header h2', '.sidebar-header h3', '.modal-content h2', '.modal-content h3', '.login-card h1', '.view-header h1', '#documentListTitle', '#documentListSpaceName'
+        ];
+        
+        document.querySelectorAll(selectors.join(',')).forEach(el => {
+            const tag = el.tagName.toLowerCase();
+            const naturallyFocusable = ['a', 'button', 'input', 'select', 'textarea'].includes(tag);
+            if (!naturallyFocusable && !el.hasAttribute('tabindex')) {
+                el.setAttribute('tabindex', '0');
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            makeTruncatedElementsFocusable();
+            observeDOM();
+        });
+    } else {
+        makeTruncatedElementsFocusable();
+        observeDOM();
+    }
+
+    function observeDOM() {
+        const observer = new MutationObserver(() => {
+            makeTruncatedElementsFocusable();
+        });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+})();
+
