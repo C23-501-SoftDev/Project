@@ -138,22 +138,27 @@
 
         function renderVersionHistory(versions) {
             if (!versions || versions.length === 0) {
-                versionHistoryList.innerHTML = '<div style="color:#6B7280;">История версий пуста</div>';
+                versionHistoryList.innerHTML = '<div style="color:#6B7280; padding:12px;">История версий пуста</div>';
                 return;
             }
 
-            versionHistoryList.innerHTML = versions.map(v => {
+            versionHistoryList.innerHTML = `
+                <div class="git-timeline" style="position:relative; padding-left:24px; margin-top:8px;">
+                    <div style="position:absolute; left:7px; top:8px; bottom:8px; width:2px; background:#E5E7EB;"></div>
+                    ${versions.map((v, index) => {
                 const dateObj = v.timestamp ? new Date(v.timestamp) : null;
                 const dateStr = dateObj ? dateObj.toLocaleDateString() : '';
                 const timeStr = dateObj ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
                 return `
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff;">
+                        <div style="position:relative; margin-bottom:16px;">
+                            <div style="position:absolute; left:-20px; top:4px; width:12px; height:12px; border-radius:50%; background:#2563EB; border:2px solid #fff; box-shadow:0 0 0 2px #E5E7EB;"></div>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
                     <div style="min-width:0;">
-                        <div style="font-weight:600; color:#111827; word-break:break-word;">
-                            ${escapeHtml(v.commitMessage || 'Без описания')}
+                                    <div style="font-weight:600; color:#111827; word-break:break-word; font-size:14px;">
+                                        ${escapeHtml(v.commitMessage || 'Изменение документа')}
                         </div>
                         <div style="font-size:12px; color:#6B7280; margin-top:4px;">
-                            Автор: ${escapeHtml(v.authorName || 'Неизвестен')} (${escapeHtml(v.authorEmail || '')})
+                                        Автор: <span style="color:#374151; font-weight:500;">${escapeHtml(v.authorName || 'Неизвестен')}</span> ${v.authorEmail ? `(${escapeHtml(v.authorEmail)})` : ''}
                         </div>
                     </div>
                     <div style="text-align:right; font-size:12px; color:#4B5563; white-space:nowrap;">
@@ -161,8 +166,11 @@
                         <div style="color:#9CA3AF; margin-top:2px;">${timeStr}</div>
                     </div>
                 </div>
+                        </div>
             `;
-            }).join('');
+                    }).join('')}
+                </div>
+            `;
         }
 
         async function loadVersionHistory() {

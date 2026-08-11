@@ -261,8 +261,23 @@ public class DocumentService {
             throw new com.knowledgebase.domain.exception.AccessDeniedException("Только автор или администратор могут опубликовать документ");
         }
 
+        User user = userRepository.findById(userId).orElse(null);
+        String authorName = user != null ? user.getLogin() : "System";
+        String authorEmail = user != null ? user.getEmail() : "system@knowledgebase.com";
+
         document.updateMetadata(null, DocumentStatus.PUBLISHED);
         Document saved = documentRepository.save(document);
+
+        if (saved.getGitFilePath() != null) {
+            String content = contentRepository.findContentByPath(saved.getGitFilePath()).orElse("");
+            contentRepository.saveContent(
+                    saved.getGitFilePath(),
+                    content,
+                    "Публикация документа: " + saved.getTitle(),
+                    authorName,
+                    authorEmail
+            );
+        }
 
         auditService.record("DOCUMENT_PUBLISHED", AuditService.RESOURCE_DOCUMENT, saved.getId(),
                 "title='" + saved.getTitle() + "', spaceId=" + saved.getSpaceId());
@@ -280,7 +295,6 @@ public class DocumentService {
         return contentRepository.findContentByPath(document.getGitFilePath())
                 .orElse("");
     }
-
     /**
      * Возвращает историю версий (коммитов) документа.
      */
@@ -322,6 +336,9 @@ public class DocumentService {
             validateTitleUniqueness(title, document.getSpaceId(), parentId, id);
         }
 
+        boolean titleChanged = title != null && !title.equals(document.getTitle());
+        String oldPath = document.getGitFilePath();
+
         // Обновляем метаданные в БД (без изменения статуса через обычный PUT)
         document.updateMetadata(title, document.getStatus());
         if (parentId != null) {
@@ -329,39 +346,45 @@ public class DocumentService {
         }
         Document updatedMetadata = documentRepository.save(document);
 
-        // Обновляем контент в Git, если передан
-        if (content != null) {
-            String oldPath = document.getGitFilePath();
-            String spaceName = spaceRepository.findById(document.getSpaceId())
-                .map(s -> s.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-"))
-                .orElse(String.valueOf(document.getSpaceId()));
-            String sanitizedTitle = title != null ? title.replaceAll("[\\\\/:*?\"<>|\\s]", "-") : document.getTitle().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
-            
-            String newPath = String.format("spaces/%s/%s.md", spaceName, sanitizedTitle);
-            
-            if (!oldPath.equals(newPath)) {
-                contentRepository.moveContent(oldPath, newPath, "Rename document to: " + title);
-                document.updateGitFilePath(newPath);
-                updatedMetadata = documentRepository.save(document);
-            }
+        String spaceName = spaceRepository.findById(document.getSpaceId())
+            .map(s -> s.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-"))
+            .orElse(String.valueOf(document.getSpaceId()));
 
-            String actualContent = content;
-            if (document.getTemplateId() != null) {
-                actualContent = requirementNumberService.numberMissingRequirements(
-                        actualContent,
-                        document.getSpaceId(),
-                        document.getTemplateId()
-                );
-            }
+        String currentTitle = updatedMetadata.getTitle();
+        String sanitizedTitle = currentTitle.replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+        String newPath = String.format("spaces/%s/%s.md", spaceName, sanitizedTitle);
 
-            contentRepository.saveContent(
-                    newPath,
+        if (oldPath != null && !oldPath.equals(newPath)) {
+            contentRepository.moveContent(oldPath, newPath, "Изменение названия документа: " + currentTitle);
+            updatedMetadata.updateGitFilePath(newPath);
+            updatedMetadata = documentRepository.save(updatedMetadata);
+            oldPath = newPath;
+        }
+
+        String targetPath = oldPath != null ? oldPath : newPath;
+        String existingContent = contentRepository.findContentByPath(targetPath).orElse("");
+        String actualContent = content != null ? content : existingContent;
+
+        if (updatedMetadata.getTemplateId() != null && content != null) {
+            actualContent = requirementNumberService.numberMissingRequirements(
                     actualContent,
-                    "Update document: " + document.getTitle(),
-                    "System",
-                    "system@knowledgebase.com"
+                    updatedMetadata.getSpaceId(),
+                    updatedMetadata.getTemplateId()
             );
         }
+
+        String commitMsg = "Обновление содержимого документа: " + currentTitle;
+        if (titleChanged) {
+            commitMsg = "Изменение названия и содержимого документа: " + currentTitle;
+        }
+
+        contentRepository.saveContent(
+                targetPath,
+                actualContent,
+                commitMsg,
+                editor.getLogin(),
+                editor.getEmail()
+        );
 
         // Уведомляем участников пространства об изменении документа (US4.3.1).
         // Слушатель сработает после фиксации текущей транзакции (AFTER_COMMIT).
@@ -422,7 +445,7 @@ public class DocumentService {
         // 1. Перемещаем файл в Git, если он существует и еще не в архиве
         if (!oldPath.startsWith(".archive/")) {
             try {
-                contentRepository.moveContent(oldPath, newPath, "Archive document: " + document.getTitle());
+                contentRepository.moveContent(oldPath, newPath, "Soft-delete (Архивация) документа: " + document.getTitle());
             } catch (Exception e) {
                 log.warn("Не удалось архивировать файл документа {}: {}", id, e.getMessage());
             }
@@ -475,7 +498,7 @@ public class DocumentService {
         // 2. Удаляем файл из Git
         if (document.getGitFilePath() != null) {
             try {
-                contentRepository.deleteContent(document.getGitFilePath(), "Hard delete document: " + document.getTitle());
+                contentRepository.deleteContent(document.getGitFilePath(), "Hard-delete (Полное удаление) документа: " + document.getTitle());
             } catch (Exception e) {
                 log.warn("Не удалось удалить файл документа {} из Git: {}", id, e.getMessage());
             }
@@ -522,7 +545,7 @@ public class DocumentService {
         // 1. Перемещаем файл из Git архива обратно, если он там
         if (archivedPath.startsWith(".archive/")) {
             try {
-                contentRepository.moveContent(archivedPath, originalPath, "Restore document: " + document.getTitle());
+                contentRepository.moveContent(archivedPath, originalPath, "Restore (Восстановление) документа: " + document.getTitle());
             } catch (Exception e) {
                 log.warn("Не удалось восстановить файл документа {} из архива: {}", id, e.getMessage());
             }

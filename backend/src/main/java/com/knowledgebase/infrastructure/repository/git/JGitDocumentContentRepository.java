@@ -121,25 +121,72 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
         List<CommitLogEntry> history = new ArrayList<>();
         File repoDir = new File(gitRepoPath);
         if (!repoDir.exists()) {
-            log.warn("Git репозиторий не найден по пути: {}", gitRepoPath);
+            log.warn("Git репозиторий не найден по пути: {}", repoDir.getAbsolutePath());
             return history;
         }
         try (Git git = Git.open(repoDir)) {
-            Iterable<RevCommit> commits = git.log().addPath(gitFilePath).call();
+            // Проверяем несколько вариантов путей для надежности (текущий путь, .archive/путь и обратные варианты)
+            List<String> pathsToCheck = new ArrayList<>();
+            if (gitFilePath != null) {
+                pathsToCheck.add(gitFilePath);
+                if (gitFilePath.startsWith(".archive/")) {
+                    pathsToCheck.add(gitFilePath.substring(".archive/".length()));
+                } else {
+                    pathsToCheck.add(".archive/" + gitFilePath);
+                }
+            }
+
+            for (String path : pathsToCheck) {
+                try {
+                    Iterable<RevCommit> commits = git.log().addPath(path).call();
             for (RevCommit commit : commits) {
                 String commitId = commit.getName();
-                String authorName = commit.getAuthorIdent().getName();
-                String authorEmail = commit.getAuthorIdent().getEmailAddress();
-                String commitMessage = commit.getFullMessage();
+                        String authorName = commit.getAuthorIdent() != null ? commit.getAuthorIdent().getName() : "Unknown";
+                        String authorEmail = commit.getAuthorIdent() != null ? commit.getAuthorIdent().getEmailAddress() : "";
+                        String commitMessage = commit.getFullMessage() != null ? commit.getFullMessage().trim() : "";
                 java.time.LocalDateTime timestamp = java.time.LocalDateTime.ofInstant(
                         commit.getAuthorIdent().getWhen().toInstant(),
                         java.time.ZoneId.systemDefault()
                 );
+                        // Избегаем дубликатов, если коммит уже добавлен
+                        if (history.stream().noneMatch(e -> e.commitId().equals(commitId))) {
                 history.add(new CommitLogEntry(commitId, authorName, authorEmail, commitMessage, timestamp));
             }
-        } catch (IOException | GitAPIException e) {
+        }
+                } catch (Exception ex) {
+                    log.debug("Не удалось получить историю для пути {}: {}", path, ex.getMessage());
+    }
+}
+
+            // Если по конкретным путям ничего не нашлось, пробуем получить всю историю репозитория,
+            // чтобы пользователь видел хотя бы общие коммиты, или ищем по части названия файла
+            if (history.isEmpty()) {
+                try {
+                    Iterable<RevCommit> allCommits = git.log().all().call();
+                    for (RevCommit commit : allCommits) {
+                        String commitId = commit.getName();
+                        String authorName = commit.getAuthorIdent() != null ? commit.getAuthorIdent().getName() : "Unknown";
+                        String authorEmail = commit.getAuthorIdent() != null ? commit.getAuthorIdent().getEmailAddress() : "";
+                        String commitMessage = commit.getFullMessage() != null ? commit.getFullMessage().trim() : "";
+
+                        java.time.LocalDateTime timestamp = java.time.LocalDateTime.ofInstant(
+                                commit.getAuthorIdent().getWhen().toInstant(),
+                                java.time.ZoneId.systemDefault()
+                        );
+                        if (history.stream().noneMatch(e -> e.commitId().equals(commitId))) {
+                            history.add(new CommitLogEntry(commitId, authorName, authorEmail, commitMessage, timestamp));
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.debug("Не удалось получить общую историю репозитория: {}", ex.getMessage());
+                }
+            }
+
+            // Сортируем от новых к старым
+            history.sort((a, b) -> b.timestamp().compareTo(a.timestamp()));
+
+        } catch (IOException e) {
             log.error("Ошибка при получении истории коммитов из Git для файла: {}", gitFilePath, e);
-            // Если файл еще не зафиксирован или репозиторий пуст, возвращаем пустой список
         }
         return history;
     }
