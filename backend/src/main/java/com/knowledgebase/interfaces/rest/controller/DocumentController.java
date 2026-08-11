@@ -7,6 +7,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.dto.request.CreateDocumentRequest;
 import com.knowledgebase.interfaces.rest.dto.request.UpdateDocumentRequest;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.dto.response.DocumentVersionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.PageResponse;
 import com.knowledgebase.interfaces.rest.mapper.RestDtoMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -100,6 +101,34 @@ public class DocumentController {
             }
         String content = documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
+    }
+
+    /**
+     * GET /api/documents/{id}/history
+     * Получить историю версий (коммитов) документа.
+     */
+    @GetMapping("/{id}/history")
+    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @Operation(summary = "Получить историю версий документа", description = "Возвращает список коммитов из Git-репозитория для указанного документа")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "История версий успешно получена"),
+        @ApiResponse(responseCode = "403", description = "Недостаточно прав для просмотра"),
+        @ApiResponse(responseCode = "404", description = "Документ не найден")
+    })
+    public ResponseEntity<List<DocumentVersionResponse>> getDocumentHistory(
+            @Parameter(description = "ID документа") @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser) {
+
+        Document document = documentService.getDocumentById(id);
+        if (!documentService.canViewDocument(currentUser.getId(), currentUser.isAdmin(), document)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+        List<DocumentVersionResponse> history = documentService.getDocumentHistory(document).stream()
+                .map(mapper::toDocumentVersionResponse)
+                .toList();
+
+        return ResponseEntity.ok(history);
     }
     /**
      * POST /api/documents/{id}/publish

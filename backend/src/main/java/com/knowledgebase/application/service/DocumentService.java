@@ -282,6 +282,16 @@ public class DocumentService {
     }
 
     /**
+     * Возвращает историю версий (коммитов) документа.
+     */
+    public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document) {
+        if (document.getGitFilePath() == null) {
+            return Collections.emptyList();
+        }
+        return contentRepository.getHistory(document.getGitFilePath());
+    }
+
+    /**
      * Обновляет документ (сохранена перегрузка для обратной совместимости тестов).
      */
     @Transactional
@@ -425,7 +435,6 @@ public class DocumentService {
         auditService.record("DOCUMENT_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
     }
-
     /**
      * Удаляет документ с перепривязкой дочерних элементов.
      */
@@ -433,7 +442,6 @@ public class DocumentService {
     public void deleteDocument(Long id) {
         deleteDocument(id, true);
     }
-
     /**
      * Удаляет документ навсегда (hard-delete).
      */

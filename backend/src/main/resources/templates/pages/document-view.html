@@ -48,12 +48,21 @@
             Вложения</div>
         <div id="attachmentList" style="display:grid; gap:10px; color:#6B7280;">Загрузка вложений...</div>
     </div>
+
+    <div class="version-history-panel"
+        style="margin-top:24px; padding:20px; border:1px solid #E5E7EB; border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div
+            style="font-size:13px; font-weight:700; color:#4B5563; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:12px;">
+            История версий</div>
+        <div id="versionHistoryList" style="display:grid; gap:10px; color:#6B7280;">Загрузка истории версий...</div>
+    </div>
 </div>
 
 <script>
     (function () {
         const docId = document.getElementById('documentId').value;
         const attachmentList = document.getElementById('attachmentList');
+        const versionHistoryList = document.getElementById('versionHistoryList');
         let canManageAttachments = false;
 
         // Export → вложение
@@ -124,6 +133,44 @@
                 renderAttachments(items);
             } catch (e) {
                 attachmentList.innerHTML = '<div style="color:#B91C1C;">Не удалось загрузить вложения</div>';
+                }
+        }
+
+        function renderVersionHistory(versions) {
+            if (!versions || versions.length === 0) {
+                versionHistoryList.innerHTML = '<div style="color:#6B7280;">История версий пуста</div>';
+                return;
+            }
+
+            versionHistoryList.innerHTML = versions.map(v => {
+                const dateObj = v.timestamp ? new Date(v.timestamp) : null;
+                const dateStr = dateObj ? dateObj.toLocaleDateString() : '';
+                const timeStr = dateObj ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+                return `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff;">
+                    <div style="min-width:0;">
+                        <div style="font-weight:600; color:#111827; word-break:break-word;">
+                            ${escapeHtml(v.commitMessage || 'Без описания')}
+                        </div>
+                        <div style="font-size:12px; color:#6B7280; margin-top:4px;">
+                            Автор: ${escapeHtml(v.authorName || 'Неизвестен')} (${escapeHtml(v.authorEmail || '')})
+                        </div>
+                    </div>
+                    <div style="text-align:right; font-size:12px; color:#4B5563; white-space:nowrap;">
+                        <div>${dateStr}</div>
+                        <div style="color:#9CA3AF; margin-top:2px;">${timeStr}</div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        async function loadVersionHistory() {
+            try {
+                const versions = await apiFetch(`/api/documents/${docId}/history`);
+                renderVersionHistory(versions);
+            } catch (e) {
+                versionHistoryList.innerHTML = '<div style="color:#B91C1C;">Не удалось загрузить историю версий</div>';
             }
         }
 
@@ -169,6 +216,7 @@
 
                 document.getElementById('documentContent').innerHTML = doc.contentHtml || '';
                 await loadAttachments();
+                await loadVersionHistory();
             } catch (e) {
                 document.getElementById('documentContent').innerHTML = '<p style="color:red;">Ошибка при загрузке документа.</p>';
             }
@@ -177,3 +225,4 @@
         document.addEventListener('DOMContentLoaded', loadDocument);
     })();
 </script>
+

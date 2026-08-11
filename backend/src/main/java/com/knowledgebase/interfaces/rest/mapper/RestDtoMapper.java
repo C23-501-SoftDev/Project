@@ -10,6 +10,7 @@ import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import com.knowledgebase.interfaces.rest.dto.response.AttachmentResponse;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.dto.response.DocumentVersionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
 import com.knowledgebase.interfaces.rest.dto.response.UserResponse;
@@ -162,6 +163,17 @@ public class RestDtoMapper {
                 attachment.getUploadedBy(),
                 uploaderLogin,
                 attachment.getUploadedAt()
+        );
+    }
+
+    public DocumentVersionResponse toDocumentVersionResponse(com.knowledgebase.domain.repository.DocumentContentRepository.CommitLogEntry entry) {
+        if (entry == null) return null;
+        return new DocumentVersionResponse(
+                entry.commitId(),
+                entry.authorName(),
+                entry.authorEmail(),
+                entry.commitMessage(),
+                entry.timestamp()
         );
     }
 }

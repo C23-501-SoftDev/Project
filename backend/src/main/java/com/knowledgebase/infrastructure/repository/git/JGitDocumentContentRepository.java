@@ -3,6 +3,7 @@ package com.knowledgebase.infrastructure.repository.git;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -112,4 +115,33 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
             throw new RuntimeException("Ошибка Git-хранилища", e);
         }
     }
+
+    @Override
+    public List<CommitLogEntry> getHistory(String gitFilePath) {
+        List<CommitLogEntry> history = new ArrayList<>();
+        File repoDir = new File(gitRepoPath);
+        if (!repoDir.exists()) {
+            log.warn("Git репозиторий не найден по пути: {}", gitRepoPath);
+            return history;
+        }
+        try (Git git = Git.open(repoDir)) {
+            Iterable<RevCommit> commits = git.log().addPath(gitFilePath).call();
+            for (RevCommit commit : commits) {
+                String commitId = commit.getName();
+                String authorName = commit.getAuthorIdent().getName();
+                String authorEmail = commit.getAuthorIdent().getEmailAddress();
+                String commitMessage = commit.getFullMessage();
+                java.time.LocalDateTime timestamp = java.time.LocalDateTime.ofInstant(
+                        commit.getAuthorIdent().getWhen().toInstant(),
+                        java.time.ZoneId.systemDefault()
+                );
+                history.add(new CommitLogEntry(commitId, authorName, authorEmail, commitMessage, timestamp));
+            }
+        } catch (IOException | GitAPIException e) {
+            log.error("Ошибка при получении истории коммитов из Git для файла: {}", gitFilePath, e);
+            // Если файл еще не зафиксирован или репозиторий пуст, возвращаем пустой список
+        }
+        return history;
+    }
 }
+
