@@ -15,6 +15,7 @@ import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.domain.repository.VersionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -57,6 +58,7 @@ public class DocumentService {
     private final RequirementNumberService requirementNumberService;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditService auditService;
+    private final VersionRepository versionRepository;
 
     private static final int MAX_SEARCH_QUERY_LENGTH = 200;
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
@@ -72,7 +74,8 @@ public class DocumentService {
                            PermissionService permissionService,
                            RequirementNumberService requirementNumberService,
                            ApplicationEventPublisher eventPublisher,
-                           AuditService auditService) {
+                           AuditService auditService,
+                           VersionRepository versionRepository) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
@@ -83,6 +86,7 @@ public class DocumentService {
         this.requirementNumberService = requirementNumberService;
         this.eventPublisher = eventPublisher;
         this.auditService = auditService;
+        this.versionRepository = versionRepository;
     }
 
     /**
@@ -148,6 +152,8 @@ public class DocumentService {
             author.getLogin(),
             author.getEmail()
         );
+
+        versionRepository.saveVersion(updatedMetadata.getId(), "git-hash-" + System.currentTimeMillis(), authorId, "Создание документа: " + title);
 
         auditService.record("DOCUMENT_CREATED", AuditService.RESOURCE_DOCUMENT, updatedMetadata.getId(),
                 "title='" + title + "', spaceId=" + spaceId);
@@ -264,6 +270,7 @@ public class DocumentService {
         User user = userRepository.findById(userId).orElse(null);
         String authorName = user != null ? user.getLogin() : "System";
         String authorEmail = user != null ? user.getEmail() : "system@knowledgebase.com";
+        Long authorId = user != null ? user.getId() : document.getAuthorId();
 
         document.updateMetadata(null, DocumentStatus.PUBLISHED);
         Document saved = documentRepository.save(document);
@@ -278,6 +285,8 @@ public class DocumentService {
                     authorEmail
             );
         }
+
+        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), authorId, "Публикация документа: " + saved.getTitle());
 
         auditService.record("DOCUMENT_PUBLISHED", AuditService.RESOURCE_DOCUMENT, saved.getId(),
                 "title='" + saved.getTitle() + "', spaceId=" + saved.getSpaceId());
@@ -296,13 +305,13 @@ public class DocumentService {
                 .orElse("");
     }
     /**
-     * Возвращает историю версий (коммитов) документа.
+     * Возвращает историю версий документа из реляционной таблицы по document_id.
      */
     public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document) {
-        if (document.getGitFilePath() == null) {
+        if (document == null || document.getId() == null) {
             return Collections.emptyList();
         }
-        return contentRepository.getHistory(document.getGitFilePath());
+        return versionRepository.findVersionsByDocumentId(document.getId());
     }
 
     /**
@@ -386,6 +395,8 @@ public class DocumentService {
                 editor.getEmail()
         );
 
+        versionRepository.saveVersion(updatedMetadata.getId(), "git-hash-" + System.currentTimeMillis(), editorId, commitMsg);
+
         // Уведомляем участников пространства об изменении документа (US4.3.1).
         // Слушатель сработает после фиксации текущей транзакции (AFTER_COMMIT).
         eventPublisher.publishEvent(new DocumentUpdatedEvent(
@@ -454,7 +465,10 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.archive(newPath, document.getParentDocumentId());
         document.setParentDocumentId(null);
-        documentRepository.save(document);
+        Document saved = documentRepository.save(document);
+
+        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), saved.getAuthorId(), "Soft-delete (Архивация) документа: " + saved.getTitle());
+
         auditService.record("DOCUMENT_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
     }
@@ -492,9 +506,6 @@ public class DocumentService {
             log.debug("При жестком удалении дочерний документ ID {} перепривязан к родителю ID {}", child.getId(), grandparentOrParentId);
         }
 
-        // 1. Удаляем из БД
-        documentRepository.deleteById(id);
-
         // 2. Удаляем файл из Git
         if (document.getGitFilePath() != null) {
             try {
@@ -503,6 +514,11 @@ public class DocumentService {
                 log.warn("Не удалось удалить файл документа {} из Git: {}", id, e.getMessage());
             }
         }
+
+        versionRepository.saveVersion(document.getId(), "git-hash-" + System.currentTimeMillis(), document.getAuthorId(), "Hard-delete (Полное удаление) документа: " + document.getTitle());
+
+        // 1. Удаляем из БД
+        documentRepository.deleteById(id);
 
         auditService.record("DOCUMENT_HARD_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
@@ -555,7 +571,9 @@ public class DocumentService {
         document.restore(originalPath, targetParentId);
         // Сброс флага восстановления
         document.markAsDeletedWithSpace(false);
-        documentRepository.save(document);
+        Document saved = documentRepository.save(document);
+
+        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), saved.getAuthorId(), "Restore (Восстановление) документа: " + saved.getTitle());
 
         // Возвращаем обратно детей, которые были временно переподчинены при удалении этого документа
         List<Document> potentialChildren = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
