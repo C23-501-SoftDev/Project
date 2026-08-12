@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 033: Добавление полей previous_status и previous_parent_id в таблицу documents
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="033-add-document-previous-status-and-parent" author="knowledgebase-dev">
+        <comment>Добавление полей previous_status и previous_parent_id для мягкого удаления и восстановления документов</comment>
+
+        <sql>
+            ALTER TABLE documents ADD COLUMN IF NOT EXISTS previous_status VARCHAR(50);
+            ALTER TABLE documents ADD COLUMN IF NOT EXISTS previous_parent_id BIGINT;
+        </sql>
+        <rollback>
+            <dropColumn tableName="documents" columnName="previous_parent_id"/>
+            <dropColumn tableName="documents" columnName="previous_status"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Set;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -297,6 +298,10 @@ public class DocumentService {
     @Transactional
     public Document updateDocument(Long id, String title, String content, Long parentId, Long editorId) {
         Document document = getDocumentById(id);
+        if (document.getStatus() == DocumentStatus.DELETED) {
+            throw new DocumentValidationException("Нельзя изменять удаленный документ");
+        }
+
         User editor = userRepository.findById(editorId)
                 .orElseThrow(() -> new UserNotFoundException(editorId));
 
@@ -362,7 +367,6 @@ public class DocumentService {
                 "title='" + updatedMetadata.getTitle() + "', spaceId=" + document.getSpaceId());
         return updatedMetadata;
     }
-
     /**
      * Удаляет документ (переводит в статус DELETED и перемещает файл в .archive/).
      * Дочерние документы привязываются к родителю удаляемого документа.
@@ -379,17 +383,23 @@ public class DocumentService {
             return;
         }
 
+        Long grandparentOrParentId = document.getParentDocumentId();
+
         if (reparentChildren) {
-            // Перепривязываем дочерние документы к родителю текущего документа
-            Long newParentId = document.getParentDocumentId();
             List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
                     .filter(d -> id.equals(d.getParentDocumentId()))
                     .toList();
-            
+
             for (Document child : children) {
-                child.setParentDocumentId(newParentId);
+                if (child.getPreviousParentId() == null) {
+                    child.setPreviousParentId(id);
+                }
+                child.setParentDocumentId(grandparentOrParentId);
                 documentRepository.save(child);
-                log.debug("Дочерний документ ID {} перепривязан к новому родителю ID {}", child.getId(), newParentId);
+                log.debug(
+                    "Дочерний документ ID {} переприведен к дедушке ID {}, сохранен previousParentId={}",
+                    child.getId(), grandparentOrParentId, id
+                );
             }
         }
 
@@ -409,21 +419,20 @@ public class DocumentService {
         }
 
         // 2. Обновляем метаданные в БД
-        document.archive(newPath);
+        document.archive(newPath, document.getParentDocumentId());
+        document.setParentDocumentId(null);
         documentRepository.save(document);
-
         auditService.record("DOCUMENT_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
     }
 
     /**
-     * Удаляет документ с перепривязкой дочерних документов.
+     * Удаляет документ с перепривязкой дочерних элементов.
      */
     @Transactional
     public void deleteDocument(Long id) {
         deleteDocument(id, true);
     }
-
 
     /**
      * Удаляет документ навсегда (hard-delete).
@@ -446,12 +455,8 @@ public class DocumentService {
                 "title='" + document.getTitle() + "'");
     }
 
-
     /**
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
-     *
-     * @param id ID документа
-     * @param keepHierarchy если true, сохраняет текущего родителя (используется при восстановлении пространства)
      */
     @Transactional
     public void restoreDocument(Long id, boolean keepHierarchy) {
@@ -468,23 +473,16 @@ public class DocumentService {
         
         if (space.isDeleted()) {
             throw new com.knowledgebase.domain.exception.ConflictException(
-                "Нельзя восстановить документ в удаленном (неактивном) пространстве");
+                "Нельзя восстановить документ в удаленном (неактивном пространстве)");
         }
 
-        // Проверяем родителя при восстановлении
-        if (!keepHierarchy && document.getParentDocumentId() != null) {
-            Document parent = documentRepository.findById(document.getParentDocumentId()).orElse(null);
+        Long targetParentId = document.getPreviousParentId();
+        if (!keepHierarchy && targetParentId != null) {
+            Document parent = documentRepository.findById(targetParentId).orElse(null);
             if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
-                // Ищем первого неудаленного предка
-                Long newParentId = findFirstActiveAncestor(document.getParentDocumentId());
-                document.setParentDocumentId(newParentId);
-                log.info("Родитель документа ID {} удален. Установлен новый предок ID {}", id, newParentId);
+                targetParentId = findFirstActiveAncestor(targetParentId);
             }
         }
-        
-        // При восстановлении пространства (keepHierarchy=true) мы НЕ должны менять родителя,
-        // но текущий код в deleteDocument перепривязывает детей к дедушке!
-        // Это и есть причина потери иерархии при удалении.
 
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
@@ -501,35 +499,28 @@ public class DocumentService {
         }
 
         // 2. Обновляем метаданные в БД
-        document.restore(originalPath);
+        document.restore(originalPath, targetParentId);
         // Сброс флага восстановления
         document.markAsDeletedWithSpace(false);
         documentRepository.save(document);
-        documentRepository.flush();
 
-        // Проверяем контент после восстановления
-        if (contentRepository.findContentByPath(originalPath).orElse("").isEmpty()) {
-            log.error("После восстановления документ пуст: {}. Попытка восстановить из .archive/", originalPath);
-            // Если документ пуст, пробуем принудительно восстановить из архивной версии, 
-            // так как moveContent мог переместить файл, но контент не обновился.
-            // Пытаемся найти контент в исходной архивной локации (если файл там еще остался) 
-            // или в истории git, но пока пробуем просто прочитать архив.
-            try {
-                String archivedContent = contentRepository.findContentByPath(archivedPath).orElse("");
-                if (!archivedContent.isEmpty()) {
-                    contentRepository.saveContent(originalPath, archivedContent, "Restore content from archive: " + document.getTitle(), "System", "system@knowledgebase.com");
-                    log.info("Контент успешно восстановлен из архива для документа: {}", originalPath);
-                }
-            } catch (Exception e) {
-                log.error("Не удалось восстановить контент из архива", e);
-            }
+        // Возвращаем обратно детей, которые были временно переподчинены при удалении этого документа
+        List<Document> potentialChildren = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                .filter(d -> id.equals(d.getPreviousParentId()))
+                .toList();
+
+        for (Document child : potentialChildren) {
+            child.setParentDocumentId(id);
+            child.setPreviousParentId(null);
+            documentRepository.save(child);
+            log.debug("Дочерний документ ID {} возвращен под восстановленного родителя ID {}", child.getId(), id);
         }
+
+        documentRepository.flush();
 
         auditService.record("DOCUMENT_RESTORED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
     }
-
-
     /**
      * Восстанавливает документ с автоматическим поиском живого предка.
      */
@@ -583,20 +574,142 @@ public class DocumentService {
      * Возвращает список документов в пространстве.
      */
     public List<Document> getDocumentsInSpace(Long spaceId, boolean includeDeleted) {
-        // Пространство может быть soft-удалённым (сценарии корзины) — проверяем только существование.
         if (!spaceRepository.findByIdIncludingDeleted(spaceId).isPresent()) {
             throw new SpaceNotFoundException(spaceId);
         }
-        // Получаем документы из репозитория
         List<Document> documents = documentRepository.findBySpaceId(spaceId, includeDeleted);
         
-        // Дополнительно фильтруем удаленные документы, если они не должны быть включены
         if (!includeDeleted) {
             return documents.stream()
                     .filter(d -> d.getStatus() != DocumentStatus.DELETED)
                     .collect(Collectors.toList());
         }
         return documents;
+    }
+
+    /**
+     * Получает список документов в пространстве с пагинацией.
+     */
+    public List<Document> getDocumentsInSpacePaged(Long spaceId, Long authorId, boolean includeDeleted, int page, int size) {
+        if (!spaceRepository.findByIdIncludingDeleted(spaceId).isPresent()) {
+            throw new SpaceNotFoundException(spaceId);
+        }
+        if (authorId != null) {
+            return documentRepository.findBySpaceIdAndAuthorIdPaged(spaceId, authorId, includeDeleted, page, size);
+        }
+        return documentRepository.findBySpaceIdPaged(spaceId, includeDeleted, page, size);
+    }
+
+    /**
+     * Получить список удаленных документов для административной корзины.
+     */
+    public List<Document> getRecycleBinDocuments() {
+        return documentRepository.findAll(true).stream()
+                .filter(d -> d.getStatus() == DocumentStatus.DELETED)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Получить список удаленных документов для административной корзины с фильтрацией.
+     */
+    public List<Document> getRecycleBinDocuments(Long spaceId, Long authorId) {
+        return documentRepository.findDeletedDocuments(spaceId, authorId);
+    }
+    /**
+     * Получить список пространств, в которых есть удаленные документы.
+     */
+    public List<Space> getRecycleBinSpaces() {
+        Set<Long> spaceIds = documentRepository.findAll(true).stream()
+                .filter(d -> d.getStatus() == DocumentStatus.DELETED)
+                .map(Document::getSpaceId)
+                .collect(Collectors.toSet());
+
+        if (spaceIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return spaceRepository.findAllByIdIn(spaceIds);
+    }
+
+    /**
+     * Получить список авторов, у которых есть удаленные документы.
+     */
+    public List<User> getRecycleBinAuthors() {
+        Set<Long> authorIds = documentRepository.findAll(true).stream()
+                .filter(d -> d.getStatus() == DocumentStatus.DELETED)
+                .map(Document::getAuthorId)
+                .collect(Collectors.toSet());
+
+        if (authorIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return authorIds.stream()
+                .map(id -> userRepository.findById(id).orElse(null))
+                .filter(u -> u != null)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Возвращает список авторов для доступных пространств.
+     */
+    public List<User> findDistinctAuthorsByAccessibleSpaces(Long userId) {
+        return documentRepository.findDistinctAuthorsByAccessibleSpaces(userId);
+    }
+    /**
+     * Класс узла дерева документов для боковой панели.
+     */
+    public static class DocumentTreeNode {
+        private final Document document;
+        private final List<DocumentTreeNode> children;
+
+        public DocumentTreeNode(Document document, List<DocumentTreeNode> children) {
+            this.document = document;
+            this.children = children;
+        }
+
+        public Document getDocument() {
+            return document;
+        }
+
+        public List<DocumentTreeNode> getChildren() {
+            return children;
+        }
+    }
+
+    /**
+     * Возвращает иерархию документов для списка пространств.
+     */
+    public Map<Long, List<DocumentTreeNode>> getHierarchiesForSpaces(List<Long> spaceIds) {
+        if (spaceIds == null || spaceIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Document> docs = documentRepository.findBySpaceIdIn(spaceIds, false);
+        Map<Long, List<Document>> bySpace = docs.stream().collect(Collectors.groupingBy(Document::getSpaceId));
+
+        Map<Long, List<DocumentTreeNode>> result = new java.util.HashMap<>();
+        for (Map.Entry<Long, List<Document>> entry : bySpace.entrySet()) {
+            result.put(entry.getKey(), buildTree(entry.getValue()));
+        }
+        return result;
+    }
+
+    private List<DocumentTreeNode> buildTree(List<Document> documents) {
+        Map<Long, DocumentTreeNode> nodeMap = new java.util.LinkedHashMap<>();
+        List<DocumentTreeNode> roots = new ArrayList<>();
+
+        for (Document doc : documents) {
+            nodeMap.put(doc.getId(), new DocumentTreeNode(doc, new ArrayList<>()));
+        }
+
+        for (Document doc : documents) {
+            DocumentTreeNode node = nodeMap.get(doc.getId());
+            Long parentId = doc.getParentDocumentId();
+            if (parentId != null && nodeMap.containsKey(parentId)) {
+                nodeMap.get(parentId).getChildren().add(node);
+            } else {
+                roots.add(node);
+            }
+        }
+        return roots;
     }
 
     /**
@@ -653,97 +766,16 @@ public class DocumentService {
         if (dateFrom != null && dateTo != null && dateFrom.isAfter(dateTo)) {
             throw new IllegalArgumentException("Дата начала не может быть позже даты окончания");
         }
-        if (!normalizedQuery.isBlank() && normalizedQuery.length() > MAX_SEARCH_QUERY_LENGTH) {
-            throw new IllegalArgumentException("Поисковая строка не может превышать " + MAX_SEARCH_QUERY_LENGTH + " символов");
-        }
         if (page < 0) {
             throw new IllegalArgumentException("Номер страницы не может быть отрицательным");
         }
-        if (size < 1 || size > MAX_SEARCH_PAGE_SIZE) {
+        if (size <= 0 || size > MAX_SEARCH_PAGE_SIZE) {
             throw new IllegalArgumentException("Размер страницы должен быть от 1 до " + MAX_SEARCH_PAGE_SIZE);
         }
-    }
-
-    /**
-     * Возвращает иерархическую структуру документов в пространстве.
-     */
-    public List<DocumentTreeNode> getSpaceDocumentHierarchy(Long spaceId) {
-        List<Document> documents = getDocumentsInSpace(spaceId, false);
-        return buildHierarchy(documents);
-    }
-
-    /**
-     * Возвращает иерархии документов для нескольких пространств одним запросом к БД.
-     * Используется в PageController для устранения N+1.
-     */
-    public Map<Long, List<DocumentTreeNode>> getHierarchiesForSpaces(List<Long> spaceIds) {
-        if (spaceIds == null || spaceIds.isEmpty()) {
-            return Map.of();
+        if (normalizedQuery.length() > MAX_SEARCH_QUERY_LENGTH) {
+            throw new IllegalArgumentException("Поисковый запрос слишком длинный (максимум " + MAX_SEARCH_QUERY_LENGTH + " символов)");
         }
-        List<Document> allDocuments = documentRepository.findBySpaceIdIn(spaceIds, false);
-
-        Map<Long, List<Document>> bySpace = allDocuments.stream()
-                .collect(Collectors.groupingBy(Document::getSpaceId));
-
-        return spaceIds.stream()
-                .collect(Collectors.toMap(
-                        id -> id,
-                        id -> buildHierarchy(bySpace.getOrDefault(id, List.of()))
-                ));
     }
 
-    private List<DocumentTreeNode> buildHierarchy(List<Document> documents) {
-        Map<Long, List<Document>> childrenMap = documents.stream()
-                .filter(d -> d.getParentDocumentId() != null)
-                .collect(Collectors.groupingBy(Document::getParentDocumentId));
-
-        return documents.stream()
-                .filter(d -> d.getParentDocumentId() == null)
-                .map(d -> buildNode(d, childrenMap))
-                .collect(Collectors.toList());
-    }
-
-    private DocumentTreeNode buildNode(Document doc, Map<Long, List<Document>> childrenMap) {
-        List<DocumentTreeNode> children = childrenMap.getOrDefault(doc.getId(), List.of()).stream()
-                .map(child -> buildNode(child, childrenMap))
-                .collect(Collectors.toList());
-        return new DocumentTreeNode(doc, children);
-    }
-
-    /**
-     * Возвращает список документов в пространстве (возможно, с фильтрацией по автору) с пагинацией на уровне БД.
-     */
-    public List<Document> getDocumentsInSpacePaged(Long spaceId, Long authorId, boolean includeDeleted, int page, int size) {
-        if (!spaceRepository.findById(spaceId).isPresent()) {
-            throw new SpaceNotFoundException(spaceId);
-        }
-        if (authorId != null) {
-            return documentRepository.findBySpaceIdAndAuthorIdPaged(spaceId, authorId, includeDeleted, page, size);
-        }
-        return documentRepository.findBySpaceIdPaged(spaceId, includeDeleted, page, size);
-    }
-
-    public long countDocumentsInSpace(Long spaceId, Long authorId, boolean includeDeleted) {
-        if (authorId != null) {
-            return documentRepository.countBySpaceIdAndAuthorId(spaceId, authorId, includeDeleted);
-        }
-        return documentRepository.countBySpaceId(spaceId, includeDeleted);
-    }
-
-    public static class DocumentTreeNode {
-        private final Document document;
-        private final List<DocumentTreeNode> children;
-
-        public DocumentTreeNode(Document document, List<DocumentTreeNode> children) {
-            this.document = document;
-            this.children = children;
-        }
-
-        public Document getDocument() { return document; }
-        public List<DocumentTreeNode> getChildren() { return children; }
-    }
-    public List<User> findDistinctAuthorsByAccessibleSpaces(Long userId) {
-        return documentRepository.findDistinctAuthorsByAccessibleSpaces(userId);
-    }
 }
 

@@ -28,8 +28,10 @@ public interface DocumentRepository {
     List<com.knowledgebase.domain.model.User> findDistinctAuthorsByAccessibleSpaces(Long userId);
     List<Long> findAncestorIds(Long documentId);
     List<Document> findAll(boolean includeDeleted);
+    List<Document> findDeletedDocuments(Long spaceId, Long authorId);
     List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted);
     void deleteById(Long id);
     boolean hasChildren(Long id);
     void flush();
 }
+

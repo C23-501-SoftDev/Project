@@ -166,6 +166,13 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public List<Document> findDeletedDocuments(Long spaceId, Long authorId) {
+        return jpaRepository.findDeletedDocuments(spaceId, authorId).stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted) {
         Set<Long> accessibleSpaceIds = spacePermissionRepository.findByUserId(userId).stream()
                 .map(com.knowledgebase.domain.model.SpacePermission::getSpaceId)
@@ -184,7 +191,6 @@ public class DocumentRepositoryImpl implements DocumentRepository {
 
         return entities.stream().map(mapper::toDomain).collect(Collectors.toList());
     }
-
     @Override
     public List<com.knowledgebase.domain.model.User> findDistinctAuthorsByAccessibleSpaces(Long userId) {
         Set<Long> accessibleSpaceIds = spacePermissionRepository.findByUserId(userId).stream()
@@ -197,15 +203,15 @@ public class DocumentRepositoryImpl implements DocumentRepository {
 
         return jpaRepository.findDistinctAuthorsBySpaceIds(accessibleSpaceIds).stream()
                 .map(entity -> com.knowledgebase.domain.model.User.restore(
-                        entity.getId(), 
-                        entity.getLogin(), 
-                        null, 
-                        entity.getEmail(), 
-                        com.knowledgebase.domain.model.GlobalRole.fromDbValue(entity.getRole()), 
-                        entity.isAdmin(), 
-                        entity.isDeleted(), 
-                    entity.getFullName(), 
-                        entity.getCreatedAt(), 
+                        entity.getId(),
+                        entity.getLogin(),
+                        null,
+                        entity.getEmail(),
+                        com.knowledgebase.domain.model.GlobalRole.fromDbValue(entity.getRole()),
+                        entity.isAdmin(),
+                        entity.isDeleted(),
+                    entity.getFullName(),
+                        entity.getCreatedAt(),
                         entity.getUpdatedAt()
                 ))
                 .collect(Collectors.toList());
@@ -231,3 +237,4 @@ public class DocumentRepositoryImpl implements DocumentRepository {
         jpaRepository.flush();
     }
 }
+

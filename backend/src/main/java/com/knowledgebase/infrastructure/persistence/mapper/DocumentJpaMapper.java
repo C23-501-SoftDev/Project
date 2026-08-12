@@ -19,10 +19,12 @@ public class DocumentJpaMapper {
                 entity.getTitle(),
                 entity.getGitFilePath(),
                 DocumentStatus.fromDbValue(entity.getStatus()),
+                entity.getPreviousStatus() != null ? DocumentStatus.fromDbValue(entity.getPreviousStatus()) : null,
                 entity.getAuthorId(),
                 entity.getSpaceId(),
                 entity.getTemplateId(),
                 entity.getParentDocumentId(),
+                entity.getPreviousParentId(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -36,13 +38,16 @@ public class DocumentJpaMapper {
         entity.setTitle(domain.getTitle());
         entity.setGitFilePath(domain.getGitFilePath());
         entity.setStatus(domain.getStatus().getDbValue());
+        entity.setPreviousStatus(domain.getPreviousStatus() != null ? domain.getPreviousStatus().getDbValue() : null);
         entity.setAuthorId(domain.getAuthorId());
         entity.setSpaceId(domain.getSpaceId());
         entity.setTemplateId(domain.getTemplateId());
         entity.setParentDocumentId(domain.getParentDocumentId());
+        entity.setPreviousParentId(domain.getPreviousParentId());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
 
         return entity;
     }
 }
+
