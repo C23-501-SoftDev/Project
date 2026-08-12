@@ -12,3 +12,9 @@ tests/E2E/test-results
 .kilo/
 .kilocode/rules
 spaces/
+.codex/
+backend/.claude/
+backend/.codex/
+backend/.cursor/
+backend/.gemini/
+backend/.kilocode/
