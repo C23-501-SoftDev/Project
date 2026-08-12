@@ -52,6 +52,7 @@ public class DocumentService {
     private final SpacePermissionRepository permissionRepository;
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
+    private final PermissionService permissionService;
     private final RequirementNumberService requirementNumberService;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditService auditService;
@@ -67,6 +68,7 @@ public class DocumentService {
                            SpacePermissionRepository permissionRepository,
                            TemplateRepository templateRepository,
                            UserRepository userRepository,
+                           PermissionService permissionService,
                            RequirementNumberService requirementNumberService,
                            ApplicationEventPublisher eventPublisher,
                            AuditService auditService) {
@@ -76,6 +78,7 @@ public class DocumentService {
         this.permissionRepository = permissionRepository;
         this.templateRepository = templateRepository;
         this.userRepository = userRepository;
+        this.permissionService = permissionService;
         this.requirementNumberService = requirementNumberService;
         this.eventPublisher = eventPublisher;
         this.auditService = auditService;
@@ -207,15 +210,68 @@ public class DocumentService {
         }
     }
     public Document getDocumentById(Long id) {
-        return documentRepository.findById(id)
+        Document document = documentRepository.findById(id)
                 .orElseThrow(() -> new DocumentNotFoundException(id));
+        return document;
+    }
+
+    /**
+     * Проверяет, имеет ли пользователь право просматривать конкретный документ (с учетом статуса Draft/Published/Deleted).
+     */
+    public boolean canViewDocument(Long userId, boolean isAdmin, Document document) {
+        if (document == null) {
+            return false;
+        }
+        if (document.getStatus() == DocumentStatus.DELETED) {
+            // Удаленные документы обрабатываются отдельно (например, в корзине / с правами пространства)
+            return true;
+        }
+        if (document.getStatus() == DocumentStatus.PUBLISHED) {
+            return permissionService != null ? permissionService.canRead(userId, isAdmin, document.getSpaceId()) : true;
+        }
+        if (document.getStatus() == DocumentStatus.DRAFT) {
+            // Черновик доступен только автору или администратору
+            if (isAdmin) {
+                return true;
+            }
+            return userId != null && userId.equals(document.getAuthorId());
+        }
+        return false;
+    }
+
+    /**
+     * Публикация документа (перевод из Draft в Published).
+     * Публиковать может только автор документа или администратор.
+     */
+    @Transactional
+    public Document publishDocument(Long id, Long userId, boolean isAdmin) {
+        Document document = getDocumentById(id);
+
+        if (document.getStatus() == DocumentStatus.DELETED) {
+            throw new DocumentValidationException("Нельзя опубликовать удаленный документ");
+        }
+        if (document.getStatus() == DocumentStatus.PUBLISHED) {
+            return document; // Уже опубликован
+        }
+
+        // Проверка прав: публиковать может только автор или администратор
+        boolean isAuthor = userId != null && userId.equals(document.getAuthorId());
+        if (!isAdmin && !isAuthor) {
+            throw new com.knowledgebase.domain.exception.AccessDeniedException("Только автор или администратор могут опубликовать документ");
+        }
+
+        document.updateMetadata(null, DocumentStatus.PUBLISHED);
+        Document saved = documentRepository.save(document);
+
+        auditService.record("DOCUMENT_PUBLISHED", AuditService.RESOURCE_DOCUMENT, saved.getId(),
+                "title='" + saved.getTitle() + "', spaceId=" + saved.getSpaceId());
+        return saved;
     }
 
     public Document getDocumentBySpaceAndTitle(Long spaceId, String title) {
         return documentRepository.findBySpaceIdAndTitle(spaceId, title)
                 .orElseThrow(() -> new DocumentNotFoundException(0L));
     }
-
     /**
      * Возвращает содержимое документа из Git.
      */
@@ -225,24 +281,34 @@ public class DocumentService {
     }
 
     /**
+     * Обновляет документ (сохранена перегрузка для обратной совместимости тестов).
+     */
+    @Transactional
+    public Document updateDocument(Long id, String title, String content, DocumentStatus status, Long parentId, Long editorId) {
+        if (status != null) {
+            throw new DocumentValidationException("Нельзя менять статус документа через обычное редактирование");
+        }
+        return updateDocument(id, title, content, parentId, editorId);
+    }
+    /**
      * Обновляет документ.
      * Изменяет метаданные в БД и создаёт новый коммит в Git при изменении контента.
      */
     @Transactional
-    public Document updateDocument(Long id, String title, String content, DocumentStatus status, Long parentId, Long editorId) {
+    public Document updateDocument(Long id, String title, String content, Long parentId, Long editorId) {
         Document document = getDocumentById(id);
         User editor = userRepository.findById(editorId)
                 .orElseThrow(() -> new UserNotFoundException(editorId));
 
-        log.debug("Обновление документа ID {}: title='{}', status={}, parentId={}", id, title, status, parentId);
+        log.debug("Обновление документа ID {}: title='{}', parentId={}", id, title, parentId);
 
         validateHierarchy(id, parentId, document.getSpaceId());
         if (title != null) {
             validateTitleUniqueness(title, document.getSpaceId(), parentId, id);
         }
 
-        // Обновляем метаданные в БД
-        document.updateMetadata(title, status);
+        // Обновляем метаданные в БД (без изменения статуса через обычный PUT)
+        document.updateMetadata(title, document.getStatus());
         if (parentId != null) {
             document.setParentDocumentId(parentId);
         }
@@ -530,7 +596,6 @@ public class DocumentService {
                     .filter(d -> d.getStatus() != DocumentStatus.DELETED)
                     .collect(Collectors.toList());
         }
-        
         return documents;
     }
 
@@ -681,3 +746,4 @@ public class DocumentService {
         return documentRepository.findDistinctAuthorsByAccessibleSpaces(userId);
     }
 }
+

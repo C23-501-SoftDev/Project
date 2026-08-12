@@ -84,19 +84,43 @@ public class DocumentController {
      */
     @GetMapping("/{id}")
     @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
-    @Operation(summary = "Получить документ", description = "Возвращает метаданные из БД и содержимое из Git")
+    @Operation(summary = "Получить документ", description = "Возвращает метаданные из БД и содержимое из Git с проверкой прав доступа к черновикам/опубликованным")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Документ найден"),
+        @ApiResponse(responseCode = "403", description = "Недостаточно прав для просмотра черновика"),
         @ApiResponse(responseCode = "404", description = "Документ не найден")
     })
     public ResponseEntity<DocumentResponse> getDocument(
-            @Parameter(description = "ID документа") @PathVariable Long id) {
+            @Parameter(description = "ID документа") @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser) {
 
         Document document = documentService.getDocumentById(id);
+        if (!documentService.canViewDocument(currentUser.getId(), currentUser.isAdmin(), document)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
         String content = documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
     }
+    /**
+     * POST /api/documents/{id}/publish
+     * Публикация документа (перевод из Draft в Published).
+     */
+    @PostMapping("/{id}/publish")
+    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @Operation(summary = "Опубликовать документ", description = "Переводит документ из Draft в Published. Доступно только автору или администратору.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Документ успешно опубликован"),
+        @ApiResponse(responseCode = "403", description = "Недостаточно прав для публикации"),
+        @ApiResponse(responseCode = "404", description = "Документ не найден")
+    })
+    public ResponseEntity<DocumentResponse> publishDocument(
+            @Parameter(description = "ID документа") @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser) {
 
+        Document document = documentService.publishDocument(id, currentUser.getId(), currentUser.isAdmin());
+        String content = documentService.getDocumentContent(document);
+        return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
+        }
     /**
      * PUT /api/documents/{id}
      * Обновить метаданные или контент.
@@ -110,7 +134,7 @@ public class DocumentController {
             @AuthenticationPrincipal User currentUser) {
 
         Document document = documentService.updateDocument(
-                id, request.title(), request.content(), request.status(), request.parentId(), currentUser.getId());
+                id, request.title(), request.content(), request.parentId(), currentUser.getId());
 
         String content = documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
@@ -142,7 +166,7 @@ public class DocumentController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю")
+    @Operation(summary = "Список документов", description = "Возвращает список метаданных всех документов, доступных пользователю с учетом статусов")
     public ResponseEntity<?> getDocuments(
             @RequestParam(required = false) Long spaceId,
             @RequestParam(required = false) Long authorId,
@@ -163,22 +187,32 @@ public class DocumentController {
             if (authorId != null && !currentUser.isAdmin()) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
-            pagedContent = documentService.getDocumentsInSpacePaged(spaceId, authorId, includeDeleted, page, size)
-                    .stream().map(doc -> mapper.toDocumentResponse(doc, null)).toList();
-            totalElements = documentService.countDocumentsInSpace(spaceId, authorId, includeDeleted);
+            List<Document> spaceDocs = documentService.getDocumentsInSpacePaged(spaceId, authorId, includeDeleted, page, size);
+            // Фильтруем по видимости документов в пространстве (Published доступны всем с доступом, Draft — только автору или админу)
+            List<Document> filteredSpaceDocs = spaceDocs.stream()
+                    .filter(doc -> documentService.canViewDocument(currentUser.getId(), currentUser.isAdmin(), doc))
+                .toList();
+
+            pagedContent = filteredSpaceDocs.stream().map(doc -> mapper.toDocumentResponse(doc, null)).toList();
+            totalElements = filteredSpaceDocs.size(); // либо с учетом пагинации
         } else {
             List<Document> all = documentService.getAllAccessibleDocuments(
                     currentUser.getId(), currentUser.isAdmin(), includeDeleted);
 
-            // Фильтрация по автору (добавлено)
+            // Фильтрация по видимости (общий список)
+            List<Document> visibleDocs = all.stream()
+                    .filter(doc -> documentService.canViewDocument(currentUser.getId(), currentUser.isAdmin(), doc))
+                    .toList();
+
+            // Фильтрация по автору
             if (authorId != null) {
                 if (!currentUser.isAdmin()) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-                }
-                all = all.stream().filter(d -> authorId.equals(d.getAuthorId())).toList();
             }
+                visibleDocs = visibleDocs.stream().filter(d -> authorId.equals(d.getAuthorId())).toList();
+}
 
-            List<Document> filteredList = new java.util.ArrayList<>(all);
+            List<Document> filteredList = new java.util.ArrayList<>(visibleDocs);
 
             // Фильтрация по статусам
             if (status != null && !status.isEmpty()) {
@@ -220,7 +254,7 @@ public class DocumentController {
      */
     @GetMapping("/search")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Поиск документов", description = "Ищет документы по заголовку с учётом прав доступа")
+    @Operation(summary = "Поиск документов", description = "Ищет документы по заголовку с учётом прав доступа и статусов")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Поиск выполнен успешно"),
         @ApiResponse(responseCode = "400", description = "Некорректная поисковая строка или размер страницы")
@@ -249,11 +283,13 @@ public class DocumentController {
                 page,
                 size);
 
+        // Дополнительная фильтрация результатов поиска по правилам видимости документов
         List<DocumentResponse> content = searchPage.getContent().stream()
+                .filter(doc -> documentService.canViewDocument(currentUser.getId(), currentUser.isAdmin(), doc))
                 .map(document -> mapper.toDocumentResponse(document, null))
                 .toList();
 
-        return ResponseEntity.ok(PageResponse.of(content, page, size, searchPage.getTotalElements()));
+        return ResponseEntity.ok(PageResponse.of(content, page, size, content.size()));
     }
     /**
      * GET /api/documents/authors
@@ -272,3 +308,4 @@ public class DocumentController {
         return ResponseEntity.ok(responses);
     }
 }
+
