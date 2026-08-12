@@ -1,8 +1,25 @@
 {
     "version": 1,
-    "updatedAt": "2026-07-22",
+    "updatedAt": "2026-08-12",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
+        {
+            "featureId": "git-commit-on-document-save",
+            "title": "Git commit and version metadata on published document save",
+            "status": "planned",
+            "area": "backend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E2 Жизненный цикл и Версионность (Lifecycle & Versioning)/F2.2 Контроль версий (Git Integration)/US2.2.1 Git commit при сохранении/description.md",
+                "../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.1 Инициализация проекта/description.md"
+            ],
+            "endpoints": [
+                "PUT /api/documents/{id}"
+            ],
+            "dependsOn": [
+                "spaces-and-permissions"
+            ]
+        },
         {
             "featureId": "auth-jwt-cookie",
             "title": "JWT authentication (login + me)",

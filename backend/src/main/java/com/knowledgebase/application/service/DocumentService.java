@@ -7,6 +7,8 @@ import com.knowledgebase.domain.exception.SpaceNotFoundException;
 import com.knowledgebase.domain.exception.UserNotFoundException;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
+import com.knowledgebase.domain.model.DocumentVersion;
+import com.knowledgebase.domain.model.GitCommitResult;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.Space;
@@ -14,6 +16,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
+import com.knowledgebase.domain.repository.DocumentVersionRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +51,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final DocumentContentRepository contentRepository;
+    private final DocumentVersionRepository documentVersionRepository;
     private final SpaceRepository spaceRepository;
     private final SpacePermissionRepository permissionRepository;
     private final TemplateRepository templateRepository;
@@ -63,6 +67,7 @@ public class DocumentService {
 
     public DocumentService(DocumentRepository documentRepository,
                            DocumentContentRepository contentRepository,
+                           DocumentVersionRepository documentVersionRepository,
                            SpaceRepository spaceRepository,
                            SpacePermissionRepository permissionRepository,
                            TemplateRepository templateRepository,
@@ -72,6 +77,7 @@ public class DocumentService {
                            AuditService auditService) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
+        this.documentVersionRepository = documentVersionRepository;
         this.spaceRepository = spaceRepository;
         this.permissionRepository = permissionRepository;
         this.templateRepository = templateRepository;
@@ -234,6 +240,12 @@ public class DocumentService {
         User editor = userRepository.findById(editorId)
                 .orElseThrow(() -> new UserNotFoundException(editorId));
 
+        String oldTitle = document.getTitle();
+        DocumentStatus oldStatus = document.getStatus();
+        Long oldParentId = document.getParentDocumentId();
+        String oldPath = document.getGitFilePath();
+        String existingContent = contentRepository.findContentByPath(oldPath).orElse("");
+
         log.debug("Обновление документа ID {}: title='{}', status={}, parentId={}", id, title, status, parentId);
 
         validateHierarchy(id, parentId, document.getSpaceId());
@@ -246,26 +258,15 @@ public class DocumentService {
         if (parentId != null) {
             document.setParentDocumentId(parentId);
         }
-        Document updatedMetadata = documentRepository.save(document);
-
-        // Обновляем контент в Git, если передан
-        if (content != null) {
-            String oldPath = document.getGitFilePath();
+        String newPath = oldPath;
+        String actualContent = content != null ? content : existingContent;
+        if (content != null || title != null) {
             String spaceName = spaceRepository.findById(document.getSpaceId())
                 .map(s -> s.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-"))
                 .orElse(String.valueOf(document.getSpaceId()));
             String sanitizedTitle = title != null ? title.replaceAll("[\\\\/:*?\"<>|\\s]", "-") : document.getTitle().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
-            
-            String newPath = String.format("spaces/%s/%s.md", spaceName, sanitizedTitle);
-            
-            if (!oldPath.equals(newPath)) {
-                contentRepository.moveContent(oldPath, newPath, "Rename document to: " + title);
-                document.updateGitFilePath(newPath);
-                updatedMetadata = documentRepository.save(document);
-            }
-
-            String actualContent = content;
-            if (document.getTemplateId() != null) {
+            newPath = String.format("spaces/%s/%s.md", spaceName, sanitizedTitle);
+            if (content != null && document.getTemplateId() != null) {
                 actualContent = requirementNumberService.numberMissingRequirements(
                         actualContent,
                         document.getSpaceId(),
@@ -273,14 +274,48 @@ public class DocumentService {
                 );
             }
 
-            contentRepository.saveContent(
-                    newPath,
-                    actualContent,
-                    "Update document: " + document.getTitle(),
-                    "System",
-                    "system@knowledgebase.com"
-            );
         }
+
+        boolean metadataChanged = !java.util.Objects.equals(oldTitle, document.getTitle())
+                || oldStatus != document.getStatus()
+                || !java.util.Objects.equals(oldParentId, document.getParentDocumentId());
+        boolean contentChanged = !java.util.Objects.equals(existingContent, actualContent);
+        boolean pathChanged = !oldPath.equals(newPath);
+        boolean changed = metadataChanged || contentChanged || pathChanged;
+        String commitMessage = "Update document: " + document.getTitle();
+
+        if (changed && document.getStatus() == DocumentStatus.PUBLISHED) {
+            String metadataPath = ".metadata/documents/" + document.getId() + ".json";
+            GitCommitResult commit = contentRepository.saveDocumentSnapshot(
+                    oldPath, newPath, actualContent, metadataPath,
+                    documentMetadataJson(document), commitMessage, editor.getLogin(), editor.getEmail());
+            if (commit == null) {
+                throw new IllegalStateException("Измененный документ не был добавлен в Git-коммит");
+            }
+            if (pathChanged) {
+                document.updateGitFilePath(newPath);
+            }
+            Document updatedMetadata = documentRepository.save(document);
+            try {
+                documentVersionRepository.save(DocumentVersion.create(updatedMetadata.getId(), commit.hash(),
+                        editor.getId(), commitMessage, commit.committedAt()));
+            } catch (RuntimeException e) {
+                log.error("Git-коммит {} создан, но метаданные версии документа {} не сохранены",
+                        commit.hash(), id, e);
+                throw e;
+            }
+        } else {
+            if (content != null) {
+                if (pathChanged) {
+                    contentRepository.moveContent(oldPath, newPath, "Rename document to: " + document.getTitle());
+                    document.updateGitFilePath(newPath);
+                }
+                contentRepository.saveContent(newPath, actualContent, commitMessage, editor.getLogin(), editor.getEmail());
+            }
+            documentRepository.save(document);
+        }
+
+        Document updatedMetadata = document;
 
         // Уведомляем участников пространства об изменении документа (US4.3.1).
         // Слушатель сработает после фиксации текущей транзакции (AFTER_COMMIT).
@@ -295,6 +330,21 @@ public class DocumentService {
         auditService.record("DOCUMENT_UPDATED", AuditService.RESOURCE_DOCUMENT, updatedMetadata.getId(),
                 "title='" + updatedMetadata.getTitle() + "', spaceId=" + document.getSpaceId());
         return updatedMetadata;
+    }
+
+    private String documentMetadataJson(Document document) {
+        return "{\n"
+                + "  \"documentId\": " + document.getId() + ",\n"
+                + "  \"title\": \"" + jsonEscape(document.getTitle()) + "\",\n"
+                + "  \"status\": \"" + document.getStatus().name() + "\",\n"
+                + "  \"parentDocumentId\": "
+                + (document.getParentDocumentId() == null ? "null" : document.getParentDocumentId()) + "\n"
+                + "}\n";
+    }
+
+    private String jsonEscape(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r");
     }
 
     /**

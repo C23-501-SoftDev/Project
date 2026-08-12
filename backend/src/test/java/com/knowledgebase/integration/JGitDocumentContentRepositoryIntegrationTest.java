@@ -2,6 +2,7 @@ package com.knowledgebase.integration;
 
 import com.knowledgebase.infrastructure.repository.git.JGitDocumentContentRepository;
 import com.knowledgebase.support.IntegrationTestBase;
+import org.eclipse.jgit.api.Git;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -26,12 +27,31 @@ class JGitDocumentContentRepositoryIntegrationTest extends IntegrationTestBase {
         String message = "Create test document";
         
         // When
-        gitRepository.saveContent(path, content, message, "Test Author", "test@knowledgebase.local");
+        var commit = gitRepository.saveContent(path, content, message, "Test Author", "test@knowledgebase.local");
         
         // Then
         Optional<String> readContent = gitRepository.findContentByPath(path);
         assertTrue(readContent.isPresent(), "Content should be present");
         assertEquals(content, readContent.get());
+        assertNotNull(commit);
+        assertEquals(40, commit.hash().length());
+    }
+
+    @Test
+    void shouldCommitSnapshotWithAuthorAndMetadataInOneCommit() throws Exception {
+        var commit = gitRepository.saveDocumentSnapshot(
+                "docs/current.md", "docs/current.md", "# Current", ".metadata/documents/42.json",
+                "{\"documentId\":42}", "Update document: Current", "Editor", "editor@kb.local");
+
+        try (Git git = Git.open(tempDir.resolve("git-repo").toFile())) {
+            var head = git.log().setMaxCount(1).call().iterator().next();
+            assertEquals(commit.hash(), head.getId().name());
+            assertEquals("Editor", head.getAuthorIdent().getName());
+            assertEquals("editor@kb.local", head.getAuthorIdent().getEmailAddress());
+        }
+        assertEquals("# Current", gitRepository.findContentByPath("docs/current.md").orElseThrow());
+        assertEquals("{\"documentId\":42}",
+                gitRepository.findContentByPath(".metadata/documents/42.json").orElseThrow());
     }
 
     @Test
