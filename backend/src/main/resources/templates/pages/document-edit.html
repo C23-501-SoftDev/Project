@@ -140,9 +140,66 @@
         function updateStatusBadge() {
             const status = document.getElementById('docStatusField').value;
             const badge = document.getElementById('statusBadge');
-            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+            const labels = {
+                'DRAFT': 'Черновик',
+                'PUBLISHED': 'Опубликовано',
+                'DELETED': 'Удалено'
+            };
+            badge.textContent = labels[status] || status;
             badge.className = 'badge ' + status.toLowerCase();
             badge.style = '';
+
+            // Update options in custom select based on allowed transitions
+            const optionsContainer = document.querySelector('#docStatusWrapper .select-options');
+            let allowed = [];
+            if (status === 'DRAFT') {
+                allowed = [
+                    { value: 'DRAFT', label: 'Черновик' },
+                    { value: 'PUBLISHED', label: 'Опубликовано' },
+                    { value: 'DELETED', label: 'Удалено' }
+                ];
+            } else if (status === 'PUBLISHED') {
+                allowed = [
+                    { value: 'PUBLISHED', label: 'Опубликовано' },
+                    { value: 'DELETED', label: 'Удалено' }
+                ];
+            } else if (status === 'DELETED') {
+                allowed = [
+                    { value: 'DELETED', label: 'Удалено' },
+                    { value: 'DRAFT', label: 'Черновик' }
+                ];
+            }
+
+            optionsContainer.innerHTML = allowed.map(opt => `
+                <div class="select-option" data-value="${opt.value}">${opt.label}</div>
+            `).join('');
+
+            // Re-bind click events
+            optionsContainer.querySelectorAll('.select-option').forEach(option => {
+                option.addEventListener('click', async () => {
+                    const value = option.getAttribute('data-value');
+                    const oldStatus = document.getElementById('docStatusField').value;
+                    if (value === oldStatus) return;
+                    try {
+                        if (value === 'PUBLISHED' && oldStatus === 'DRAFT') {
+                            await apiFetch(`/api/documents/${docId}/publish`, { method: 'POST' });
+                            showToast('Документ опубликован');
+                        } else if (value === 'DELETED') {
+                            await apiFetch(`/api/documents/${docId}`, { method: 'DELETE' });
+                            showToast('Документ удален');
+                        } else if (value === 'DRAFT' && oldStatus === 'DELETED') {
+                            await apiFetch(`/api/documents/${docId}/restore`, { method: 'POST' });
+                            showToast('Документ восстановлен');
+                        }
+                        document.getElementById('docStatusField').value = value;
+                        document.getElementById('statusStyled').textContent = option.textContent;
+                updateStatusBadge();
+                        setTimeout(() => location.reload(), 800);
+            } catch (e) {
+                        showToast('Ошибка изменения статуса: ' + (e.message || ''), 'error');
+            }
+                });
+            });
         }
 
         // Logic for custom select
@@ -212,13 +269,12 @@
                     ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px;">Удалить</button>` : ''}
                 </div>
             `).join('');
-
             attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
                 button.addEventListener('click', async () => {
                     const attachmentId = button.getAttribute('data-attachment-id');
                     const attachmentName = button.getAttribute('data-attachment-name') || 'вложение';
                     await deleteAttachment(attachmentId, attachmentName);
-                });
+            });
             });
         }
 
@@ -228,8 +284,8 @@
                 renderAttachments(items);
             } catch (e) {
                 attachmentList.innerHTML = '<div style="color:#B91C1C; font-size:14px;">Не удалось загрузить список вложений</div>';
+                }
             }
-        }
 
         async function uploadAttachments(files) {
             const fileArray = Array.from(files || []);
@@ -307,9 +363,7 @@
         async function saveDocument() {
             console.log("Save button clicked, docId:", docId);
             const title = document.getElementById('docTitleField').value.trim();
-            const status = document.getElementById('docStatusField').value;
             const content = textarea.value;
-            console.log("Data to save:", { title, status, content });
 
             if (!title) {
                 showToast('Заголовок не может быть пустым', 'error');
@@ -321,16 +375,13 @@
             btn.textContent = 'Сохранение...';
 
             try {
-                console.log("Sending PUT request to:", `/api/documents/${docId}`);
                 const result = await apiFetch(`/api/documents/${docId}`, {
                     method: 'PUT',
                     body: JSON.stringify({
                         title,
-                        status,
                         content
                     })
                 });
-                console.log("Save successful, response:", result);
                 currentDoc = result;
                 document.getElementById('headerTitle').textContent = title;
                 document.getElementById('headerTitle').title = title;
@@ -367,10 +418,12 @@
                 statusField.value = doc.status || 'DRAFT';
 
                 const statusStyled = document.getElementById('statusStyled');
-                const option = document.querySelector(`#docStatusWrapper .select-option[data-value="${statusField.value}"]`);
-                if (option) {
-                    statusStyled.textContent = option.textContent;
-                }
+                const labels = {
+                    'DRAFT': 'Черновик',
+                    'PUBLISHED': 'Опубликовано',
+                    'DELETED': 'Удалено'
+                };
+                statusStyled.textContent = labels[statusField.value] || statusField.value;
 
                 document.getElementById('authorName').textContent = doc.authorName || 'Неизвестен';
 
@@ -469,3 +522,4 @@
         loadDocument();
     })();
 </script>
+

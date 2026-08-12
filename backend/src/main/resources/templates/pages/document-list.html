@@ -231,7 +231,10 @@
         if (state.searchTerm) url += `&search=${encodeURIComponent(state.searchTerm)}`;
 
         try {
-            const data = await apiFetch(url);
+            const [data, currentUser] = await Promise.all([
+                apiFetch(url),
+                apiFetch('/api/auth/me').catch(() => ({}))
+            ]);
             const docs = data.content || [];
             state.totalElements = data.totalElements || 0;
             state.totalPages = data.totalPages || 1;
@@ -258,13 +261,27 @@
                 tbody.innerHTML = docs.map(d => {
                     const canEdit = permsMap[d.spaceId]?.canEdit || false;
                     const isDeleted = d.status === 'Deleted' || d.status === 'DELETED';
+                    const isDraft = d.status === 'Draft' || d.status === 'DRAFT';
+                    const isPublished = d.status === 'Published' || d.status === 'PUBLISHED';
+                    const isAuthorOrAdmin = currentUser && (currentUser.isAdmin || currentUser.id === d.authorId);
+
+                    let statusCell = renderStatus(d.status);
+                    if (isDraft && isAuthorOrAdmin) {
+                        statusCell = `
+                            <select class="badge draft" onchange="publishDocumentFromList(${d.id}, this.value)" style="border: none; outline: none; cursor: pointer; padding: 3px 12px; font-family: inherit; font-size: 12px; font-weight: 600; appearance: none; -webkit-appearance: none; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='%2392400e'%3E%3Cpath d='M3 4.5l3 3 3-3z'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 6px center; background-size: 10px; padding-right: 22px;">
+                                <option value="DRAFT" selected style="background: #fff; color: #0f172a;">Черновик</option>
+                                <option value="PUBLISHED" style="background: #fff; color: #0f172a;">Опубликовать</option>
+                            </select>
+                        `;
+                    }
+
                     return `
                     <tr>
                         <td>${d.id}</td>
                         <td><strong style="display:block; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(d.title)}">${escapeHtml(d.title)}</strong></td>
                         <td>${escapeHtml(d.spaceName || d.spaceId)}</td>
                         <td>${escapeHtml(d.authorLogin || 'Неизвестно')}</td>
-                        <td>${renderStatus(d.status)}</td>
+                        <td>${statusCell}</td>
 
                         <td>${d.updatedAt || '-'}</td>
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
@@ -282,6 +299,20 @@
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Ошибка загрузки</td></tr>';
         }
     }
+
+    window.publishDocumentFromList = async function(id, value) {
+        if (value === 'PUBLISHED') {
+            try {
+                await apiFetch(`/api/documents/${id}/publish`, { method: 'POST' });
+                showToast('Документ опубликован');
+            fetchDocuments();
+        } catch (e) {
+                console.error('Publish failed:', e);
+                showToast('Ошибка публикации: ' + (e.message || ''), 'error');
+            fetchDocuments();
+        }
+        }
+    };
 
     function updatePagination() {
         const currentPage = state.page + 1;
@@ -355,9 +386,9 @@
         state.spaceFilter = document.getElementById('spaceFilter').value;
         state.authorFilter = document.getElementById('authorFilter').value;
         state.searchTerm = '';
-        state.page = 0;
-        fetchDocuments();
-        updateUrl();
+            state.page = 0;
+            fetchDocuments();
+            updateUrl();
     }
 
             function clearFilters() {
@@ -470,7 +501,6 @@
         fetchDocuments();
         checkCreatePermission();
         checkAdminStatus();
-
         document.addEventListener('click', () => {
             document.querySelectorAll('.select-styled').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.select-options').forEach(o => o.style.display = 'none');
