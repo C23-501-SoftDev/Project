@@ -8,5 +8,6 @@ import java.util.List;
 public interface VersionJpaRepository extends JpaRepository<VersionJpaEntity, Long> {
     List<VersionJpaEntity> findByDocumentIdOrderByCreatedAtDesc(Long documentId);
     List<VersionJpaEntity> findByDocumentIdOrderByCreatedAtDesc(Long documentId, Pageable pageable);
+    long countByDocumentId(Long documentId);
     void deleteByDocumentId(Long documentId);
 }

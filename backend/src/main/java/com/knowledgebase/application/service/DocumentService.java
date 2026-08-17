@@ -319,10 +319,41 @@ public class DocumentService {
         return versionRepository.findVersionsByDocumentId(document.getId(), page, size);
     }
 
-    public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document) {
-        return getDocumentHistory(document, 0, 5);
+    /**
+     * Класс для хранения результатов пагинации истории версий.
+     */
+    public static class DocumentHistoryPage {
+        private final List<DocumentContentRepository.CommitLogEntry> content;
+        private final long totalElements;
+        private final int totalPages;
+
+        public DocumentHistoryPage(List<DocumentContentRepository.CommitLogEntry> content, long totalElements, int size) {
+            this.content = content;
+            this.totalElements = totalElements;
+            this.totalPages = (int) Math.ceil((double) totalElements / size);
+        }
+
+        public List<DocumentContentRepository.CommitLogEntry> getContent() { return content; }
+        public long getTotalElements() { return totalElements; }
+        public int getTotalPages() { return totalPages;
+        }
     }
 
+    /**
+     * Возвращает историю версий документа из реляционной таблицы по document_id с пагинацией.
+     */
+    public DocumentHistoryPage getDocumentHistoryPaged(Document document, int page, int size) {
+        if (document == null || document.getId() == null) {
+            return new DocumentHistoryPage(Collections.emptyList(), 0, size);
+        }
+        List<DocumentContentRepository.CommitLogEntry> items = versionRepository.findVersionsByDocumentId(document.getId(), page, size);
+        long total = versionRepository.countVersionsByDocumentId(document.getId());
+        return new DocumentHistoryPage(items, total, size);
+    }
+
+    public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document) {
+        return getDocumentHistoryPaged(document, 0, 5).getContent();
+    }
     /**
      * Обновляет документ (сохранена перегрузка для обратной совместимости тестов).
      */
@@ -346,7 +377,6 @@ public class DocumentService {
 
         User editor = userRepository.findById(editorId)
                 .orElseThrow(() -> new UserNotFoundException(editorId));
-
         log.debug("Обновление документа ID {}: title='{}', parentId={}", id, title, parentId);
 
         validateHierarchy(id, parentId, document.getSpaceId());
@@ -528,7 +558,7 @@ public class DocumentService {
                 contentRepository.deleteContent(document.getGitFilePath(), "Hard-delete (Полное удаление) документа: " + document.getTitle());
             } catch (Exception e) {
                 log.warn("Не удалось удалить файл документа {} из Git: {}", id, e.getMessage());
-            }
+        }
         }
 
         // 2. Очищаем связанные версии и записи аудита перед удалением
@@ -565,7 +595,6 @@ public class DocumentService {
         // Проверяем статус пространства (включая удалённые — для корректного 409)
         Space space = spaceRepository.findByIdIncludingDeleted(document.getSpaceId())
                 .orElseThrow(() -> new SpaceNotFoundException(document.getSpaceId()));
-        
         if (space.isDeleted()) {
             throw new com.knowledgebase.domain.exception.ConflictException(
                 "Нельзя восстановить документ в удаленном (неактивном пространстве)");

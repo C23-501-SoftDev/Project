@@ -105,17 +105,17 @@ public class DocumentController {
 
     /**
      * GET /api/documents/{id}/history
-     * Получить историю версий (коммитов) документа с пагинацией.
+     * Получить историю версий (коммитов) документа с пагинацией (PageResponse).
      */
     @GetMapping("/{id}/history")
     @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
-    @Operation(summary = "Получить историю версий документа", description = "Возвращает список коммитов из базы данных для указанного документа с пагинацией (по умолчанию по 5)")
+    @Operation(summary = "Получить историю версий документа", description = "Возвращает страницу коммитов для указанного документа с пагинацией")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "История версий успешно получена"),
         @ApiResponse(responseCode = "403", description = "Недостаточно прав для просмотра"),
         @ApiResponse(responseCode = "404", description = "Документ не найден")
     })
-    public ResponseEntity<List<DocumentVersionResponse>> getDocumentHistory(
+    public ResponseEntity<PageResponse<DocumentVersionResponse>> getDocumentHistory(
             @Parameter(description = "ID документа") @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
@@ -126,11 +126,12 @@ public class DocumentController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
-        List<DocumentVersionResponse> history = documentService.getDocumentHistory(document, page, size).stream()
+        var historyPage = documentService.getDocumentHistoryPaged(document, page, size);
+        List<DocumentVersionResponse> content = historyPage.getContent().stream()
                 .map(mapper::toDocumentVersionResponse)
                 .toList();
 
-        return ResponseEntity.ok(history);
+        return ResponseEntity.ok(PageResponse.of(content, page, size, historyPage.getTotalElements()));
     }
     /**
      * POST /api/documents/{id}/publish

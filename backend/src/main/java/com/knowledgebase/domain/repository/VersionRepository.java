@@ -7,6 +7,6 @@ public interface VersionRepository {
     void saveVersion(Long documentId, String gitHash, Long authorId, String comment);
     List<CommitLogEntry> findVersionsByDocumentId(Long documentId);
     List<CommitLogEntry> findVersionsByDocumentId(Long documentId, int page, int size);
+    long countVersionsByDocumentId(Long documentId);
     void deleteVersionsByDocumentId(Long documentId);
 }
-

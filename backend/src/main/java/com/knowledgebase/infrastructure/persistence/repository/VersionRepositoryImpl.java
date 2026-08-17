@@ -30,6 +30,7 @@ public class VersionRepositoryImpl implements VersionRepository {
     public List<CommitLogEntry> findVersionsByDocumentId(Long documentId) {
         return findVersionsByDocumentId(documentId, 0, 100);
     }
+
     @Override
     public List<CommitLogEntry> findVersionsByDocumentId(Long documentId, int page, int size) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
@@ -49,8 +50,12 @@ public class VersionRepositoryImpl implements VersionRepository {
     }
 
     @Override
+    public long countVersionsByDocumentId(Long documentId) {
+        return versionJpaRepository.countByDocumentId(documentId);
+    }
+
+    @Override
     public void deleteVersionsByDocumentId(Long documentId) {
         versionJpaRepository.deleteByDocumentId(documentId);
     }
 }
-
