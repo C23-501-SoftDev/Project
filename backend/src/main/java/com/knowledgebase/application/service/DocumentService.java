@@ -310,13 +310,17 @@ public class DocumentService {
                 .orElse("");
     }
     /**
-     * Возвращает историю версий документа из реляционной таблицы по document_id.
+     * Возвращает историю версий документа из реляционной таблицы по document_id с пагинацией.
      */
-    public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document) {
+    public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document, int page, int size) {
         if (document == null || document.getId() == null) {
             return Collections.emptyList();
         }
-        return versionRepository.findVersionsByDocumentId(document.getId());
+        return versionRepository.findVersionsByDocumentId(document.getId(), page, size);
+    }
+
+    public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document) {
+        return getDocumentHistory(document, 0, 5);
     }
 
     /**

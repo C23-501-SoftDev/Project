@@ -105,11 +105,11 @@ public class DocumentController {
 
     /**
      * GET /api/documents/{id}/history
-     * Получить историю версий (коммитов) документа.
+     * Получить историю версий (коммитов) документа с пагинацией.
      */
     @GetMapping("/{id}/history")
     @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
-    @Operation(summary = "Получить историю версий документа", description = "Возвращает список коммитов из Git-репозитория для указанного документа")
+    @Operation(summary = "Получить историю версий документа", description = "Возвращает список коммитов из базы данных для указанного документа с пагинацией (по умолчанию по 5)")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "История версий успешно получена"),
         @ApiResponse(responseCode = "403", description = "Недостаточно прав для просмотра"),
@@ -117,6 +117,8 @@ public class DocumentController {
     })
     public ResponseEntity<List<DocumentVersionResponse>> getDocumentHistory(
             @Parameter(description = "ID документа") @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size,
             @AuthenticationPrincipal User currentUser) {
 
         Document document = documentService.getDocumentById(id);
@@ -124,7 +126,7 @@ public class DocumentController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
-        List<DocumentVersionResponse> history = documentService.getDocumentHistory(document).stream()
+        List<DocumentVersionResponse> history = documentService.getDocumentHistory(document, page, size).stream()
                 .map(mapper::toDocumentVersionResponse)
                 .toList();
 

@@ -28,7 +28,12 @@ public class VersionRepositoryImpl implements VersionRepository {
 
     @Override
     public List<CommitLogEntry> findVersionsByDocumentId(Long documentId) {
-        List<VersionJpaEntity> entities = versionJpaRepository.findByDocumentIdOrderByCreatedAtDesc(documentId);
+        return findVersionsByDocumentId(documentId, 0, 100);
+    }
+    @Override
+    public List<CommitLogEntry> findVersionsByDocumentId(Long documentId, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        List<VersionJpaEntity> entities = versionJpaRepository.findByDocumentIdOrderByCreatedAtDesc(documentId, pageable);
         return entities.stream().map(v -> {
             UserJpaEntity user = userJpaRepository.findById(v.getAuthorId()).orElse(null);
             String authorName = user != null ? (user.getFullName() != null && !user.getFullName().isBlank() ? user.getFullName() : user.getLogin()) : "Unknown";
