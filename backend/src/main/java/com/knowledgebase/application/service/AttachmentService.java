@@ -81,9 +81,18 @@ public class AttachmentService {
         Document document = documentService.getDocumentById(documentId);
         validateFiles(files);
 
+        // Проверка лимита на максимальное количество вложений (не более 5 файлов на документ)
+        List<Attachment> existingAttachments = attachmentRepository.findByDocumentId(documentId, false);
+        int maxAttachmentsAllowed = 5;
+        if (existingAttachments.size() + files.size() > maxAttachmentsAllowed) {
+            throw new AttachmentValidationException(
+                String.format("Превышен лимит вложений. У документа уже есть %d файл(ов). Максимально допустимо: %d.",
+                    existingAttachments.size(), maxAttachmentsAllowed)
+            );
+        }
+
         List<Attachment> savedAttachments = new ArrayList<>();
         List<String> storedPaths = new ArrayList<>();
-
         try {
             for (MultipartFile file : files) {
                 validateFile(file);
@@ -236,3 +245,4 @@ public class AttachmentService {
 
     public record AttachmentDownloadData(Attachment attachment, Resource resource) {}
 }
+
