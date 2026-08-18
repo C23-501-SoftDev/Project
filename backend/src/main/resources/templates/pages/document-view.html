@@ -44,7 +44,7 @@
     <div class="attachments-panel"
         style="margin-top:24px; padding:20px; border:1px solid #E5E7EB; border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
         <div
-            style="font-size:13px; font-weight:700; color:#4B5563; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:12px;">
+            style="font-size:13px; font-weight:700; color:#4B5563; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:16px;">
             Вложения</div>
         <div id="attachmentList" style="display:grid; gap:10px; color:#6B7280;">Загрузка вложений...</div>
     </div>
@@ -87,8 +87,9 @@
         });
 
         function formatFileSize(sizeBytes) {
+            if (!sizeBytes && sizeBytes !== 0) return '0 B';
             const units = ['B', 'KB', 'MB', 'GB'];
-            let value = sizeBytes || 0;
+            let value = sizeBytes;
             let unitIndex = 0;
             while (value >= 1024 && unitIndex < units.length - 1) {
                 value /= 1024;
@@ -97,26 +98,55 @@
             return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
         }
 
+        function getFileIcon(filename) {
+            const ext = (filename || '').split('.').pop().toLowerCase();
+            if (['pdf'].includes(ext)) return '📄';
+            if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return '🖼️';
+            if (['doc', 'docx'].includes(ext)) return '📝';
+            if (['xls', 'xlsx'].includes(ext)) return '📊';
+            if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '📦';
+            return '📎';
+        }
+
         function renderAttachments(items) {
             if (!items || items.length === 0) {
-                attachmentList.innerHTML = '<div style="color:#6B7280;">Вложений нет</div>';
+                attachmentList.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #6B7280; background: #F9FAFB; border-radius: 8px; border: 1px dashed #E5E7EB;">
+                        <div style="font-size: 22px; margin-bottom: 6px;">📂</div>
+                        <div style="font-weight: 500; color: #374151; font-size:14px;">У документа пока нет вложений</div>
+                        <div style="font-size: 12px; color: #6B7280; margin-top: 2px;">Вы можете прикрепить файлы при редактировании документа</div>
+                    </div>
+                `;
                 return;
             }
 
-            attachmentList.innerHTML = items.map(item => `
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff;">
-                <div style="min-width:0;">
-                    <div style="font-weight:600; word-break:break-word;">
-                        <a href="/api/attachments/${item.id}/download" style="color:#111827; text-decoration:none;">${escapeHtml(item.filename)}</a>
+            attachmentList.innerHTML = items.map(item => {
+                const icon = getFileIcon(item.filename);
+                const dateStr = item.uploadedAt ? new Date(item.uploadedAt).toLocaleString() : '';
+                return `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 16px; border:1px solid #E5E7EB; border-radius:10px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.02);">
+                    <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                        <div style="font-size:24px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; background:#F3F4F6; border-radius:8px; flex-shrink:0;">${icon}</div>
+                        <div style="min-width:0;">
+                            <div style="font-weight:600; word-break:break-word;">
+                                <a href="/api/attachments/${item.id}/download" style="color:#111827; text-decoration:none;" title="Скачать файл">${escapeHtml(item.filename)}</a>
+                            </div>
+                            <div style="font-size:12px; color:#6B7280; margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span>${formatFileSize(item.sizeBytes)}</span>
+                                <span>·</span>
+                                <span>${escapeHtml(item.contentType || 'file')}</span>
+                                ${dateStr ? `<span>·</span><span>Добавлен: ${dateStr}</span>` : ''}
+                                ${item.uploadedByLogin ? `<span>·</span><span>Автор: ${escapeHtml(item.uploadedByLogin)}</span>` : ''}
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size:12px; color:#6B7280; margin-top:4px;">
-                        ${formatFileSize(item.sizeBytes)} · ${escapeHtml(item.contentType || 'unknown')}
-                        ${item.uploadedByLogin ? ` · ${escapeHtml(item.uploadedByLogin)}` : ''}
+                    <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                        <a href="/api/attachments/${item.id}/download" class="button-secondary" style="min-width:auto; padding:6px 12px; font-size:13px; text-decoration:none;">Скачать</a>
+                        ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px; font-size:13px; color:#DC2626; border-color:#FCA5A5;">Удалить</button>` : ''}
                     </div>
                 </div>
-                ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px;">Удалить</button>` : ''}
-            </div>
-        `).join('');
+            `;
+            }).join('');
 
             attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
                 button.addEventListener('click', async () => {
@@ -260,7 +290,7 @@
         }
 
         async function deleteAttachment(attachmentId, attachmentName) {
-            if (!window.confirm(`Удалить вложение «${attachmentName}»?`)) {
+            if (!window.confirm(`Вы действительно хотите удалить файл «${attachmentName}»?`)) {
                 return;
             }
 

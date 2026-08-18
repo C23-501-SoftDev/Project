@@ -102,19 +102,20 @@
 
     <div class="attachments-panel"
         style="margin: 0 24px 24px; padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:16px;">
             <div>
-                <div
-                    style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">
+                <div style="font-size:13px; font-weight:700; color:var(--secondary-color); text-transform:uppercase; letter-spacing:0.04em;">
                     Вложения</div>
-                <div style="font-size:13px; color:#6B7280; margin-top:4px;">Перетащите файл сюда или выберите его
-                    кнопкой ниже</div>
+                <div style="font-size:13px; color:#6B7280; margin-top:2px;">Прикрепите PDF, изображения, документы или архивы (до 10 МБ)</div>
             </div>
-            <button type="button" class="button-secondary" id="attachChooseBtn">Выбрать файл</button>
+            <button type="button" class="button-primary" id="attachChooseBtn" style="display:flex; align-items:center; gap:6px;">
+                <span>+ Добавить вложение</span>
+            </button>
         </div>
         <div id="attachmentDropzone"
-            style="border: 2px dashed #D1D5DB; border-radius: 12px; padding: 24px; text-align: center; color: #6B7280; background: #F9FAFB; transition: border-color .15s ease, background .15s ease;">
-            Перетащите файлы для загрузки
+            style="border: 2px dashed #D1D5DB; border-radius: 10px; padding: 20px; text-align: center; color: #6B7280; background: #F9FAFB; transition: all .2s ease; cursor: pointer;">
+            <div style="font-weight: 500; color: #374151; margin-bottom: 4px;">Перетащите файлы сюда или нажмите «Добавить вложение»</div>
+            <div style="font-size: 12px; color: #9CA3AF;">Поддерживаются любые популярные форматы файлов</div>
         </div>
         <input type="file" id="attachmentInput" multiple hidden>
         <div id="attachmentList" style="margin-top: 16px; display: grid; gap: 10px;"></div>
@@ -140,11 +141,11 @@
         function updateStatusBadge() {
             const status = document.getElementById('docStatusField').value;
             const badge = document.getElementById('statusBadge');
-            const labels = {
-                'DRAFT': 'Черновик',
-                'PUBLISHED': 'Опубликовано',
-                'DELETED': 'Удалено'
-            };
+                const labels = {
+                    'DRAFT': 'Черновик',
+                    'PUBLISHED': 'Опубликовано',
+                    'DELETED': 'Удалено'
+                };
             badge.textContent = labels[status] || status;
             badge.className = 'badge ' + status.toLowerCase();
             badge.style = '';
@@ -235,10 +236,18 @@
             preview.innerHTML = marked.parse(textarea.value);
         }
 
+        function getFileIcon(filename) {
+            const ext = (filename || '').split('.').pop().toLowerCase();
+            if (['pdf'].includes(ext)) return '📄';
+            if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return '🖼️';
+            if (['doc', 'docx'].includes(ext)) return '📝';
+            if (['xls', 'xlsx'].includes(ext)) return '📊';
+            if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '📦';
+            return '📎';
+        }
+
         function formatFileSize(sizeBytes) {
-            if (!sizeBytes && sizeBytes !== 0) {
-                return '0 B';
-            }
+            if (!sizeBytes && sizeBytes !== 0) return '0 B';
             const units = ['B', 'KB', 'MB', 'GB'];
             let value = sizeBytes;
             let unitIndex = 0;
@@ -251,30 +260,50 @@
 
         function renderAttachments(items) {
             if (!items || items.length === 0) {
-                attachmentList.innerHTML = '<div style="color:#6B7280; font-size:14px;">Пока нет вложений</div>';
+                attachmentList.innerHTML = `
+                    <div style="text-align: center; padding: 24px; color: #6B7280; background: #F9FAFB; border-radius: 8px; border: 1px dashed #E5E7EB;">
+                        <div style="font-size: 24px; margin-bottom: 8px;">📂</div>
+                        <div style="font-weight: 500; color: #374151;">У документа пока нет вложений</div>
+                        <div style="font-size: 13px; color: #6B7280; margin-top: 4px;">Загрузите первый файл с помощью кнопки выше</div>
+                    </div>
+                `;
                 return;
             }
 
-            attachmentList.innerHTML = items.map(item => `
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 14px; border:1px solid #E5E7EB; border-radius:10px; background:#fff;">
-                    <div style="min-width:0;">
-                        <div style="font-weight:600; word-break:break-word;">
-                            <a href="/api/attachments/${item.id}/download" style="color:#111827; text-decoration:none;">${escapeHtml(item.filename)}</a>
-                        </div>
-                        <div style="font-size:12px; color:#6B7280; margin-top:4px;">
-                            ${formatFileSize(item.sizeBytes)} · ${escapeHtml(item.contentType || 'unknown')}
-                            ${item.uploadedByLogin ? ` · ${escapeHtml(item.uploadedByLogin)}` : ''}
+            attachmentList.innerHTML = items.map(item => {
+                const icon = getFileIcon(item.filename);
+                const dateStr = item.uploadedAt ? new Date(item.uploadedAt).toLocaleString() : '';
+                return `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 16px; border:1px solid #E5E7EB; border-radius:10px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.02); transition:border-color .15s ease;">
+                    <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                        <div style="font-size:24px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; background:#F3F4F6; border-radius:8px; flex-shrink:0;">${icon}</div>
+                        <div style="min-width:0;">
+                            <div style="font-weight:600; word-break:break-word;">
+                                <a href="/api/attachments/${item.id}/download" style="color:#111827; text-decoration:none;" title="Скачать файл">${escapeHtml(item.filename)}</a>
+                            </div>
+                            <div style="font-size:12px; color:#6B7280; margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span>${formatFileSize(item.sizeBytes)}</span>
+                                <span>·</span>
+                                <span>${escapeHtml(item.contentType || 'file')}</span>
+                                ${dateStr ? `<span>·</span><span>Добавлен: ${dateStr}</span>` : ''}
+                                ${item.uploadedByLogin ? `<span>·</span><span>Автор: ${escapeHtml(item.uploadedByLogin)}</span>` : ''}
+                            </div>
                         </div>
                     </div>
-                    ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px;">Удалить</button>` : ''}
+                    <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                        <a href="/api/attachments/${item.id}/download" class="button-secondary" style="min-width:auto; padding:6px 12px; font-size:13px; text-decoration:none;">Скачать</a>
+                        ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px; font-size:13px; color:#DC2626; border-color:#FCA5A5;">Удалить</button>` : ''}
+                    </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
+
             attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
                 button.addEventListener('click', async () => {
                     const attachmentId = button.getAttribute('data-attachment-id');
                     const attachmentName = button.getAttribute('data-attachment-name') || 'вложение';
                     await deleteAttachment(attachmentId, attachmentName);
-            });
+                });
             });
         }
 
@@ -284,43 +313,61 @@
                 renderAttachments(items);
             } catch (e) {
                 attachmentList.innerHTML = '<div style="color:#B91C1C; font-size:14px;">Не удалось загрузить список вложений</div>';
-                }
             }
+        }
 
         async function uploadAttachments(files) {
             const fileArray = Array.from(files || []);
-            if (fileArray.length === 0) {
-                return;
-            }
+            if (fileArray.length === 0) return;
+
+            // Показываем состояние загрузки
+            chooseButton.disabled = true;
+            const originalBtnText = chooseButton.innerHTML;
+            chooseButton.innerHTML = '<span>Загрузка...</span>';
 
             const formData = new FormData();
             fileArray.forEach(file => formData.append('files', file));
 
-            await apiFetch(`/api/documents/${docId}/attachments`, {
-                method: 'POST',
-                body: formData
-            });
+            try {
+                await apiFetch(`/api/documents/${docId}/attachments`, {
+                    method: 'POST',
+                    body: formData
+                });
 
-            if (typeof showToast === 'function') {
-                showToast('Вложения загружены');
+                if (typeof showToast === 'function') {
+                    showToast('Вложения успешно загружены');
+                }
+                attachmentInput.value = '';
+                await loadAttachments();
+            } catch (e) {
+                if (typeof showToast === 'function') {
+                    showToast('Ошибка загрузки: ' + (e.message || 'неизвестная ошибка'), 'error');
+                }
+            } finally {
+                chooseButton.disabled = false;
+                chooseButton.innerHTML = originalBtnText;
             }
-            attachmentInput.value = '';
-            await loadAttachments();
         }
 
         async function deleteAttachment(attachmentId, attachmentName) {
-            if (!window.confirm(`Удалить вложение «${attachmentName}»?`)) {
+            if (!window.confirm(`Вы действительно хотите удалить файл «${attachmentName}»?`)) {
                 return;
             }
 
-            await apiFetch(`/api/documents/${docId}/attachments/${attachmentId}`, {
-                method: 'DELETE'
-            });
+            try {
+                await apiFetch(`/api/documents/${docId}/attachments/${attachmentId}`, {
+                    method: 'DELETE'
+                });
 
-            if (typeof showToast === 'function') {
-                showToast('Вложение удалено');
+                if (typeof showToast === 'function') {
+                    showToast('Вложение удалено');
+                }
+                await loadAttachments();
+            } catch (e) {
+                if (typeof showToast === 'function') {
+                    showToast('Не удалось удалить вложение', 'error');
+                }
             }
-            await loadAttachments();
         }
 
         chooseButton.addEventListener('click', () => attachmentInput.click());
@@ -398,7 +445,6 @@
                 btn.textContent = 'Сохранить (Ctrl+S)';
             }
         }
-
         async function loadDocument() {
             if (!docId) return;
 
