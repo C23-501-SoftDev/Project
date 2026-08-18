@@ -62,13 +62,15 @@ public class MinioBlobStorageService implements BlobStorageService {
     @Override
     public void upload(String path, InputStream inputStream, long size, String contentType) {
         try {
-            log.debug("Загрузка файла в MinIO: bucket={}, path={}, size={}, contentType={}", bucketName, path, size, contentType);
+            long objSize = size > 0 ? size : -1;
+            String type = (contentType != null && !contentType.isBlank()) ? contentType : "application/octet-stream";
+            log.debug("Загрузка файла в MinIO: bucket={}, path={}, size={}, contentType={}", bucketName, path, objSize, type);
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucketName)
                             .object(path)
-                            .stream(inputStream, size, -1)
-                            .contentType(contentType)
+                            .stream(inputStream, objSize, 10485760)
+                            .contentType(type)
                             .build()
             );
             log.info("Файл успешно загружен в MinIO: {}", path);
