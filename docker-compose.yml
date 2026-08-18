@@ -6,130 +6,166 @@ services:
       args:
         APP_UID: ${UID:-1000}
         APP_GID: ${GID:-1000}
+
     container_name: kb_app
+
+    # Dev режим:
+    # контейнер живет постоянно,
+    # Spring Boot запускается вручную через mvn spring-boot:run
+    command: sleep infinity
+
     user: "${UID:-1000}:${GID:-1000}"
+
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USERNAME: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
+
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
-      # Blob Storage (MinIO) настройки (US1.4.1)
+
+      # Blob Storage (MinIO)
       APP_STORAGE_BLOB_PROVIDER: ${APP_STORAGE_BLOB_PROVIDER:-minio}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-knowledge-base-attachments}
-      # Email-уведомления (US4.3.1/US4.3.2): выключатель рассылки + параметры SMTP.
-      # Значения берутся из .env; при отсутствии — безопасные значения по умолчанию
-      # (enabled=false → письма только логируются, реальная отправка не идёт).
+
+      # Email notifications
       NOTIFICATIONS_ENABLED: ${NOTIFICATIONS_ENABLED:-false}
       NOTIFICATIONS_FROM: ${NOTIFICATIONS_FROM:-no-reply@knowledgebase.local}
       NOTIFICATIONS_ADMIN_EMAIL: ${NOTIFICATIONS_ADMIN_EMAIL:-admin@knowledgebase.local}
+
       MAIL_HOST: ${MAIL_HOST:-localhost}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
       MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
-      # Нейроассистент редактирования текста (routerai.ru)
+
+      # AI assistant
       AI_ENABLED: ${AI_ENABLED:-false}
       AI_BASE_URL: ${AI_BASE_URL:-https://routerai.ru/api/v1}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-deepseek/deepseek-v4-pro}
       AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
+
       GIT_REPO_PATH: /workspace
-      # SSH URL репозитория для git push/pull (например: git@github.com:USERNAME/REPO.git)
-      # Используется для быстрой установки remote: git remote set-url origin $GIT_REPO_SSH_URL
       GIT_REPO_SSH_URL: ${GIT_REPO_SSH_URL}
-      # Для проброса SSH-агента (рекомендуемый способ для доступа к приватным репо):
-      # 1) Убедитесь, что на хосте запущен ssh-agent и переменная SSH_AUTH_SOCK экспортирована.
-      # 2) Раскомментируйте mapping в секции volumes ниже и эту строку (если хотите указать путь внутри контейнера).
-      # SSH_AUTH_SOCK: /ssh-agent
+
     ports:
       - "${APP_PORT:-8080}:8080"
+
     volumes:
       - .:/workspace
-      # Проброс глобального git-конфига пользователя, чтобы внутри контейнера
-      # git использовал те же user.name / user.email и другие настройки.
-      # Если нужно, чтобы контейнер мог менять конфиг — уберите ":ro".
+
       - ${HOME}/.gitconfig:/home/app/.gitconfig:ro
-      # (Опционально) проброс SSH-ключей для доступа к приватным репозиториям.
-      # 1) Вариант A — проброс SSH-агента (рекомендуется):
-      # - ${SSH_AUTH_SOCK}:/ssh-agent
-      #    и раскомментировать переменную окружения выше: SSH_AUTH_SOCK: /ssh-agent
-      #    Этот способ безопаснее, ключи остаются на хосте, контейнер использует агент.
-      # 2) Вариант B — проброс директории ~/.ssh (используется в настоящее время):
+
       - ${HOME}/.ssh:/home/app/.ssh
+
     depends_on:
       postgres:
         condition: service_healthy
+
       minio:
         condition: service_healthy
-    healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 40s
+
 
   postgres:
     image: postgres:18-alpine
+
     container_name: kb_postgres
+
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
+
     volumes:
       - postgres_data:/var/lib/postgresql
+
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
+
     restart: unless-stopped
+
+
 
   minio:
     image: minio/minio:latest
+
     container_name: kb_minio
+
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+
     ports:
       - "9000:9000"
       - "9001:9001"
+
     volumes:
       - minio_data:/data
-    command: server /data --console-address ":9001"
+
+    command:
+      server /data --console-address ":9001"
+
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:9000/minio/health/live"
+        ]
+
       interval: 5s
       timeout: 3s
       retries: 20
+
     restart: unless-stopped
+
+
 
   e2e:
     build:
       context: ./tests/E2E
       dockerfile: Dockerfile
+
     container_name: kb_e2e
-    profiles: ["e2e"]
+
+    profiles:
+      - e2e
+
     working_dir: /e2e
+
     environment:
       E2E_BASE_URL: http://app:8080
+
     volumes:
       - ./tests/E2E:/e2e
       - e2e_node_modules:/e2e/node_modules
+
     depends_on:
-      app:
-        condition: service_healthy
+      - app
+
     command: npx playwright test
-      
+
+
+
 volumes:
   postgres_data:
   minio_data:
   e2e_node_modules:
-
