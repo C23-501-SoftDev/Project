@@ -64,6 +64,7 @@ public class DocumentService {
     private final ApplicationEventPublisher eventPublisher;
     private final AuditService auditService;
     private final VersionRepository versionRepository;
+    private final AttachmentService attachmentService;
 
     private static final int MAX_SEARCH_QUERY_LENGTH = 200;
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
@@ -80,7 +81,8 @@ public class DocumentService {
                            RequirementNumberService requirementNumberService,
                            ApplicationEventPublisher eventPublisher,
                            AuditService auditService,
-                           VersionRepository versionRepository) {
+                           VersionRepository versionRepository,
+                           AttachmentService attachmentService) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.spaceRepository = spaceRepository;
@@ -92,6 +94,7 @@ public class DocumentService {
         this.eventPublisher = eventPublisher;
         this.auditService = auditService;
         this.versionRepository = versionRepository;
+        this.attachmentService = attachmentService;
     }
 
     /**
@@ -536,6 +539,14 @@ public class DocumentService {
 
         log.info("Полное удаление документа ID {}: title='{}'", id, document.getTitle());
 
+        // 1. Полное удаление связанных вложений (файлов в Blob Storage и метаданных в БД) через AttachmentService
+        try {
+            attachmentService.deleteAllAttachmentsForDocument(id);
+            } catch (Exception e) {
+            log.error("Ошибка при удалении вложений документа ID {}: {}", id, e.getMessage());
+            throw new RuntimeException("Не удалось удалить вложения документа: " + e.getMessage(), e);
+        }
+
         // Перепривязываем дочерние документы к дедушке (родителю удаляемого документа)
         Long grandparentOrParentId = document.getParentDocumentId();
         List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
@@ -552,7 +563,7 @@ public class DocumentService {
         }
         documentRepository.flush();
 
-        // 1. Удаляем файл из Git
+        // 2. Удаляем файл из Git
         if (document.getGitFilePath() != null) {
             try {
                 contentRepository.deleteContent(document.getGitFilePath(), "Hard-delete (Полное удаление) документа: " + document.getTitle());
@@ -561,7 +572,7 @@ public class DocumentService {
         }
         }
 
-        // 2. Очищаем связанные версии и записи аудита перед удалением
+        // 3. Очищаем связанные версии и записи аудита перед удалением
         try {
             versionRepository.deleteVersionsByDocumentId(id);
             entityManager.createNativeQuery("DELETE FROM audit_log WHERE resource_id = ? AND resource_type = 'DOCUMENT'")
@@ -572,7 +583,7 @@ public class DocumentService {
             log.warn("Не удалось очистить связанные версии/аудит для документа {}: {}", id, e.getMessage());
         }
 
-        // 3. Удаляем из БД
+        // 4. Удаляем из БД
         documentRepository.deleteById(id);
         documentRepository.flush();
 
@@ -605,8 +616,8 @@ public class DocumentService {
             Document parent = documentRepository.findById(targetParentId).orElse(null);
             if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
                 targetParentId = findFirstActiveAncestor(targetParentId);
-            }
         }
+    }
 
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
