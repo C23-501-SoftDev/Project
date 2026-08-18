@@ -34,6 +34,7 @@
         <flexmark.version>0.64.8</flexmark.version>
         <openhtmltopdf.version>1.0.10</openhtmltopdf.version>
         <poi.version>5.2.5</poi.version>
+        <minio.version>8.5.11</minio.version>
     </properties>
 
     <dependencies>
@@ -206,7 +207,14 @@
             <version>${poi.version}</version>
         </dependency>
 
-        <!-- =====================================================
+        <!-- MinIO Java SDK — S3-compatible Blob Storage client -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>${minio.version}</version>
+        </dependency>
+
+            <!-- =====================================================
              ТЕСТИРОВАНИЕ
              ===================================================== -->
 
@@ -309,3 +317,4 @@
     </build>
 
 </project>
+

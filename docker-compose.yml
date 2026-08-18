@@ -15,6 +15,12 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      # Blob Storage (MinIO) настройки (US1.4.1)
+      APP_STORAGE_BLOB_PROVIDER: ${APP_STORAGE_BLOB_PROVIDER:-minio}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-knowledge-base-attachments}
       # Email-уведомления (US4.3.1/US4.3.2): выключатель рассылки + параметры SMTP.
       # Значения берутся из .env; при отсутствии — безопасные значения по умолчанию
       # (enabled=false → письма только логируются, реальная отправка не идёт).
@@ -59,6 +65,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1" ]
       interval: 10s
@@ -84,6 +92,25 @@ services:
       retries: 20
     restart: unless-stopped
 
+  minio:
+    image: minio/minio:latest
+    container_name: kb_minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
   e2e:
     build:
       context: ./tests/E2E
@@ -103,4 +130,6 @@ services:
       
 volumes:
   postgres_data:
+  minio_data:
   e2e_node_modules:
+
