@@ -63,8 +63,6 @@
         const docId = document.getElementById('documentId').value;
         const attachmentList = document.getElementById('attachmentList');
         const versionHistoryList = document.getElementById('versionHistoryList');
-        let canManageAttachments = false;
-
         // Export → вложение
         ['exportHtml', 'exportPdf', 'exportDocx'].forEach(id => {
             const fmt = id.replace('export', '').toLowerCase();
@@ -141,20 +139,11 @@
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                        <a href="/api/attachments/${item.id}/download" class="button-secondary" style="min-width:auto; padding:6px 12px; font-size:13px; text-decoration:none;">Скачать</a>
-                        ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px; font-size:13px; color:#DC2626; border-color:#FCA5A5;">Удалить</button>` : ''}
+                        <a href="/api/attachments/${item.id}/download" class="button-secondary" style="min-width:auto; padding:6px 14px; font-size:13px; text-decoration:none;">Скачать</a>
                     </div>
                 </div>
             `;
             }).join('');
-
-            attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
-                button.addEventListener('click', async () => {
-                    const attachmentId = button.getAttribute('data-attachment-id');
-                    const attachmentName = button.getAttribute('data-attachment-name') || 'вложение';
-                    await deleteAttachment(attachmentId, attachmentName);
-                });
-            });
         }
 
         window.loadAttachments = async function loadAttachments() {
@@ -289,21 +278,6 @@
             await loadVersionHistoryPage(0);
         }
 
-        async function deleteAttachment(attachmentId, attachmentName) {
-            if (!window.confirm(`Вы действительно хотите удалить файл «${attachmentName}»?`)) {
-                return;
-            }
-
-            await apiFetch(`/api/documents/${docId}/attachments/${attachmentId}`, {
-                method: 'DELETE'
-            });
-
-            if (typeof showToast === 'function') {
-                showToast('Вложение удалено');
-            }
-            await loadAttachments();
-        }
-
         async function loadDocument() {
             try {
                 const doc = await apiFetch(`/api/documents/${docId}`);
@@ -323,10 +297,8 @@
                     if (perms.canEdit) {
                         document.getElementById('editLink').style.display = 'inline-block';
                     }
-                    canManageAttachments = !!perms.canEdit;
                 } catch (e) {
                     console.error('Failed to load permissions:', e);
-                    canManageAttachments = false;
                 }
 
                 document.getElementById('documentContent').innerHTML = doc.contentHtml || '';
