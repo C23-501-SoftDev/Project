@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-08-12",
+    "updatedAt": "2026-08-19",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -360,6 +360,24 @@
             "description": "Safe document save in edit page: explicit HTTP status handling (200/400/401/403), 3-second debounce autosave, status indicator (Saved/Unsaved/Saving/Error), CSRF-safe requests reusing XSRF-TOKEN cookie and credentials same-origin.",
             "dependsOn": [
                 "documents-crud"
+            ]
+        },
+        {
+            "featureId": "document-version-diff-mode",
+            "title": "Document version comparison mode",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E2 Жизненный цикл и Версионность (Lifecycle & Versioning)/F2.2 Контроль версий (Git Integration)/US2.2.3 Режим сравнения версий (Diff)/description.md"
+            ],
+            "endpoints": [
+                "GET /api/documents/{id}/versions",
+                "GET /api/documents/{id}/diff?from={hash1}&to={hash2}",
+                "GET /documents/{id}/history"
+            ],
+            "dependsOn": [
+                "git-commit-on-document-save"
             ]
         }
     ]
