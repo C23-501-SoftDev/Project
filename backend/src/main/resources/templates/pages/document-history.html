@@ -1,5 +1,14 @@
-<div class="document-history-page">
+<div id="documentHistory" class="document-history-page" th:attr="data-document-id=${documentId}">
     <h1>История версий документа</h1>
-    <p>Документ #<span th:text="${documentId}">ID</span></p>
-    <p>История изменений будет отображаться здесь.</p>
+    <p>Документ #<span th:text="${documentId}">ID</span>. Выберите версии для сравнения.</p>
+    <form id="diffSelector" class="diff-selector">
+        <label>До <select id="diffFrom" required disabled></select></label>
+        <label>После <select id="diffTo" required disabled></select></label>
+        <button type="submit">Сравнить</button>
+        <button id="diffModeToggle" type="button" disabled>Две панели</button>
+        <button id="diffContextToggle" type="button" disabled>Показать весь файл</button>
+    </form>
+    <p id="diffStatus" class="diff-status" hidden aria-live="polite"></p>
+    <section id="diffResult" class="diff-result" hidden aria-live="polite"></section>
 </div>
+<script src="/js/document-history.js"></script>

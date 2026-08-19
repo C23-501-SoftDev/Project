@@ -17,6 +17,9 @@ public class DocumentVersionJpaEntity {
     @Column(name = "git_hash", nullable = false, length = 40)
     private String gitHash;
 
+    @Column(name = "git_file_path", length = 500)
+    private String gitFilePath;
+
     @Column(name = "author_id", nullable = false)
     private Long authorId;
 
@@ -32,6 +35,8 @@ public class DocumentVersionJpaEntity {
     public void setDocumentId(Long documentId) { this.documentId = documentId; }
     public String getGitHash() { return gitHash; }
     public void setGitHash(String gitHash) { this.gitHash = gitHash; }
+    public String getGitFilePath() { return gitFilePath; }
+    public void setGitFilePath(String gitFilePath) { this.gitFilePath = gitFilePath; }
     public Long getAuthorId() { return authorId; }
     public void setAuthorId(Long authorId) { this.authorId = authorId; }
     public String getComment() { return comment; }
