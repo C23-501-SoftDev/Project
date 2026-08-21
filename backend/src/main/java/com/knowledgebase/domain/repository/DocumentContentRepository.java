@@ -2,6 +2,7 @@ package com.knowledgebase.domain.repository;
 
 import com.knowledgebase.domain.model.GitCommitResult;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -9,6 +10,16 @@ import java.util.Optional;
  */
 public interface DocumentContentRepository {
 
+    /**
+     * Информация о коммите (версии документа).
+     */
+    record CommitLogEntry(
+        String commitId,
+        String authorName,
+        String authorEmail,
+        String commitMessage,
+        java.time.LocalDateTime timestamp
+    ) {}
     /**
      * Сохраняет содержимое документа в Git.
      * @param gitFilePath путь к файлу в репозитории
@@ -46,4 +57,12 @@ public interface DocumentContentRepository {
      * Удаляет файл из Git.
      */
     void deleteContent(String gitFilePath, String commitMessage);
+
+    /**
+     * Возвращает историю коммитов для файла в Git.
+     * @param gitFilePath путь к файлу в репозитории
+     * @return список коммитов
+     */
+    List<CommitLogEntry> getHistory(String gitFilePath);
 }
+

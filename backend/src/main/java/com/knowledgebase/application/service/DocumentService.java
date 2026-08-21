@@ -18,6 +18,7 @@ import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.DocumentVersionRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.domain.repository.VersionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,6 +53,9 @@ public class DocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private final DocumentRepository documentRepository;
     private final DocumentContentRepository contentRepository;
     private final DocumentVersionRepository documentVersionRepository;
@@ -61,6 +67,8 @@ public class DocumentService {
     private final RequirementNumberService requirementNumberService;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditService auditService;
+    private final VersionRepository versionRepository;
+    private final AttachmentService attachmentService;
 
     private static final int MAX_SEARCH_QUERY_LENGTH = 200;
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
@@ -77,7 +85,9 @@ public class DocumentService {
                            PermissionService permissionService,
                            RequirementNumberService requirementNumberService,
                            ApplicationEventPublisher eventPublisher,
-                           AuditService auditService) {
+                           AuditService auditService,
+                           VersionRepository versionRepository,
+                           AttachmentService attachmentService) {
         this.documentRepository = documentRepository;
         this.contentRepository = contentRepository;
         this.documentVersionRepository = documentVersionRepository;
@@ -89,6 +99,8 @@ public class DocumentService {
         this.requirementNumberService = requirementNumberService;
         this.eventPublisher = eventPublisher;
         this.auditService = auditService;
+        this.versionRepository = versionRepository;
+        this.attachmentService = attachmentService;
     }
 
     /**
@@ -154,6 +166,8 @@ public class DocumentService {
             author.getLogin(),
             author.getEmail()
         );
+
+        versionRepository.saveVersion(updatedMetadata.getId(), "git-hash-" + System.currentTimeMillis(), authorId, "Создание документа: " + title);
 
         auditService.record("DOCUMENT_CREATED", AuditService.RESOURCE_DOCUMENT, updatedMetadata.getId(),
                 "title='" + title + "', spaceId=" + spaceId);
@@ -267,8 +281,26 @@ public class DocumentService {
             throw new com.knowledgebase.domain.exception.AccessDeniedException("Только автор или администратор могут опубликовать документ");
         }
 
+        User user = userRepository.findById(userId).orElse(null);
+        String authorName = user != null ? user.getLogin() : "System";
+        String authorEmail = user != null ? user.getEmail() : "system@knowledgebase.com";
+        Long authorId = user != null ? user.getId() : document.getAuthorId();
+
         document.updateMetadata(null, DocumentStatus.PUBLISHED);
         Document saved = documentRepository.save(document);
+
+        if (saved.getGitFilePath() != null) {
+            String content = contentRepository.findContentByPath(saved.getGitFilePath()).orElse("");
+            contentRepository.saveContent(
+                    saved.getGitFilePath(),
+                    content,
+                    "Публикация документа: " + saved.getTitle(),
+                    authorName,
+                    authorEmail
+            );
+        }
+
+        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), authorId, "Публикация документа: " + saved.getTitle());
 
         auditService.record("DOCUMENT_PUBLISHED", AuditService.RESOURCE_DOCUMENT, saved.getId(),
                 "title='" + saved.getTitle() + "', spaceId=" + saved.getSpaceId());
@@ -286,7 +318,51 @@ public class DocumentService {
         return contentRepository.findContentByPath(document.getGitFilePath())
                 .orElse("");
     }
+    /**
+     * Возвращает историю версий документа из реляционной таблицы по document_id с пагинацией.
+     */
+    public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document, int page, int size) {
+        if (document == null || document.getId() == null) {
+            return Collections.emptyList();
+        }
+        return versionRepository.findVersionsByDocumentId(document.getId(), page, size);
+    }
 
+    /**
+     * Класс для хранения результатов пагинации истории версий.
+     */
+    public static class DocumentHistoryPage {
+        private final List<DocumentContentRepository.CommitLogEntry> content;
+        private final long totalElements;
+        private final int totalPages;
+
+        public DocumentHistoryPage(List<DocumentContentRepository.CommitLogEntry> content, long totalElements, int size) {
+            this.content = content;
+            this.totalElements = totalElements;
+            this.totalPages = (int) Math.ceil((double) totalElements / size);
+        }
+
+        public List<DocumentContentRepository.CommitLogEntry> getContent() { return content; }
+        public long getTotalElements() { return totalElements; }
+        public int getTotalPages() { return totalPages;
+        }
+    }
+
+    /**
+     * Возвращает историю версий документа из реляционной таблицы по document_id с пагинацией.
+     */
+    public DocumentHistoryPage getDocumentHistoryPaged(Document document, int page, int size) {
+        if (document == null || document.getId() == null) {
+            return new DocumentHistoryPage(Collections.emptyList(), 0, size);
+        }
+        List<DocumentContentRepository.CommitLogEntry> items = versionRepository.findVersionsByDocumentId(document.getId(), page, size);
+        long total = versionRepository.countVersionsByDocumentId(document.getId());
+        return new DocumentHistoryPage(items, total, size);
+    }
+
+    public List<DocumentContentRepository.CommitLogEntry> getDocumentHistory(Document document) {
+        return getDocumentHistoryPaged(document, 0, 5).getContent();
+    }
     /**
      * Обновляет документ (сохранена перегрузка для обратной совместимости тестов).
      */
@@ -310,13 +386,10 @@ public class DocumentService {
 
         User editor = userRepository.findById(editorId)
                 .orElseThrow(() -> new UserNotFoundException(editorId));
-
         String oldTitle = document.getTitle();
         DocumentStatus oldStatus = document.getStatus();
         Long oldParentId = document.getParentDocumentId();
-        String oldPath = document.getGitFilePath();
-        String existingContent = contentRepository.findContentByPath(oldPath).orElse("");
-
+        
         log.debug("Обновление документа ID {}: title='{}', status={}, parentId={}",
                 id, title, document.getStatus(), parentId);
 
@@ -325,69 +398,57 @@ public class DocumentService {
             validateTitleUniqueness(title, document.getSpaceId(), parentId, id);
         }
 
+        boolean titleChanged = title != null && !title.equals(document.getTitle());
+        String oldPath = document.getGitFilePath();
+        
         // Обновляем метаданные в БД (без изменения статуса через обычный PUT)
         document.updateMetadata(title, document.getStatus());
         if (parentId != null) {
             document.setParentDocumentId(parentId);
         }
-        String newPath = oldPath;
+        Document updatedMetadata = documentRepository.save(document);
+
+        String spaceName = spaceRepository.findById(document.getSpaceId())
+            .map(s -> s.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-"))
+            .orElse(String.valueOf(document.getSpaceId()));
+
+        String currentTitle = updatedMetadata.getTitle();
+        String sanitizedTitle = currentTitle.replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+        String newPath = String.format("spaces/%s/%s.md", spaceName, sanitizedTitle);
+
+        if (oldPath != null && !oldPath.equals(newPath)) {
+            contentRepository.moveContent(oldPath, newPath, "Изменение названия документа: " + currentTitle);
+            updatedMetadata.updateGitFilePath(newPath);
+            updatedMetadata = documentRepository.save(updatedMetadata);
+            oldPath = newPath;
+        }
+
+        String targetPath = oldPath != null ? oldPath : newPath;
+        String existingContent = contentRepository.findContentByPath(targetPath).orElse("");
         String actualContent = content != null ? content : existingContent;
-        if (content != null || title != null) {
-            String spaceName = spaceRepository.findById(document.getSpaceId())
-                .map(s -> s.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-"))
-                .orElse(String.valueOf(document.getSpaceId()));
-            String sanitizedTitle = title != null ? title.replaceAll("[\\\\/:*?\"<>|\\s]", "-") : document.getTitle().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
-            newPath = String.format("spaces/%s/%s.md", spaceName, sanitizedTitle);
-            if (content != null && document.getTemplateId() != null) {
-                actualContent = requirementNumberService.numberMissingRequirements(
-                        actualContent,
-                        document.getSpaceId(),
-                        document.getTemplateId()
-                );
-            }
 
+        if (updatedMetadata.getTemplateId() != null && content != null) {
+            actualContent = requirementNumberService.numberMissingRequirements(
+                    actualContent,
+                    updatedMetadata.getSpaceId(),
+                    updatedMetadata.getTemplateId()
+            );
         }
 
-        boolean metadataChanged = !java.util.Objects.equals(oldTitle, document.getTitle())
-                || oldStatus != document.getStatus()
-                || !java.util.Objects.equals(oldParentId, document.getParentDocumentId());
-        boolean contentChanged = !java.util.Objects.equals(existingContent, actualContent);
-        boolean pathChanged = !oldPath.equals(newPath);
-        boolean changed = metadataChanged || contentChanged || pathChanged;
-        String commitMessage = "Update document: " + document.getTitle();
-
-        if (changed && document.getStatus() == DocumentStatus.PUBLISHED) {
-            String metadataPath = ".metadata/documents/" + document.getId() + ".json";
-            GitCommitResult commit = contentRepository.saveDocumentSnapshot(
-                    oldPath, newPath, actualContent, metadataPath,
-                    documentMetadataJson(document), commitMessage, editor.getLogin(), editor.getEmail());
-            if (commit == null) {
-                throw new IllegalStateException("Измененный документ не был добавлен в Git-коммит");
-            }
-            if (pathChanged) {
-                document.updateGitFilePath(newPath);
-            }
-            Document updatedMetadata = documentRepository.save(document);
-            try {
-                documentVersionRepository.save(DocumentVersion.create(updatedMetadata.getId(), commit.hash(),
-                        editor.getId(), commitMessage, commit.committedAt()));
-            } catch (RuntimeException e) {
-                log.error("Git-коммит {} создан, но метаданные версии документа {} не сохранены",
-                        commit.hash(), id, e);
-                throw e;
-            }
-        } else {
-            if (content != null) {
-                if (pathChanged) {
-                    contentRepository.moveContent(oldPath, newPath, "Rename document to: " + document.getTitle());
-                    document.updateGitFilePath(newPath);
-                }
-                contentRepository.saveContent(newPath, actualContent, commitMessage, editor.getLogin(), editor.getEmail());
-            }
-            documentRepository.save(document);
+        String commitMsg = "Обновление содержимого документа: " + currentTitle;
+        if (titleChanged) {
+            commitMsg = "Изменение названия и содержимого документа: " + currentTitle;
         }
 
-        Document updatedMetadata = document;
+        contentRepository.saveContent(
+                targetPath,
+                actualContent,
+                commitMsg,
+                editor.getLogin(),
+                editor.getEmail()
+        );
+
+        versionRepository.saveVersion(updatedMetadata.getId(), "git-hash-" + System.currentTimeMillis(), editorId, commitMsg);
 
         // Уведомляем участников пространства об изменении документа (US4.3.1).
         // Слушатель сработает после фиксации текущей транзакции (AFTER_COMMIT).
@@ -424,10 +485,11 @@ public class DocumentService {
      * Дочерние документы привязываются к родителю удаляемого документа.
      *
      * @param id ID документа
-     * @param reparentChildren если true, дочерние документы перепривязываются к родителю (используется при обычном удалении)
+     * @param reparentChildren если true, дочерние документы перепривязываются к родителю
+     * @param userId ID пользователя, выполнившего удаление
      */
     @Transactional
-    public void deleteDocument(Long id, boolean reparentChildren) {
+    public void deleteDocument(Long id, boolean reparentChildren, Long userId) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
@@ -464,7 +526,7 @@ public class DocumentService {
         // 1. Перемещаем файл в Git, если он существует и еще не в архиве
         if (!oldPath.startsWith(".archive/")) {
             try {
-                contentRepository.moveContent(oldPath, newPath, "Archive document: " + document.getTitle());
+                contentRepository.moveContent(oldPath, newPath, "Soft-delete (Архивация) документа: " + document.getTitle());
             } catch (Exception e) {
                 log.warn("Не удалось архивировать файл документа {}: {}", id, e.getMessage());
             }
@@ -473,35 +535,84 @@ public class DocumentService {
         // 2. Обновляем метаданные в БД
         document.archive(newPath, document.getParentDocumentId());
         document.setParentDocumentId(null);
-        documentRepository.save(document);
+        Document saved = documentRepository.save(document);
+
+        Long actorId = userId != null ? userId : saved.getAuthorId();
+        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), actorId, "Soft-delete (Архивация) документа: " + saved.getTitle());
+
         auditService.record("DOCUMENT_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
     }
-
     /**
      * Удаляет документ с перепривязкой дочерних элементов.
      */
     @Transactional
     public void deleteDocument(Long id) {
-        deleteDocument(id, true);
+        deleteDocument(id, true, null);
     }
-
+    @Transactional
+    public void deleteDocument(Long id, Long userId) {
+        deleteDocument(id, true, userId);
+    }
     /**
      * Удаляет документ навсегда (hard-delete).
      */
     @Transactional
     public void hardDeleteDocument(Long id) {
-        if (documentRepository.hasChildren(id)) {
-            throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
-        }
         Document document = getDocumentById(id);
+        if (document.getStatus() != DocumentStatus.DELETED) {
+            throw new DocumentValidationException("Можно окончательно удалить только документы со статусом DELETED");
+        }
+
         log.info("Полное удаление документа ID {}: title='{}'", id, document.getTitle());
 
-        // 1. Удаляем из БД
-        documentRepository.deleteById(id);
+        // 1. Полное удаление связанных вложений (файлов в Blob Storage и метаданных в БД) через AttachmentService
+        try {
+            attachmentService.deleteAllAttachmentsForDocument(id);
+            } catch (Exception e) {
+            log.error("Ошибка при удалении вложений документа ID {}: {}", id, e.getMessage());
+            throw new RuntimeException("Не удалось удалить вложения документа: " + e.getMessage(), e);
+        }
+
+        // Перепривязываем дочерние документы к дедушке (родителю удаляемого документа)
+        Long grandparentOrParentId = document.getParentDocumentId();
+        List<Document> children = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
+                .filter(d -> id.equals(d.getParentDocumentId()))
+                .toList();
+
+        for (Document child : children) {
+            child.setParentDocumentId(grandparentOrParentId);
+            if (child.getPreviousParentId() != null && child.getPreviousParentId().equals(id)) {
+                child.setPreviousParentId(grandparentOrParentId);
+            }
+            documentRepository.save(child);
+            log.debug("При жестком удалении дочерний документ ID {} перепривязан к родителю ID {}", child.getId(), grandparentOrParentId);
+        }
+        documentRepository.flush();
 
         // 2. Удаляем файл из Git
-        contentRepository.deleteContent(document.getGitFilePath(), "Hard delete document: " + document.getTitle());
+        if (document.getGitFilePath() != null) {
+            try {
+                contentRepository.deleteContent(document.getGitFilePath(), "Hard-delete (Полное удаление) документа: " + document.getTitle());
+            } catch (Exception e) {
+                log.warn("Не удалось удалить файл документа {} из Git: {}", id, e.getMessage());
+        }
+        }
+
+        // 3. Очищаем связанные версии и записи аудита перед удалением
+        try {
+            versionRepository.deleteVersionsByDocumentId(id);
+            entityManager.createNativeQuery("DELETE FROM audit_log WHERE resource_id = ? AND resource_type = 'DOCUMENT'")
+                    .setParameter(1, id)
+                    .executeUpdate();
+            entityManager.flush();
+        } catch (Exception e) {
+            log.warn("Не удалось очистить связанные версии/аудит для документа {}: {}", id, e.getMessage());
+        }
+
+        // 4. Удаляем из БД
+        documentRepository.deleteById(id);
+        documentRepository.flush();
 
         auditService.record("DOCUMENT_HARD_DELETED", AuditService.RESOURCE_DOCUMENT, id,
                 "title='" + document.getTitle() + "'");
@@ -511,7 +622,7 @@ public class DocumentService {
      * Восстанавливает документ (переводит из статуса DELETED и перемещает файл из .archive/).
      */
     @Transactional
-    public void restoreDocument(Long id, boolean keepHierarchy) {
+    public void restoreDocument(Long id, boolean keepHierarchy, Long userId) {
         Document document = getDocumentById(id);
         
         if (document.getStatus() != DocumentStatus.DELETED) {
@@ -522,7 +633,6 @@ public class DocumentService {
         // Проверяем статус пространства (включая удалённые — для корректного 409)
         Space space = spaceRepository.findByIdIncludingDeleted(document.getSpaceId())
                 .orElseThrow(() -> new SpaceNotFoundException(document.getSpaceId()));
-        
         if (space.isDeleted()) {
             throw new com.knowledgebase.domain.exception.ConflictException(
                 "Нельзя восстановить документ в удаленном (неактивном пространстве)");
@@ -533,8 +643,8 @@ public class DocumentService {
             Document parent = documentRepository.findById(targetParentId).orElse(null);
             if (parent == null || parent.getStatus() == DocumentStatus.DELETED) {
                 targetParentId = findFirstActiveAncestor(targetParentId);
-            }
         }
+    }
 
         log.info("Восстановление документа ID {}: title='{}'", id, document.getTitle());
 
@@ -544,7 +654,7 @@ public class DocumentService {
         // 1. Перемещаем файл из Git архива обратно, если он там
         if (archivedPath.startsWith(".archive/")) {
             try {
-                contentRepository.moveContent(archivedPath, originalPath, "Restore document: " + document.getTitle());
+                contentRepository.moveContent(archivedPath, originalPath, "Restore (Восстановление) документа: " + document.getTitle());
             } catch (Exception e) {
                 log.warn("Не удалось восстановить файл документа {} из архива: {}", id, e.getMessage());
             }
@@ -554,7 +664,10 @@ public class DocumentService {
         document.restore(originalPath, targetParentId);
         // Сброс флага восстановления
         document.markAsDeletedWithSpace(false);
-        documentRepository.save(document);
+        Document saved = documentRepository.save(document);
+
+        Long actorId = userId != null ? userId : saved.getAuthorId();
+        versionRepository.saveVersion(saved.getId(), "git-hash-" + System.currentTimeMillis(), actorId, "Restore (Восстановление) документа: " + saved.getTitle());
 
         // Возвращаем обратно детей, которые были временно переподчинены при удалении этого документа
         List<Document> potentialChildren = documentRepository.findBySpaceId(document.getSpaceId(), true).stream()
@@ -578,7 +691,12 @@ public class DocumentService {
      */
     @Transactional
     public void restoreDocument(Long id) {
-        restoreDocument(id, false);
+        restoreDocument(id, false, null);
+    }
+
+    @Transactional
+    public void restoreDocument(Long id, Long userId) {
+        restoreDocument(id, false, userId);
     }
 
     private Long findFirstActiveAncestor(Long parentId) {

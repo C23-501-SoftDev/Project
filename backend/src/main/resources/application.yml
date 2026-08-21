@@ -157,8 +157,15 @@ app:
       # Путь к Git-репозиторию с .md файлами документов
       path: ${GIT_REPO_PATH:./data/git-repo}
     blob:
-      # Путь к blob-хранилищу для изображений и вложений
+      # Провайдер blob-хранилища (minio и т.д.)
+      provider: ${APP_STORAGE_BLOB_PROVIDER:minio}
+      # Локальный путь (если используется файловая система)
       path: ${BLOB_STORAGE_PATH:./data/blob-storage}
+      minio:
+        endpoint: ${MINIO_ENDPOINT:http://minio:9000}
+        access-key: ${MINIO_ACCESS_KEY:minioadmin}
+        secret-key: ${MINIO_SECRET_KEY:minioadmin}
+        bucket: ${MINIO_BUCKET:knowledge-base-attachments}
     attachments:
       # Максимальный размер одного файла вложения
       max-size-bytes: ${ATTACHMENT_MAX_SIZE_BYTES:10485760}
@@ -272,8 +279,14 @@ app:
         # Путь к Git-репозиторию с .md файлами документов
         path: ${GIT_REPO_PATH:./data/git-repo}
       blob:
-        # Путь к blob-хранилищу для изображений и вложений
+        # Провайдер blob-хранилища (minio и т.д.)
+        provider: ${APP_STORAGE_BLOB_PROVIDER:minio}
         path: ${BLOB_STORAGE_PATH:./data/blob-storage}
+        minio:
+          endpoint: ${MINIO_ENDPOINT:http://minio:9000}
+          access-key: ${MINIO_ACCESS_KEY:minioadmin}
+          secret-key: ${MINIO_SECRET_KEY:minioadmin}
+          bucket: ${MINIO_BUCKET:knowledge-base-attachments}
 
 logging:
   level:
@@ -282,3 +295,4 @@ logging:
     root: WARN
   file:
     name: /var/log/knowledge-base/application.log
+
