@@ -13,6 +13,7 @@ import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.domain.repository.TemplateRepository;
 import com.knowledgebase.domain.repository.UserRepository;
+import com.knowledgebase.domain.repository.VersionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +26,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +42,8 @@ class DocumentServiceVersioningTest {
     @Mock private RequirementNumberService requirementNumberService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private AuditService auditService;
+    @Mock private VersionRepository versionRepository;
+    @Mock private AttachmentService attachmentService;
 
     private DocumentService service;
     private Document document;
@@ -49,9 +52,9 @@ class DocumentServiceVersioningTest {
     void setUp() {
         service = new DocumentService(documentRepository, contentRepository, documentVersionRepository,
                 spaceRepository, permissionRepository, templateRepository, userRepository,
-                requirementNumberService, eventPublisher, auditService);
+                null, requirementNumberService, eventPublisher, auditService, versionRepository, attachmentService);
         document = Document.restore(10L, "Document", "spaces/Space/Document.md", DocumentStatus.DRAFT,
-                1L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
+                null, null, 1L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
 
         when(documentRepository.findById(10L)).thenReturn(Optional.of(document));
         when(userRepository.findById(3L)).thenReturn(Optional.of(User.restore(3L, "editor", "hash",
@@ -81,6 +84,7 @@ class DocumentServiceVersioningTest {
         when(documentRepository.save(any())).thenReturn(document);
         doThrow(new RuntimeException("Database unavailable")).when(documentVersionRepository).save(any());
 
+
         assertThrows(RuntimeException.class, () -> service.updateDocument(10L, null, "# After",
                 DocumentStatus.PUBLISHED, null, 3L));
 
@@ -89,3 +93,4 @@ class DocumentServiceVersioningTest {
         verifyNoInteractions(eventPublisher, auditService);
     }
 }
+

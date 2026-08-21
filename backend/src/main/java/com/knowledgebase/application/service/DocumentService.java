@@ -389,9 +389,7 @@ public class DocumentService {
         String oldTitle = document.getTitle();
         DocumentStatus oldStatus = document.getStatus();
         Long oldParentId = document.getParentDocumentId();
-        String oldPath = document.getGitFilePath();
-        String existingContent = contentRepository.findContentByPath(oldPath).orElse("");
-
+        
         log.debug("Обновление документа ID {}: title='{}', status={}, parentId={}",
                 id, title, document.getStatus(), parentId);
 
@@ -402,7 +400,7 @@ public class DocumentService {
 
         boolean titleChanged = title != null && !title.equals(document.getTitle());
         String oldPath = document.getGitFilePath();
-
+        
         // Обновляем метаданные в БД (без изменения статуса через обычный PUT)
         document.updateMetadata(title, document.getStatus());
         if (parentId != null) {
