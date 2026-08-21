@@ -7,6 +7,7 @@ import com.knowledgebase.domain.model.Attachment;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.repository.AttachmentFileStorageRepository;
 import com.knowledgebase.domain.repository.AttachmentRepository;
+import com.knowledgebase.domain.repository.DocumentRepository;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.slf4j.Logger;
@@ -36,7 +37,7 @@ public class AttachmentService {
 
     private final AttachmentRepository attachmentRepository;
     private final AttachmentFileStorageRepository storageRepository;
-    private final DocumentService documentService;
+    private final DocumentRepository documentRepository;
     private final PermissionService permissionService;
 
     private final long maxFileSizeBytes;
@@ -44,13 +45,13 @@ public class AttachmentService {
 
     public AttachmentService(AttachmentRepository attachmentRepository,
                              AttachmentFileStorageRepository storageRepository,
-                             DocumentService documentService,
+                             DocumentRepository documentRepository,
                              PermissionService permissionService,
                              @Value("${app.storage.attachments.max-size-bytes:10485760}") long maxFileSizeBytes,
                              @Value("${app.storage.attachments.allowed-extensions:md,png,jpg,jpeg,gif,pdf,txt,docx,xlsx,pptx,zip}") String allowedExtensions) {
         this.attachmentRepository = attachmentRepository;
         this.storageRepository = storageRepository;
-        this.documentService = documentService;
+        this.documentRepository = documentRepository;
         this.permissionService = permissionService;
         this.maxFileSizeBytes = maxFileSizeBytes;
         this.allowedExtensions = parseAllowedExtensions(allowedExtensions);
@@ -62,12 +63,15 @@ public class AttachmentService {
         }
 
         Attachment attachment = getAttachmentById(attachmentId);
-        Document document = documentService.getDocumentById(attachment.getDocumentId());
+        Document document = documentRepository.findById(attachment.getDocumentId())
+                .orElseThrow(() -> new DocumentNotFoundException(attachment.getDocumentId()));
         return permissionService.canRead(userId, isAdmin, document.getSpaceId());
     }
 
     public List<Attachment> getAttachmentsForDocument(Long documentId) {
-        documentService.getDocumentById(documentId);
+        if (!documentRepository.existsById(documentId)) {
+            throw new DocumentNotFoundException(documentId);
+        }
         return attachmentRepository.findByDocumentId(documentId, false);
     }
 
@@ -78,12 +82,22 @@ public class AttachmentService {
 
     @Transactional
     public List<Attachment> uploadAttachments(Long documentId, List<MultipartFile> files, Long uploadedBy) {
-        Document document = documentService.getDocumentById(documentId);
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
         validateFiles(files);
+
+        // Проверка лимита на максимальное количество вложений (не более 5 файлов на документ)
+        List<Attachment> existingAttachments = attachmentRepository.findByDocumentId(documentId, false);
+        int maxAttachmentsAllowed = 5;
+        if (existingAttachments.size() + files.size() > maxAttachmentsAllowed) {
+            throw new AttachmentValidationException(
+                String.format("Превышен лимит вложений. У документа уже есть %d файл(ов). Максимально допустимо: %d.",
+                    existingAttachments.size(), maxAttachmentsAllowed)
+            );
+        }
 
         List<Attachment> savedAttachments = new ArrayList<>();
         List<String> storedPaths = new ArrayList<>();
-
         try {
             for (MultipartFile file : files) {
                 validateFile(file);
@@ -120,9 +134,10 @@ public class AttachmentService {
 
     @Transactional
     public void deleteAttachment(Long documentId, Long attachmentId) {
-        documentService.getDocumentById(documentId);
+        if (!documentRepository.existsById(documentId)) {
+            throw new DocumentNotFoundException(documentId);
+        }
         Attachment attachment = getAttachmentById(attachmentId);
-
         if (!documentId.equals(attachment.getDocumentId())) {
             throw new AttachmentNotFoundException(attachmentId);
         }
@@ -135,8 +150,42 @@ public class AttachmentService {
         }
     }
 
+    /**
+     * Удаляет все вложения указанного документа (файлы из Blob Storage и метаданные из БД).
+     * Устойчив к отсутствию файлов в хранилище и логирует ошибки.
+     */
+    @Transactional
+    public void deleteAllAttachmentsForDocument(Long documentId) {
+        List<Attachment> attachments = attachmentRepository.findByDocumentId(documentId, true);
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+
+        for (Attachment attachment : attachments) {
+            String storagePath = attachment.getStoragePath();
+            if (storagePath != null && !storagePath.isBlank()) {
+                try {
+                    storageRepository.delete(storagePath);
+                    log.info("Успешно удален файл вложения из Blob Storage по пути: {}", storagePath);
+                } catch (Exception e) {
+                    log.warn("Не удалось удалить файл вложения из Blob Storage по пути {} (возможно, файл уже отсутствует): {}", storagePath, e.getMessage());
+                }
+            }
+
+            try {
+                attachmentRepository.deleteById(attachment.getId());
+                log.info("Успешно удалены метаданные вложения ID {} для документа ID {}", attachment.getId(), documentId);
+            } catch (Exception e) {
+                log.error("Не удалось удалить метаданные вложения ID {} из БД: {}", attachment.getId(), e.getMessage());
+                throw new RuntimeException("Не удалось удалить метаданные вложения: " + attachment.getId(), e);
+            }
+        }
+    }
+
     public Attachment getAttachment(Long documentId, Long attachmentId) {
-        documentService.getDocumentById(documentId);
+        if (!documentRepository.existsById(documentId)) {
+            throw new DocumentNotFoundException(documentId);
+        }
         Attachment attachment = getAttachmentById(attachmentId);
 
         if (!documentId.equals(attachment.getDocumentId())) {
@@ -236,3 +285,4 @@ public class AttachmentService {
 
     public record AttachmentDownloadData(Attachment attachment, Resource resource) {}
 }
+

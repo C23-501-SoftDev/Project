@@ -5,6 +5,7 @@ import com.knowledgebase.domain.repository.DocumentContentRepository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
@@ -169,4 +172,69 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
             throw new RuntimeException("Ошибка Git-хранилища", e);
         }
     }
+
+    @Override
+    public List<CommitLogEntry> getHistory(String gitFilePath) {
+        List<CommitLogEntry> history = new ArrayList<>();
+        File repoDir = new File(gitRepoPath);
+        if (!repoDir.exists()) {
+            log.warn("Git репозиторий не найден по пути: {}", repoDir.getAbsolutePath());
+            return history;
+        }
+        try (Git git = Git.open(repoDir)) {
+            // Строго определяем целевой путь файла (например, spaces/SpaceName/FileName.md)
+            String cleanPath = gitFilePath != null && gitFilePath.startsWith("/") ? gitFilePath.substring(1) : gitFilePath;
+            String fileName = "";
+            if (cleanPath != null && !cleanPath.isBlank()) {
+                int lastSlash = cleanPath.lastIndexOf('/');
+                fileName = lastSlash >= 0 ? cleanPath.substring(lastSlash + 1) : cleanPath;
+            }
+
+            // Используем стандартный встроенный механизм JGit git.log().addPath(path),
+            // который гарантированно возвращает историю конкретного файла по его путям без захвата посторонних коммитов репозитория.
+            List<String> pathsToCheck = new ArrayList<>();
+            if (cleanPath != null && !cleanPath.isBlank()) {
+                pathsToCheck.add(cleanPath);
+                if (cleanPath.startsWith(".archive/")) {
+                    pathsToCheck.add(cleanPath.substring(".archive/".length()));
+                } else {
+                    pathsToCheck.add(".archive/" + cleanPath);
+                }
+            }
+
+            for (String path : pathsToCheck) {
+                try {
+                    Iterable<RevCommit> commits = git.log().addPath(path).call();
+                    for (RevCommit commit : commits) {
+                String commitId = commit.getName();
+                        String authorName = commit.getAuthorIdent() != null ? commit.getAuthorIdent().getName() : "Unknown";
+                        String authorEmail = commit.getAuthorIdent() != null ? commit.getAuthorIdent().getEmailAddress() : "";
+                        String commitMessage = commit.getFullMessage() != null ? commit.getFullMessage().trim() : "";
+
+                        // Дополнительная страховка: исключаем общие коммиты разработки/синк-ветки
+                        if (commitMessage.contains("feat(documents)") || commitMessage.contains("Merge origin") || commitMessage.contains("Синхронизация ветки")) {
+                            continue;
+                        }
+                java.time.LocalDateTime timestamp = java.time.LocalDateTime.ofInstant(
+                        commit.getAuthorIdent().getWhen().toInstant(),
+                        java.time.ZoneId.systemDefault()
+                );
+                        if (history.stream().noneMatch(e -> e.commitId().equals(commitId))) {
+                history.add(new CommitLogEntry(commitId, authorName, authorEmail, commitMessage, timestamp));
+            }
+        }
+                } catch (Exception ex) {
+                    log.debug("Не удалось получить историю для пути {}: {}", path, ex.getMessage());
+    }
+            }
+
+            // Сортируем от новых к старым
+            history.sort((a, b) -> b.timestamp().compareTo(a.timestamp()));
+
+        } catch (IOException e) {
+            log.error("Ошибка при получении истории коммитов из Git для файла: {}", gitFilePath, e);
+        }
+        return history;
+    }
 }
+

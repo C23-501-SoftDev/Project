@@ -86,4 +86,12 @@ public class AdminDocumentController {
         documentService.restoreDocument(id);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/{id}/hard")
+    @Operation(summary = "Окончательное удаление документа", description = "Физически удаляет документ со статусом DELETED, перепривязывая его детей к родителю.")
+    public ResponseEntity<Void> hardDeleteDocument(@PathVariable Long id) {
+        documentService.hardDeleteDocument(id);
+        return ResponseEntity.noContent().build();
+    }
 }
+

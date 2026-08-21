@@ -236,7 +236,7 @@ public class SpaceService {
         for (com.knowledgebase.domain.model.Document doc : documents) {
             // Удаляем документ, перепривязывать детей НЕ нужно (false), 
             // так как мы сохраняем структуру в БД для восстановления
-            documentService.deleteDocument(doc.getId(), false);
+            documentService.deleteDocument(doc.getId(), true, null);
             
             // Устанавливаем флаг, что документ удален при удалении пространства
             doc.markAsDeletedWithSpace(true);
@@ -332,7 +332,7 @@ public class SpaceService {
             // Восстанавливаем только если документ был помечен как удаленный вместе с пространством
             if (doc.getStatus() == com.knowledgebase.domain.model.DocumentStatus.DELETED &&
                 doc.isDeletedWithSpace()) {
-                documentService.restoreDocument(doc.getId(), true);
+                documentService.restoreDocument(doc.getId(), false, null);
             }
             List<com.knowledgebase.domain.model.Document> children = childrenMap.getOrDefault(doc.getId(), java.util.Collections.emptyList());
             if (!children.isEmpty()) {
@@ -792,3 +792,4 @@ public class SpaceService {
         return permissionRepository.findBySpaceId(spaceId);
     }
 }
+

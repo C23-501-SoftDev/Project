@@ -7,6 +7,7 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.interfaces.rest.dto.request.CreateDocumentRequest;
 import com.knowledgebase.interfaces.rest.dto.request.UpdateDocumentRequest;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.dto.response.DocumentVersionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.PageResponse;
 import com.knowledgebase.interfaces.rest.mapper.RestDtoMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -101,6 +102,37 @@ public class DocumentController {
         String content = documentService.getDocumentContent(document);
         return ResponseEntity.ok(mapper.toDocumentResponse(document, content));
     }
+
+    /**
+     * GET /api/documents/{id}/history
+     * Получить историю версий (коммитов) документа с пагинацией (PageResponse).
+     */
+    @GetMapping("/{id}/history")
+    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @Operation(summary = "Получить историю версий документа", description = "Возвращает страницу коммитов для указанного документа с пагинацией")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "История версий успешно получена"),
+        @ApiResponse(responseCode = "403", description = "Недостаточно прав для просмотра"),
+        @ApiResponse(responseCode = "404", description = "Документ не найден")
+    })
+    public ResponseEntity<PageResponse<DocumentVersionResponse>> getDocumentHistory(
+            @Parameter(description = "ID документа") @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size,
+            @AuthenticationPrincipal User currentUser) {
+
+        Document document = documentService.getDocumentById(id);
+        if (!documentService.canViewDocument(currentUser.getId(), currentUser.isAdmin(), document)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+        var historyPage = documentService.getDocumentHistoryPaged(document, page, size);
+        List<DocumentVersionResponse> content = historyPage.getContent().stream()
+                .map(mapper::toDocumentVersionResponse)
+                .toList();
+
+        return ResponseEntity.ok(PageResponse.of(content, page, size, historyPage.getTotalElements()));
+    }
     /**
      * POST /api/documents/{id}/publish
      * Публикация документа (перевод из Draft в Published).
@@ -147,8 +179,10 @@ public class DocumentController {
     @PostMapping("/{id}/restore")
     @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
     @Operation(summary = "Восстановить документ", description = "Переводит в статус Published/Draft и перемещает файл из .archive/ в Git")
-    public ResponseEntity<Void> restoreDocument(@PathVariable Long id) {
-        documentService.restoreDocument(id);
+    public ResponseEntity<Void> restoreDocument(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser) {
+        documentService.restoreDocument(id, currentUser.getId());
         return ResponseEntity.noContent().build();
     }
 
@@ -159,8 +193,10 @@ public class DocumentController {
     @DeleteMapping("/{id}")
     @PreAuthorize("@permissionService.canWrite(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
     @Operation(summary = "Удалить документ", description = "Переводит в статус Deleted и перемещает файл в .archive/ в Git")
-    public ResponseEntity<Void> deleteDocument(@PathVariable Long id) {
-        documentService.deleteDocument(id);
+    public ResponseEntity<Void> deleteDocument(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser) {
+        documentService.deleteDocument(id, true, currentUser.getId());
         return ResponseEntity.noContent().build();
     }
 
