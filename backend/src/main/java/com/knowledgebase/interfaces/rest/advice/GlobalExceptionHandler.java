@@ -97,6 +97,14 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(com.knowledgebase.domain.exception.SpaceValidationException.class)
+    public ResponseEntity<ErrorResponse> handleSpaceValidation(
+            com.knowledgebase.domain.exception.SpaceValidationException ex,
+            HttpServletRequest request) {
+        log.warn("Ошибка валидации пространства: {}", ex.getMessage());
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(com.knowledgebase.domain.exception.AttachmentValidationException.class)
     @ResponseBody
     public ResponseEntity<ErrorResponse> handleAttachmentValidation(
@@ -172,6 +180,12 @@ public class GlobalExceptionHandler {
         if (isHtmlRequest(request)) {
             return buildHtmlErrorView(HttpStatus.NOT_FOUND, "Ресурс не найден: " + ex.getMessage(), request);
         }
+        return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(GroupNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleGroupNotFound(
+            GroupNotFoundException ex, HttpServletRequest request) {
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
     }
 

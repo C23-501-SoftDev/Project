@@ -37,15 +37,18 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
     private final SpaceService spaceService;
+    private final AuditService auditService;
 
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        ApplicationEventPublisher eventPublisher,
-                       SpaceService spaceService) {
+                       SpaceService spaceService,
+                       AuditService auditService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
         this.spaceService = spaceService;
+        this.auditService = auditService;
     }
 
     /**
@@ -87,6 +90,8 @@ public class UserService {
         eventPublisher.publishEvent(new UserCreatedEvent(savedUser.getId(),
                 savedUser.getEmail(), savedUser.getLogin()));
 
+        auditService.record("USER_CREATED", AuditService.RESOURCE_USER, savedUser.getId(),
+                "login='" + login + "', role=" + role + ", isAdmin=" + isAdmin);
         log.info("Пользователь создан: id={}, login={}", savedUser.getId(), login);
         return savedUser;
     }
@@ -123,12 +128,31 @@ public class UserService {
             throw new ConflictException("Пользователь с email '" + email + "' уже существует");
         }
 
+        // Фиксируем старые значения для журнала аудита (US4.1.5, сценарий 2)
+        GlobalRole oldRole = user.getRole();
+        boolean oldIsAdmin = user.getIsAdmin();
+
         // Применяем изменения через метод домена
-        user.updateProfile(login, email, role, isAdmin);
+        user.updateProfile(login, email, role, isAdmin, null);
 
         User updated = userRepository.save(user);
+
+        auditService.record("USER_UPDATED", AuditService.RESOURCE_USER, userId,
+                "role: " + oldRole + " -> " + updated.getRole()
+                        + ", isAdmin: " + oldIsAdmin + " -> " + updated.getIsAdmin());
         log.info("Пользователь обновлён: id={}", userId);
         return updated;
+    }
+
+    /**
+     * Поиск пользователей по части логина или ФИО. Возвращает только активных.
+     */
+    public List<User> searchUsers(String query, int page, int size, boolean includeDeleted) {
+        return userRepository.search(query, page, size, includeDeleted);
+    }
+
+    public long countSearchUsers(String query, boolean includeDeleted) {
+        return userRepository.countSearch(query, includeDeleted);
     }
 
     /**
@@ -147,6 +171,7 @@ public class UserService {
         user.updatePasswordHash(newHash);
 
         userRepository.save(user);
+        auditService.record("USER_PASSWORD_CHANGED", AuditService.RESOURCE_USER, userId, null);
         log.info("Пароль изменён для пользователя: id={}", userId);
     }
 
@@ -154,12 +179,17 @@ public class UserService {
      * Выполняет soft-delete пользователя.
      * Вместо физического удаления устанавливает флаг isDeleted = true.
      * Данные пользователя сохраняются для сохранения истории авторства.
+     * Пространства, которыми владел пользователь, передаются администратору,
+     * выполняющему удаление.
      *
-     * @param userId ID удаляемого пользователя
+     * @param userId        ID удаляемого пользователя
+     * @param actingAdminId ID администратора, выполняющего операцию (новый владелец пространств)
      * @throws UserNotFoundException если пользователь не найден
+     * @throws AccessDeniedException если удаляют системного администратора (ID=1)
+     * @throws ConflictException     если администратор пытается удалить сам себя
      */
     @Transactional
-    public User deleteUser(Long userId) {
+    public User deleteUser(Long userId, Long actingAdminId) {
         // Запрещаем удаление системного администратора (ID=1)
         if (userId.equals(1L)) {
             throw new AccessDeniedException("Удаление системного администратора запрещено");
@@ -168,13 +198,20 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
-        // Передаем владение пространствами системному администратору (ID=1)
-        spaceService.transferOwnership(userId, 1L);
+        if (userId.equals(actingAdminId)) {
+            throw new ConflictException("Администратор не может удалить сам себя");
+        }
+
+        // Пространства удаляемого пользователя переходят администратору, выполняющему удаление.
+        // Если вызов пришёл без контекста администратора — владение переходит системному (ID=1).
+        spaceService.transferOwnership(userId, actingAdminId != null ? actingAdminId : 1L);
 
         // Выполняем soft-delete через доменный метод
         user.softDelete();
         User saved = userRepository.save(user);
 
+        auditService.record("USER_DELETED", AuditService.RESOURCE_USER, userId,
+                "login='" + saved.getLogin() + "'");
         log.info("Пользователь soft-удалён: id={}", userId);
         return saved;
     }
@@ -198,6 +235,8 @@ public class UserService {
         user.restore();
         User saved = userRepository.save(user);
 
+        auditService.record("USER_RESTORED", AuditService.RESOURCE_USER, userId,
+                "login='" + saved.getLogin() + "'");
         log.info("Пользователь восстановлен: id={}", userId);
         return saved;
     }

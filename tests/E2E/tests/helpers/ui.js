@@ -141,6 +141,97 @@ async function goToLastDocumentsPage(page) {
   }
 }
 
+async function waitForUsersTableReload(page) {
+  return page.waitForResponse(
+    (r) =>
+      r.url().includes("/api/admin/users") &&
+      r.request().method() === "GET" &&
+      r.ok()
+  );
+}
+
+async function waitForSpacesTableReload(page) {
+  return page.waitForResponse(
+    (r) =>
+      r.url().includes("/api/admin/spaces") &&
+      r.request().method() === "GET" &&
+      r.ok()
+  );
+}
+
+async function waitForUsersLoaded(page) {
+  await expect(page.locator("#usersTbody")).not.toContainText("Загрузка");
+}
+
+async function waitForSpacesLoaded(page) {
+  await expect(page.locator("#spacesTbody")).not.toContainText("Загрузка");
+}
+
+async function applyUserFilters(page) {
+  const reload = waitForUsersTableReload(page);
+  await page.locator("#applyFiltersBtn").click();
+  await reload;
+  await waitForUsersLoaded(page);
+}
+
+async function applySpacesFilters(page) {
+  const reload = waitForSpacesTableReload(page);
+  await page.locator("#applyFiltersBtn").click();
+  await reload;
+  await waitForSpacesLoaded(page);
+}
+
+async function setUserRoleFilters(page, roles) {
+  const selected = Array.isArray(roles) ? roles : [roles];
+  for (const checkbox of await page.locator(".roleFilter").all()) {
+    const value = await checkbox.getAttribute("value");
+    await checkbox.setChecked(selected.includes(value));
+  }
+}
+
+async function setUserAdminFilters(page, values) {
+  const selected = Array.isArray(values) ? values : [values];
+  for (const checkbox of await page.locator(".adminFilter").all()) {
+    const value = await checkbox.getAttribute("value");
+    await checkbox.setChecked(selected.includes(value));
+  }
+}
+
+async function setUserStatusFilter(page, status) {
+  await selectCustomOption(page, "statusFilterWrapper", status);
+}
+
+async function setSpacesStatusFilter(page, status) {
+  await selectCustomOption(page, "statusFilterWrapper", status);
+}
+
+async function waitForSpacesOwnerOptions(page, minCount = 2) {
+  await expect
+    .poll(async () => page.locator("#ownerFilterWrapper .select-option").count())
+    .toBeGreaterThanOrEqual(minCount);
+}
+
+async function selectSpacesOwnerFilter(page, ownerId) {
+  await waitForSpacesOwnerOptions(page, 2);
+  const wrapper = page.locator("#ownerFilterWrapper");
+  await wrapper.locator(".select-styled").click();
+  await wrapper.locator(`.select-option[data-value="${ownerId}"]`).click();
+}
+
+async function waitForAuthorFilterOptions(page, minCount = 2) {
+  await expect
+    .poll(async () => page.locator("#authorFilterWrapper .select-option").count())
+    .toBeGreaterThanOrEqual(minCount);
+}
+
+async function applyDocumentAuthorFilter(page, authorId) {
+  await waitForAuthorFilterOptions(page, 2);
+  const wrapper = page.locator("#authorFilterWrapper");
+  await wrapper.locator(".select-styled").click();
+  await wrapper.locator(`.select-option[data-value="${authorId}"]`).click();
+  await page.locator("#applyFiltersBtn").click();
+}
+
 module.exports = {
   selectCustomOption,
   selectCustomOptionByText,
@@ -156,4 +247,18 @@ module.exports = {
   applyDocumentSpaceFilter,
   waitDocumentsLoaded,
   goToLastDocumentsPage,
+  waitForUsersTableReload,
+  waitForSpacesTableReload,
+  waitForUsersLoaded,
+  waitForSpacesLoaded,
+  applyUserFilters,
+  applySpacesFilters,
+  setUserRoleFilters,
+  setUserAdminFilters,
+  setUserStatusFilter,
+  setSpacesStatusFilter,
+  waitForSpacesOwnerOptions,
+  selectSpacesOwnerFilter,
+  waitForAuthorFilterOptions,
+  applyDocumentAuthorFilter,
 };

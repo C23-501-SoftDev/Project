@@ -32,6 +32,9 @@ public class User {
     /** Флаг администратора — определяет доступ к админ-панели */
     private boolean isAdmin;
 
+    /** Полное отображаемое имя пользователя (ФИО) */
+    private String fullName;
+
     /** Флаг soft-удаления */
     private boolean isDeleted;
 
@@ -59,6 +62,7 @@ public class User {
         user.email = email;
         user.role = role != null ? role : GlobalRole.READER;
         user.isAdmin = isAdmin;
+        user.fullName = null;
         user.isDeleted = false;
         user.createdAt = LocalDateTime.now();
         user.updatedAt = LocalDateTime.now();
@@ -70,7 +74,7 @@ public class User {
      * Используется в маппере при чтении из БД.
      */
     public static User restore(Long id, String login, String passwordHash, String email,
-                               GlobalRole role, boolean isAdmin, boolean isDeleted,
+                               GlobalRole role, boolean isAdmin, boolean isDeleted, String fullName,
                                LocalDateTime createdAt, LocalDateTime updatedAt) {
         User user = new User();
         user.id = id;
@@ -80,6 +84,7 @@ public class User {
         user.role = role;
         user.isAdmin = isAdmin;
         user.isDeleted = isDeleted;
+        user.fullName = fullName;
         user.createdAt = createdAt;
         user.updatedAt = updatedAt;
         return user;
@@ -129,7 +134,7 @@ public class User {
     }
 
     /** Обновляет данные профиля пользователя */
-    public void updateProfile(String login, String email, GlobalRole role, boolean isAdmin) {
+    public void updateProfile(String login, String email, GlobalRole role, boolean isAdmin, String fullName) {
         if (login != null && !login.isBlank()) {
             this.login = login;
         }
@@ -140,6 +145,9 @@ public class User {
             this.role = role;
         }
         this.isAdmin = isAdmin;
+        if (fullName != null) {
+            this.fullName = fullName;
+        }
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -157,6 +165,7 @@ public class User {
     public String getEmail() { return email; }
     public GlobalRole getRole() { return role; }
     public boolean getIsAdmin() { return isAdmin; }
+    public String getFullName() { return fullName; }
     public boolean getIsDeleted() { return isDeleted; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

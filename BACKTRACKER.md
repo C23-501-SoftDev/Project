@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-05-26
+**Дата обновления:** 2026-08-12
 
 ---
 
@@ -40,11 +40,12 @@
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
 | GET | `/api/spaces` | Список пространств, доступных текущему пользователю | ✅ |
+| GET | `/api/spaces/search?q=запрос` | Поиск пространств текущего пользователя по названию | ✅ |
 | GET | `/api/user/permissions?spaceId={id}` | Права текущего пользователя в пространстве (canRead, canEdit, canCreate) | ✅ |
 | GET | `/api/documents?page=0&size=20&sortBy=title&sortDir=asc` | Список документов с пагинацией | ❌ |
 | GET | `/api/documents?spaceId={id}` | Фильтрация документов по пространству | ✅ |
 | GET | `/api/documents?status=Published` | Фильтрация по статусу | ❌ |
-| POST | `/api/documents/search` | Поиск документов по названию/тексту с фильтрацией по дате | ❌ |
+| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск документов по названию | ✅ |
 
 **Данные для SSR-страницы:**
 - Список последних документов (title, author, updatedAt, status)
@@ -160,9 +161,9 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск по названию | ❌ |
+| GET | `/api/documents/search?q=запрос&page=0&size=20` | Поиск по названию | ✅ |
 | GET | `/api/documents/search?q=запрос&spaceId={id}` | Поиск в конкретном пространстве | ❌ |
-| GET | `/api/documents/search?q=запрос&dateFrom=...&dateTo=...` | Поиск + фильтрация по дате | ❌ |
+| GET | `/api/documents/search?q=запрос&dateFrom=...&dateTo=...` | Поиск + фильтрация по дате | ✅ |
 | GET | `/api/documents/search?q=запрос&status=Published` | Поиск + фильтрация по статусу | ❌ |
 
 **Формат ответа поиска:**
@@ -236,6 +237,36 @@
 | DELETE | `/api/admin/spaces/{id}` | Удаление пространства (RESTRICT если есть документы) | ✅ |
 | POST | `/api/admin/spaces/{spaceId}/permissions` | Назначение прав (`{ userId, permissionType: READ|WRITE|OWNER }`) | ✅ |
 | GET | `/api/admin/spaces/{id}/permissions` | Список прав пространства (с полями userLogin, userEmail) | ✅ |
+| DELETE | `/api/admin/permissions/{permId}` | Отзыв права пользователя по ID | ✅ |
+| POST | `/api/admin/spaces/{spaceId}/restore` | Восстановление soft-удалённого пространства | ✅ |
+| POST | `/api/admin/spaces/{spaceId}/group-permissions` | Назначение права группе (`{ groupId, permissionType }`) | ✅ |
+| GET | `/api/admin/spaces/{spaceId}/group-permissions` | Список прав групп на пространство (с groupName) | ✅ |
+| DELETE | `/api/admin/group-permissions/{permId}` | Отзыв права группы по ID | ✅ |
+
+> **Бизнес-правило (US4.2.1):** владельцем пространства (`ownerId`) может быть только пользователь с `is_admin = true`; иначе `422 Unprocessable Entity`.
+
+---
+
+## Админ-панель: Группы пользователей (US4.1.8 / US4.1.9)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/admin/groups?page=0&size=50` | Список групп (PageResponse, с memberCount) | ✅ |
+| POST | `/api/admin/groups` | Создание группы (`{ name, description }`), 409 при дубликате имени | ✅ |
+| GET | `/api/admin/groups/{id}` | Данные группы | ✅ |
+| PUT | `/api/admin/groups/{id}` | Обновление группы | ✅ |
+| DELETE | `/api/admin/groups/{id}` | Удаление группы (члены и права на пространства отзываются) | ✅ |
+| GET | `/api/admin/groups/{id}/members` | Участники группы (userId, login, email, addedAt) | ✅ |
+| POST | `/api/admin/groups/{id}/members` | Добавить пользователя (`{ userId }`), 409 при дубликате | ✅ |
+| DELETE | `/api/admin/groups/{id}/members/{userId}` | Удалить пользователя из группы | ✅ |
+
+---
+
+## Админ-панель: Журнал аудита (US4.1.5)
+
+| Метод | Эндпоинт | Описание | Статус |
+|-------|----------|----------|--------|
+| GET | `/api/admin/audit?userId=&actionType=&dateFrom=&dateTo=&page=0&size=20` | Журнал аудита с фильтрами (только ADMIN), сортировка новые-первыми | ✅ |
 
 ---
 
@@ -245,6 +276,7 @@
 |-------|----------|----------|--------|
 | GET | `/api/settings` | Системные настройки (тема, язык) | ❌ |
 | PUT | `/api/settings` | Обновление настроек | ❌ |
+| POST | `/api/admin/notifications/test` | Тестовое письмо для проверки SMTP (`{ recipient? }`) → `202 { recipient, queued, notificationsEnabled }` | ✅ |
 
 > **Примечание:** Страница настроек не описана в базовой документации, но упомянутa в readme.md как часть админ-панели. Требуется уточнение требований.
 
@@ -286,6 +318,7 @@
 | **Users CRUD** | Full CRUD `/api/admin/users` + password + restore + soft-delete | ✅ |
 | **Spaces list + create** | GET/POST `/api/spaces`, GET `/api/admin/spaces` | ✅ |
 | **Permissions** | POST `/api/admin/spaces/{id}/permissions`, GET `/api/user/permissions` | ✅ |
+| **Email notifications** | Async email on user/permission/document events + POST `/api/admin/notifications/test` | ✅ |
 
 ---
 

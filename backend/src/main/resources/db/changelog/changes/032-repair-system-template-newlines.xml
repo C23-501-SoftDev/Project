@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 032: Восстановление Markdown-переносов в системных шаблонах.
+
+    Ранние версии 005-insert-system-templates хранили многострочный Markdown
+    в XML-атрибутах value, из-за чего XML нормализовал переводы строк в пробелы.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="032-repair-system-template-newlines" author="knowledgebase-dev">
+        <comment>Обновление системных шаблонов из Markdown-файлов с сохранением переносов строк</comment>
+
+        <update tableName="templates">
+            <column name="content" valueClobFile="../templates/architecture-description.md" encoding="UTF-8"/>
+            <where>is_system = TRUE AND name = 'Описание архитектуры'</where>
+        </update>
+
+        <update tableName="templates">
+            <column name="content" valueClobFile="../templates/dependencies.md" encoding="UTF-8"/>
+            <where>is_system = TRUE AND name = 'Используемые библиотеки'</where>
+        </update>
+
+        <update tableName="templates">
+            <column name="content" valueClobFile="../templates/development-environment.md" encoding="UTF-8"/>
+            <where>is_system = TRUE AND name = 'Настройки среды разработки'</where>
+        </update>
+
+        <update tableName="templates">
+            <column name="content" valueClobFile="../templates/business-process.md" encoding="UTF-8"/>
+            <where>is_system = TRUE AND name = 'Описание бизнес-процессов'</where>
+        </update>
+
+        <update tableName="templates">
+            <column name="content" valueClobFile="../templates/system-requirements.md" encoding="UTF-8"/>
+            <where>is_system = TRUE AND name = 'Требования к системе'</where>
+        </update>
+
+        <update tableName="templates">
+            <column name="content" valueClobFile="../templates/user-guide.md" encoding="UTF-8"/>
+            <where>is_system = TRUE AND name = 'Пользовательская инструкция'</where>
+        </update>
+
+        <update tableName="templates">
+            <column name="content" valueClobFile="../templates/system-configuration.md" encoding="UTF-8"/>
+            <where>is_system = TRUE AND name = 'Конфигурация системы'</where>
+        </update>
+
+        <update tableName="templates">
+            <column name="content" valueClobFile="../templates/known-issues.md" encoding="UTF-8"/>
+            <where>is_system = TRUE AND name = 'Известные проблемы'</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>

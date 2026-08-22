@@ -8,6 +8,7 @@
     "test:strict": "playwright test --grep @strict",
     "test:userfull": "playwright test --grep @userfull",
     "test:documents": "playwright test --grep @documents",
+    "test:filters": "playwright test tests/filter-combinations.spec.js",
     "test:headed": "playwright test --headed",
     "report": "playwright show-report"
   },

@@ -1,18 +1,17 @@
 package com.knowledgebase.interfaces.rest.controller;
 
-import com.knowledgebase.domain.repository.SpacePermissionRepository;
-import com.knowledgebase.domain.repository.SpaceRepository;
-import com.knowledgebase.domain.repository.UserRepository;
-import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.model.Space;
+import com.knowledgebase.domain.model.SpaceGroupPermission;
 import com.knowledgebase.domain.model.SpacePermission;
 import com.knowledgebase.domain.model.User;
-import com.knowledgebase.domain.repository.SpacePermissionRepository;
+import com.knowledgebase.domain.repository.UserGroupRepository;
 import com.knowledgebase.interfaces.rest.advice.ErrorResponse;
 import com.knowledgebase.interfaces.rest.dto.request.CreateSpaceRequest;
+import com.knowledgebase.interfaces.rest.dto.request.GrantGroupPermissionRequest;
 import com.knowledgebase.interfaces.rest.dto.request.GrantPermissionRequest;
 import com.knowledgebase.interfaces.rest.dto.request.UpdateSpaceRequest;
+import com.knowledgebase.interfaces.rest.dto.response.SpaceGroupPermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpacePermissionResponse;
 import com.knowledgebase.interfaces.rest.dto.response.SpaceResponse;
 import com.knowledgebase.interfaces.rest.mapper.RestDtoMapper;
@@ -30,16 +29,12 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 
 
 /**
  * Контроллер управления пространствами.
  *
  * Административные эндпоинты (ADMIN only):
- * - GET  /api/admin/spaces                        — список всех пространств
- * - POST /api/admin/spaces                        — создание пространства
  * - POST /api/admin/spaces/{spaceId}/permissions  — назначение прав
  *
  * Пользовательские эндпоинты (все авторизованные):
@@ -51,12 +46,13 @@ public class SpaceController {
 
     private final SpaceService spaceService;
     private final RestDtoMapper mapper;
-    private final SpacePermissionRepository permissionRepository;
+    private final UserGroupRepository groupRepository;
 
-    public SpaceController(SpaceService spaceService, RestDtoMapper mapper, SpacePermissionRepository permissionRepository) {
+    public SpaceController(SpaceService spaceService, RestDtoMapper mapper,
+                           UserGroupRepository groupRepository) {
         this.spaceService = spaceService;
         this.mapper = mapper;
-        this.permissionRepository = permissionRepository;
+        this.groupRepository = groupRepository;
     }
 
     // ── Административные эндпоинты ─────────────────────────────────────────
@@ -273,8 +269,88 @@ public class SpaceController {
         @ApiResponse(responseCode = "404", description = "Право не найдено")
     })
     public ResponseEntity<Void> revokePermission(@PathVariable Long permId) {
-        permissionRepository.deleteById(permId);
+        spaceService.revokePermission(permId);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── Права групп на пространства (US4.2.2) ──────────────────────────────
+
+    /**
+     * POST /api/admin/spaces/{spaceId}/group-permissions
+     * Назначение права доступа группе на пространство (только ADMIN).
+     */
+    @PostMapping("/api/admin/spaces/{spaceId}/group-permissions")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Назначить право группе",
+               description = "Назначает право READ, WRITE или OWNER группе пользователей на пространство. "
+                           + "Право действует на всех участников группы.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Право назначено",
+            content = @Content(schema = @Schema(implementation = SpaceGroupPermissionResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Пространство или группа не найдены",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Такое право уже существует",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<SpaceGroupPermissionResponse> grantGroupPermission(
+            @PathVariable Long spaceId,
+            @Valid @RequestBody GrantGroupPermissionRequest request) {
+
+        SpaceGroupPermission permission = spaceService.grantGroupPermission(
+                spaceId, request.groupId(), request.permissionType());
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(toGroupPermissionResponse(permission));
+    }
+
+    /**
+     * GET /api/admin/spaces/{spaceId}/group-permissions
+     * Все права групп для пространства (только ADMIN).
+     */
+    @GetMapping("/api/admin/spaces/{spaceId}/group-permissions")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Права групп на пространство",
+               description = "Возвращает все права групп для указанного пространства")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Список прав групп"),
+        @ApiResponse(responseCode = "404", description = "Пространство не найдено")
+    })
+    public ResponseEntity<List<SpaceGroupPermissionResponse>> getSpaceGroupPermissions(
+            @PathVariable Long spaceId) {
+
+        List<SpaceGroupPermissionResponse> response = spaceService.getGroupPermissionsForSpace(spaceId)
+                .stream()
+                .map(this::toGroupPermissionResponse)
+                .toList();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * DELETE /api/admin/group-permissions/{permId}
+     * Отзыв права группы (только ADMIN).
+     */
+    @DeleteMapping("/api/admin/group-permissions/{permId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "[ADMIN] Отозвать право группы", description = "Удаляет право группы по его ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Право отозвано")
+    })
+    public ResponseEntity<Void> revokeGroupPermission(@PathVariable Long permId) {
+        spaceService.revokeGroupPermission(permId);
+        return ResponseEntity.noContent().build();
+    }
+
+    private SpaceGroupPermissionResponse toGroupPermissionResponse(SpaceGroupPermission permission) {
+        String groupName = groupRepository.findById(permission.getGroupId())
+                .map(com.knowledgebase.domain.model.UserGroup::getName)
+                .orElse(null);
+        return new SpaceGroupPermissionResponse(
+                permission.getId(),
+                permission.getSpaceId(),
+                permission.getGroupId(),
+                groupName,
+                permission.getPermissionType().name(),
+                permission.getGrantedAt());
     }
 
     // ── Пользовательские эндпоинты ─────────────────────────────────────────
@@ -301,6 +377,34 @@ public class SpaceController {
         boolean isAdmin = currentUser.isAdmin();
         List<Space> spaces = spaceService.getSpacesForUser(
                 currentUser.getId(), isAdmin, requiredAccess);
+
+        List<SpaceResponse> response = spaces.stream()
+                .map(mapper::toSpaceResponse)
+                .toList();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/spaces/search
+     * Поиск пространств текущего пользователя по названию.
+     */
+    @GetMapping("/api/spaces/search")
+    @Operation(summary = "Поиск пространств",
+               description = "Возвращает пространства текущего пользователя, названия которых содержат поисковый запрос.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Список найденных пространств"),
+        @ApiResponse(responseCode = "401", description = "Не аутентифицирован")
+    })
+    public ResponseEntity<List<SpaceResponse>> searchSpaces(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(name = "q", required = false) String query,
+            @RequestParam(required = false) com.knowledgebase.domain.model.PermissionType requiredAccess,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+
+        boolean isAdmin = currentUser.isAdmin();
+        List<Space> spaces = spaceService.searchSpacesForUser(
+                currentUser.getId(), isAdmin, requiredAccess, query, page, size);
 
         List<SpaceResponse> response = spaces.stream()
                 .map(mapper::toSpaceResponse)

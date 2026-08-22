@@ -256,4 +256,29 @@ public class UserRepositoryImpl implements UserRepository {
             return jpaRepository.countAllWithFilters(includeDeleted, rolesFilter, isAdminFilter, searchFilter);
         }
     }
+
+    @Override
+    public List<User> search(String query, int page, int size, boolean includeDeleted) {
+        String q = query == null ? "" : query.trim();
+        Pageable pageable = PageRequest.of(page, size);
+        if (includeDeleted) {
+            return jpaRepository.searchByLoginOrFullNameIncludingDeleted(q, pageable)
+                    .stream()
+                    .map(mapper::toDomain)
+                    .collect(Collectors.toList());
+        }
+        return jpaRepository.searchByLoginOrFullName(q, pageable)
+                .stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countSearch(String query, boolean includeDeleted) {
+        String q = query == null ? "" : query.trim();
+        if (includeDeleted) {
+            return jpaRepository.countByLoginOrFullNameIncludingDeleted(q);
+        }
+        return jpaRepository.countByLoginOrFullName(q);
+    }
 }

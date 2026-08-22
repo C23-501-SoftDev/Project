@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Changelog 031: Добавление колонки full_name в users
+
+    Изменения:
+    - Добавление колонки full_name (VARCHAR, NULLABLE)
+    - Создание gin-индекса на lower(full_name) для ускорения поиска (опционально)
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="031-add-user-fullname" author="knowledgebase-dev">
+        <comment>Добавление поля full_name в users для хранения ФИО/отображаемого имени</comment>
+
+        <addColumn tableName="users">
+            <column name="full_name" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <!-- Создадим индекс для ускорения полнотекстового поиска по lower(full_name) -->
+        <sql>CREATE INDEX IF NOT EXISTS idx_users_full_name_lower ON users (lower(full_name));</sql>
+
+        <rollback>
+            <sql>DROP INDEX IF EXISTS idx_users_full_name_lower;</sql>
+            <dropColumn tableName="users" columnName="full_name"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

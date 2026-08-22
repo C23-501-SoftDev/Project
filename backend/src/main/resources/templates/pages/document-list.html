@@ -1,6 +1,6 @@
 <div class="document-list-page">
     <div class="header">
-        <h1 id="documentListTitle">Последние документы</h1>
+        <h1 id="documentListTitle">Документы</h1>
         <p id="documentListSpaceName" style="margin:4px 0 0 0; color:#000000; font-size:1.2rem; display:none;"></p>
     </div>
 
@@ -129,6 +129,11 @@
         </div>
     </div>
 
+    <!-- Кнопка создания документа (из первого файла) -->
+    <div class="create-actions" id="createActions" style="margin-top: 5px; margin-bottom: 5px; display: none;">
+        <button class="button-primary" id="createBtn" onclick="location.href='/documents/new'">+ Создать документ</button>
+    </div>
+
     <div style="overflow-x:auto;">
         <table id="documentsTable" class="data-table">
             <thead>
@@ -166,12 +171,14 @@
         searchTerm: '',
         statusFilters: ['Draft', 'Published', 'Deleted'],
         spaceFilter: '',
+        authorFilter: '',   // добавлен из первого файла
         sortBy: 'id',
         sortDir: 'desc',
         totalElements: 0,
         totalPages: 0
     };
 
+    //  Функция форматирования даты (из второго файла) 
     function formatDate(dateStr) {
         if (!dateStr) return '—';
         try {
@@ -186,6 +193,7 @@
         }
     }
 
+    //  Рендер статуса (из первого, с возможностью публикации) 
     function renderStatus(status) {
         const statusMap = {
             'DRAFT': '<span class="badge draft">Черновик</span>',
@@ -195,7 +203,9 @@
         return statusMap[status] || `<span class="badge">${status || '-'}</span>`;
     }
 
+    //  Загрузка опций для фильтров (объединённая версия) 
     async function fetchFilters() {
+        // Используем Promise.allSettled (из второго файла) для устойчивости
         await Promise.allSettled([
             apiFetch('/api/spaces').then(spaces => {
                 const spaceOptions = document.querySelector('#spaceFilterWrapper .select-options');
@@ -221,6 +231,7 @@
         ]);
     }
 
+    //  Основной запрос документов (из первого, с доработками) 
     async function fetchDocuments() {
         const tbody = document.getElementById('documentsTbody');
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Загрузка...</td></tr>';
@@ -228,7 +239,7 @@
 
         let url = `/api/documents?includeDeleted=true&page=${state.page}&size=${state.size}`;
         if (state.spaceFilter) url += `&spaceId=${state.spaceFilter}`;
-        if (state.authorFilter) url += `&authorId=${state.authorFilter}`; // Добавили параметр
+        if (state.authorFilter) url += `&authorId=${state.authorFilter}`;
         if (state.statusFilters.length > 0) {
             state.statusFilters.forEach(status => {
                 url += `&status=${encodeURIComponent(status.toUpperCase())}`;
@@ -239,7 +250,11 @@
         if (state.searchTerm) url += `&search=${encodeURIComponent(state.searchTerm)}`;
 
         try {
-            const data = await apiFetch(url);
+            // Получаем данные и текущего пользователя (для проверки прав)
+            const [data, currentUser] = await Promise.all([
+                apiFetch(url),
+                apiFetch('/api/auth/me').catch(() => ({}))
+            ]);
             const docs = data.content || [];
             state.totalElements = data.totalElements || 0;
             state.totalPages = data.totalPages || 1;
@@ -251,8 +266,8 @@
                 document.getElementById('documentsPrevBtn').disabled = true;
                 document.getElementById('documentsNextBtn').disabled = true;
             } else {
+                // Проверяем права на редактирование для каждого пространства
                 const spaceIds = [...new Set(docs.map(d => d.spaceId))];
-                
                 const permsMap = {};
                 await Promise.all(spaceIds.map(async (sid) => {
                     try {
@@ -266,15 +281,30 @@
                 tbody.innerHTML = docs.map(d => {
                     const canEdit = permsMap[d.spaceId]?.canEdit || false;
                     const isDeleted = d.status === 'Deleted' || d.status === 'DELETED';
+                    const isDraft = d.status === 'Draft' || d.status === 'DRAFT';
+                    const isPublished = d.status === 'Published' || d.status === 'PUBLISHED';
+                    const isAuthorOrAdmin = currentUser && (currentUser.isAdmin || currentUser.id === d.authorId);
+
+                    //  Статус с возможностью публикации для черновиков (из первого) 
+                    let statusCell = renderStatus(d.status);
+                    if (isDraft && isAuthorOrAdmin) {
+                        statusCell = `
+                            <select class="badge draft" onchange="publishDocumentFromList(${d.id}, this.value)" style="border: none; outline: none; cursor: pointer; padding: 3px 12px; font-family: inherit; font-size: 12px; font-weight: 600; appearance: none; -webkit-appearance: none; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='%2392400e'%3E%3Cpath d='M3 4.5l3 3 3-3z'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 6px center; background-size: 10px; padding-right: 22px;">
+                                <option value="DRAFT" selected style="background: #fff; color: #0f172a;">Черновик</option>
+                                <option value="PUBLISHED" style="background: #fff; color: #0f172a;">Опубликовать</option>
+                            </select>
+                        `;
+                    }
+
+                    //  Формируем строку таблицы 
                     return `
                     <tr>
                         <td>${d.id}</td>
                         <td><strong style="display:block; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(d.title)}">${escapeHtml(d.title)}</strong></td>
                         <td>${escapeHtml(d.spaceName || d.spaceId)}</td>
                         <td>${escapeHtml(d.authorLogin || 'Неизвестно')}</td>
-                        <td>${renderStatus(d.status)}</td>
-
-                        <td>${formatDate(d.updatedAt)}</td>
+                        <td>${statusCell}</td>
+                        <td>${formatDate(d.updatedAt)}</td> <!-- используем formatDate -->
                         <td class="actions" style="display: flex; align-items: center; gap: 6px;">
                             <a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}')" class="button-secondary" style="padding:6px 19px; text-decoration:none; text-align: center;">Просмотр</a>
                             ${canEdit && !isDeleted ? `<a href="#" onclick="window.location.href='/spaces/' + ${d.spaceId} + '/doc/' + encodeURIComponent('${d.title.replace(/'/g, '\\\'')}') + '/edit'" class="button-primary" style="padding:6px 19px; text-decoration:none; text-align: center;">Редактор</a>` : ''}
@@ -287,11 +317,26 @@
                 updatePagination();
             }
         } catch (e) {
-            console.error('fetchDocuments error:', e);
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Ошибка загрузки</td></tr>';
         }
     }
 
+    //  Функция публикации (из первого) 
+    window.publishDocumentFromList = async function(id, value) {
+        if (value === 'PUBLISHED') {
+            try {
+                await apiFetch(`/api/documents/${id}/publish`, { method: 'POST' });
+                showToast('Документ опубликован');
+                fetchDocuments();
+            } catch (e) {
+                console.error('Publish failed:', e);
+                showToast('Ошибка публикации: ' + (e.message || ''), 'error');
+                fetchDocuments();
+            }
+        }
+    };
+
+    //  Пагинация 
     function updatePagination() {
         const currentPage = state.page + 1;
         document.getElementById('documentsPageInfo').textContent = `Страница ${currentPage} из ${state.totalPages || 1}`;
@@ -299,23 +344,24 @@
         document.getElementById('documentsNextBtn').disabled = state.page >= state.totalPages - 1;
     }
 
-        function updateUrl() {
+    //  Обновление URL (из первого, с authorFilter) 
+    function updateUrl() {
         const params = new URLSearchParams();
         if (state.page > 0) params.set('page', state.page);
         if (state.spaceFilter) params.set('spaceId', state.spaceFilter);
-        if (state.searchTerm) params.set('q', state.searchTerm);
         if (state.authorFilter) params.set('authorId', state.authorFilter);
-        // Сохраняем статусы только если выбрано не все (меньше 3)
+        if (state.searchTerm) params.set('q', state.searchTerm);
+        // Сохраняем статусы, если выбрано не все
         if (state.statusFilters.length > 0 && state.statusFilters.length < 3) {
             params.set('status', state.statusFilters.join(','));
         }
         if (state.sortBy !== 'id') params.set('sortBy', state.sortBy);
         if (state.sortDir !== 'desc') params.set('sortDir', state.sortDir);
-
         const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         history.replaceState(null, '', newUrl);
     }
 
+    //  Восстановление и удаление (из первого) 
     window.restoreDocument = async function(id) {
         try {
             await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
@@ -336,6 +382,19 @@
         }
     };
 
+    //  Проверка прав на создание (из первого) 
+    async function checkCreatePermission() {
+        try {
+            const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=1');
+            if (spaces && spaces.length > 0) {
+                document.getElementById('createActions').style.display = 'block';
+            }
+        } catch (e) {
+            console.error('Failed to check create permission:', e);
+        }
+    }
+
+    //  Проверка админа для показа фильтра по автору (из первого) 
     async function checkAdminStatus() {
         try {
             const user = await apiFetch('/api/auth/me');
@@ -349,7 +408,23 @@
         }
     }
 
-        function applyFilters() {
+    //  Установка заголовка с именем пространства (из второго) 
+    function setSpaceHeading(spaceId, spaceName) {
+        const title = document.getElementById('documentListTitle');
+        const subtitle = document.getElementById('documentListSpaceName');
+        if (spaceId) {
+            title.textContent = 'Документы';
+            const name = spaceName || ('Пространство #' + spaceId);
+            subtitle.innerHTML = 'Пространство: <strong>' + escapeHtml(name) + '</strong>';
+            subtitle.style.display = '';
+        } else {
+            title.textContent = 'Документы';
+            subtitle.style.display = 'none';
+        }
+    }
+
+    //  Применение фильтров (из первого) 
+    function applyFilters() {
         const checked = Array.from(document.querySelectorAll('.statusFilter:checked')).map(cb => cb.value);
         state.statusFilters = checked;
         state.spaceFilter = document.getElementById('spaceFilter').value;
@@ -358,8 +433,16 @@
         state.page = 0;
         fetchDocuments();
         updateUrl();
+        // Обновляем заголовок при фильтрации по пространству
+        if (state.spaceFilter) {
+            const spaceName = document.querySelector(`#spaceFilterWrapper .select-option[data-value="${state.spaceFilter}"]`)?.textContent || null;
+            setSpaceHeading(state.spaceFilter, spaceName);
+        } else {
+            setSpaceHeading('', '');
+        }
     }
 
+    //  Сброс фильтров (из первого, с добавлением сброса заголовка) 
     function clearFilters() {
         document.querySelectorAll('.statusFilter').forEach(cb => cb.checked = true);
         
@@ -373,15 +456,17 @@
         const authorWrapper = document.getElementById('authorFilterWrapper');
         authorWrapper.querySelector('.select-styled').textContent = 'Все авторы';
 
-                state.statusFilters = ['Draft', 'Published', 'Deleted'];
+        state.statusFilters = ['Draft', 'Published', 'Deleted'];
         state.spaceFilter = '';
         state.authorFilter = '';
         state.searchTerm = '';
         state.page = 0;
         fetchDocuments();
         updateUrl();
+        setSpaceHeading('', ''); // сбрасываем заголовок
     }
 
+    //  Настройка кастомных селектов (общая) 
     function setupCustomSelect(wrapperId, targetId) {
         const wrapper = document.getElementById(wrapperId);
         const styled = wrapper.querySelector('.select-styled');
@@ -411,45 +496,11 @@
         });
     }
 
-    function setSpaceHeading(spaceId, spaceName) {
-        const title = document.getElementById('documentListTitle');
-        const subtitle = document.getElementById('documentListSpaceName');
-        if (spaceId) {
-            title.textContent = 'Последние документы';
-            const name = spaceName || ('Пространство #' + spaceId);
-            subtitle.innerHTML = 'Пространство: <strong>' + escapeHtml(name) + '</strong>';
-            subtitle.style.display = '';
-        } else {
-            title.textContent = 'Последние документы';
-            subtitle.style.display = 'none';
-        }
-    }
-
-        document.addEventListener('spaceSelected', function(e) {
-        const { spaceId, spaceName } = e.detail;
-        state.spaceFilter = String(spaceId);
-        state.page = 0;
-        setSpaceHeading(spaceId, spaceName);
-
-        const spaceInput = document.getElementById('spaceFilter');
-        if (spaceInput) spaceInput.value = String(spaceId);
-        const spaceStyled = document.querySelector('#spaceFilterWrapper .select-styled');
-        if (spaceStyled) spaceStyled.textContent = spaceName || ('Пространство #' + spaceId);
-
-        // Синхронизируем кастомный селект с новым значением
-        const spaceOpt = document.querySelector(`#spaceFilterWrapper .select-option[data-value="${spaceId}"]`);
-        if (spaceStyled && spaceOpt) {
-            spaceStyled.textContent = spaceOpt.textContent;
-        }
-
-        fetchDocuments();
-        updateUrl();
-    });
-
-            document.addEventListener('DOMContentLoaded', async () => {
+    //  Инициализация при загрузке DOM 
+    document.addEventListener('DOMContentLoaded', async () => {
         const urlParams = new URLSearchParams(window.location.search);
 
-        // Читаем state из URL при загрузке
+        // Восстановление состояния из URL
         state.page = parseInt(urlParams.get('page')) || 0;
         state.spaceFilter = urlParams.get('spaceId') || '';
         state.authorFilter = urlParams.get('authorId') || '';
@@ -457,7 +508,7 @@
         state.sortBy = urlParams.get('sortBy') || 'id';
         state.sortDir = urlParams.get('sortDir') || 'desc';
 
-        // Восстановление статусов из URL
+        // Восстановление статусов
         const statusParam = urlParams.get('status');
         if (statusParam && statusParam.trim()) {
             state.statusFilters = statusParam.split(',');
@@ -465,27 +516,29 @@
             state.statusFilters = ['Draft', 'Published', 'Deleted'];
         }
 
-        // Синхронизация UI статусов
+        // Синхронизация чекбоксов статусов
         document.querySelectorAll('.statusFilter').forEach(cb => {
             cb.checked = state.statusFilters.includes(cb.value);
         });
 
-        // Если spaceId задан в URL, показываем имя из localStorage (восстановление после навигации)
+        // Если в URL есть spaceId, показываем имя из localStorage (для навигации)
         if (state.spaceFilter) {
             const savedName = localStorage.getItem('selectedSpaceName');
             const savedId = localStorage.getItem('selectedSpaceId');
             const spaceName = (savedId === String(state.spaceFilter)) ? savedName : null;
             setSpaceHeading(state.spaceFilter, spaceName);
+        } else {
+            setSpaceHeading('', '');
         }
 
-        // Сначала настраиваем кастомные селекты (они будут заполнены позже)
+        // Настройка кастомных селектов
         setupCustomSelect('spaceFilterWrapper', 'spaceFilter');
         setupCustomSelect('authorFilterWrapper', 'authorFilter');
 
-        // Загружаем опции для селектов
+        // Загрузка опций фильтров
         await fetchFilters();
 
-        // После загрузки опций синхронизируем кастомные селекты с URL
+        // Синхронизация селектов с URL после загрузки опций
         if (state.spaceFilter) {
             const spaceStyled = document.querySelector('#spaceFilterWrapper .select-styled');
             const spaceOpt = document.querySelector(`#spaceFilterWrapper .select-option[data-value="${state.spaceFilter}"]`);
@@ -503,22 +556,45 @@
             document.getElementById('authorFilter').value = state.authorFilter;
         }
 
+        // Загрузка документов и проверка прав
         fetchDocuments();
+        checkCreatePermission();
         checkAdminStatus();
 
+        // Закрытие селектов при клике вне
         document.addEventListener('click', () => {
             document.querySelectorAll('.select-styled').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.select-options').forEach(o => o.style.display = 'none');
         });
 
+        // Обработка события выбора пространства (из второго, с добавлением setSpaceHeading)
+        document.addEventListener('spaceSelected', function(e) {
+            const { spaceId, spaceName } = e.detail;
+            state.spaceFilter = String(spaceId);
+            state.page = 0;
+            setSpaceHeading(spaceId, spaceName);
+
+            const spaceInput = document.getElementById('spaceFilter');
+            if (spaceInput) spaceInput.value = String(spaceId);
+            const spaceStyled = document.querySelector('#spaceFilterWrapper .select-styled');
+            if (spaceStyled) spaceStyled.textContent = spaceName || ('Пространство #' + spaceId);
+
+            const spaceOpt = document.querySelector(`#spaceFilterWrapper .select-option[data-value="${spaceId}"]`);
+            if (spaceStyled && spaceOpt) {
+                spaceStyled.textContent = spaceOpt.textContent;
+            }
+
+            fetchDocuments();
+            updateUrl();
+        });
+
+        // Обработчики кнопок
         document.getElementById('applyFiltersBtn').addEventListener('click', () => {
             applyFilters();
-            updateUrl();
         });
 
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             clearFilters();
-            updateUrl();
         });
 
         document.getElementById('documentsPrevBtn').addEventListener('click', () => {
@@ -530,4 +606,3 @@
     });
 })();
 </script>
-

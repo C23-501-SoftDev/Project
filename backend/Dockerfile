@@ -26,7 +26,7 @@ RUN mkdir -p /home/${APP_USER}/.m2 /workspace \
     && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER} /workspace
 
 # Создаём startup скрипт динамически через printf
-RUN printf '#!/bin/sh\n\nif [ -n "$GIT_REPO_SSH_URL" ]; then\n    echo "[startup.sh] Переключаем git remote на SSH: $GIT_REPO_SSH_URL"\n    cd /workspace\n    git remote set-url origin "$GIT_REPO_SSH_URL"\n    echo "[startup.sh] Git remote успешно обновлен"\nelse\n    echo "[startup.sh] GIT_REPO_SSH_URL не задана, пропускаем переключение remote"\nfi\n\ntail -f /dev/null\n' > /startup.sh && chmod +x /startup.sh
+RUN printf '#!/bin/sh\n\nif [ -n "$GIT_REPO_SSH_URL" ]; then\n    echo "[startup.sh] Переключаем git remote на SSH: $GIT_REPO_SSH_URL"\n    cd /workspace\n    git remote set-url origin "$GIT_REPO_SSH_URL"\n    echo "[startup.sh] Git remote успешно обновлен"\nelse\n    echo "[startup.sh] GIT_REPO_SSH_URL не задана, пропускаем переключение remote"\nfi\n\ncd /workspace/backend\necho "[startup.sh] Компилируем приложение..."\nmvn clean install -DskipTests\necho "[startup.sh] Запускаем Spring Boot приложение"\nmvn spring-boot:run\n' > /startup.sh && chmod +x /startup.sh
 
 WORKDIR /workspace
 

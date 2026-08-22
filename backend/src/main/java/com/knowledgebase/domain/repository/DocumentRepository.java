@@ -1,6 +1,11 @@
 package com.knowledgebase.domain.repository;
 
 import com.knowledgebase.domain.model.Document;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,11 +23,15 @@ public interface DocumentRepository {
     boolean existsByTitleAndSpaceIdAndParentId(String title, Long spaceId, Long parentId);
     Optional<Document> findBySpaceIdAndTitle(Long spaceId, String title);
     boolean existsByTitleAndSpaceIdAndNoParent(String title, Long spaceId);
+    Page<Document> searchByTitle(String query, LocalDateTime effectiveFrom, LocalDateTime effectiveTo, Pageable pageable);
+    Page<Document> searchByTitleInSpaces(Collection<Long> spaceIds, String query, LocalDateTime effectiveFrom, LocalDateTime effectiveTo, Pageable pageable);
     List<com.knowledgebase.domain.model.User> findDistinctAuthorsByAccessibleSpaces(Long userId);
     List<Long> findAncestorIds(Long documentId);
     List<Document> findAll(boolean includeDeleted);
+    List<Document> findDeletedDocuments(Long spaceId, Long authorId);
     List<Document> findAccessibleByUserId(Long userId, boolean includeDeleted);
     void deleteById(Long id);
     boolean hasChildren(Long id);
     void flush();
 }
+

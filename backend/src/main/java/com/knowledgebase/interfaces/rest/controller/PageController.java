@@ -5,6 +5,8 @@ import com.knowledgebase.domain.model.User;
 import com.knowledgebase.application.service.DocumentService;
 import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.repository.SpaceRepository;
+import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -12,15 +14,16 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * MVC контроллер для SSR страниц (Thymeleaf).
- * 
+ *
  * Возвращает имена шаблонов Thymeleaf для рендеринга на сервере.
  * Данные для шаблонов передаются через Model.
- * 
+ *
  * Шаблоны должны быть созданы в src/main/resources/templates/
  */
 @Controller
@@ -74,10 +77,13 @@ public class PageController {
         model.addAttribute("pageTitle", "Просмотр документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
-        
+
         var doc = documentService.getDocumentById(id);
+        if (!documentService.canViewDocument(user.getId(), user.isAdmin(), doc)) {
+            return "redirect:/";
+        }
         addSidebarData(doc.getSpaceId(), model, user);
-        
+
         model.addAttribute("content", "pages/document-view");
         return "layout";
     }
@@ -89,43 +95,15 @@ public class PageController {
             @AuthenticationPrincipal User user,
             Model model) {
         var writableSpaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), com.knowledgebase.domain.model.PermissionType.WRITE);
-        
+
         // Оставляем проверку на пустоту, но теперь список полный
         if (writableSpaces.isEmpty()) {
             return "redirect:/";
         }
 
-        // Определяем фактический spaceId: если передан parentId, пытаемся получить spaceId из родительского документа
-        Long effectiveSpaceId = spaceId;
-        if (parentId != null) {
-            if (effectiveSpaceId == null) {
-                try {
-                    var parentDoc = documentService.getDocumentById(parentId);
-                    effectiveSpaceId = parentDoc.getSpaceId();
-                } catch (Exception e) {
-                    // Родительский документ не найден — игнорируем parentId
-                    parentId = null;
-                }
-            }
-            // Проверяем, что родительский документ существует в указанном или определённом spaceId
-            if (effectiveSpaceId != null) {
-                try {
-                    var parentDoc = documentService.getDocumentById(parentId);
-                    if (!parentDoc.getSpaceId().equals(effectiveSpaceId)) {
-                        parentId = null; // родитель из другого пространства — игнорируем
-                    }
-                } catch (Exception e) {
-                    parentId = null;
-                }
-            }
-        }
-
-        // Проверка прав на запись
-        if (effectiveSpaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), effectiveSpaceId)) {
-            if (spaceId != null) {
-                return "redirect:/spaces/" + effectiveSpaceId;
-            }
-            // Если spaceId не задан, просто пропускаем (пользователь выберет другой спейс)
+        // Если spaceId передан, проверяем права на запись в это конкретное пространство
+        if (spaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
+            return "redirect:/spaces/" + spaceId;
         }
 
         model.addAttribute("pageTitle", "Создание документа");
@@ -138,7 +116,6 @@ public class PageController {
     @GetMapping("/documents/{id}/edit")
     public String editDocument(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
         var doc = documentService.getDocumentById(id);
-        
         // Проверка прав на редактирование
         if (!permissionService.canWrite(user.getId(), user.isAdmin(), doc.getSpaceId())) {
             return "redirect:/documents/" + id;
@@ -147,9 +124,8 @@ public class PageController {
         model.addAttribute("pageTitle", "Редактирование документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
-        
         addSidebarData(doc.getSpaceId(), model, user);
-        
+
         model.addAttribute("content", "pages/document-edit");
         return "layout";
     }
@@ -164,10 +140,40 @@ public class PageController {
     }
 
     @GetMapping("/search")
-    public String search(@RequestParam String q, @AuthenticationPrincipal User user, Model model) {
-        model.addAttribute("pageTitle", "Поиск: " + q);
+    public String search(@RequestParam(required = false) String q,
+                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                         @AuthenticationPrincipal User user,
+                         Model model) {
+        String normalizedQuery = q != null ? q.trim() : "";
+        var searchPage = documentService.searchDocumentsByTitle(q, dateFrom, dateTo, user.getId(), user.isAdmin(), 0, 20);
+
+        var visibleDocs = searchPage.getContent().stream()
+                .filter(doc -> documentService.canViewDocument(user.getId(), user.isAdmin(), doc))
+                .toList();
+
+        model.addAttribute("searchResults", visibleDocs.stream()
+                .map(document -> new DocumentResponse(
+                        document.getId(),
+                        document.getTitle(),
+                        document.getSpaceId(),
+                        spaceRepository.findById(document.getSpaceId()).map(space -> space.getName()).orElse(null),
+                        document.getAuthorId(),
+                        null,
+                        document.getStatus(),
+                        null,
+                        null,
+                        document.getGitFilePath(),
+                        document.getCreatedAt(),
+                        document.getUpdatedAt()
+                ))
+            .toList());
+        model.addAttribute("pageTitle", normalizedQuery.isBlank() ? "Поиск по дате" : "Поиск: " + normalizedQuery);
         model.addAttribute("currentUser", user);
-        model.addAttribute("searchQuery", q);
+        model.addAttribute("searchQuery", normalizedQuery);
+        model.addAttribute("searchDateFrom", dateFrom);
+        model.addAttribute("searchDateTo", dateTo);
+        model.addAttribute("searchTotalElements", (long) visibleDocs.size());
         model.addAttribute("content", "pages/search-results");
         return "layout";
     }
@@ -178,6 +184,7 @@ public class PageController {
         model.addAttribute("pageTitle", space.getName());
         model.addAttribute("currentUser", user);
         model.addAttribute("spaceId", id);
+
 
         addSidebarData(id, model, user);
 
@@ -190,6 +197,9 @@ public class PageController {
         // Декодируем docTitle, так как он может приходить в URL с закодированными символами
         String decodedTitle = java.net.URLDecoder.decode(docTitle, java.nio.charset.StandardCharsets.UTF_8);
         var doc = documentService.getDocumentBySpaceAndTitle(spaceId, decodedTitle);
+        if (!documentService.canViewDocument(user.getId(), user.isAdmin(), doc)) {
+            return "redirect:/spaces/" + spaceId;
+        }
         model.addAttribute("pageTitle", "Просмотр документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", doc.getId());
@@ -202,7 +212,7 @@ public class PageController {
     public String editDocumentInSpace(@PathVariable Long spaceId, @PathVariable String docTitle, @AuthenticationPrincipal User user, Model model) {
         String decodedTitle = java.net.URLDecoder.decode(docTitle, java.nio.charset.StandardCharsets.UTF_8);
         var doc = documentService.getDocumentBySpaceAndTitle(spaceId, decodedTitle);
-        
+
         // Проверка прав на редактирование
         if (!permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
             return "redirect:/spaces/" + spaceId + "/doc/" + docTitle;
@@ -243,6 +253,32 @@ public class PageController {
     }
 
     /**
+     * GET /admin/recycle-bin
+     * Панель администратора — корзина документов.
+     */
+    @GetMapping("/admin/recycle-bin")
+    public String adminRecycleBin(@AuthenticationPrincipal User user, Model model) {
+        model.addAttribute("pageTitle", "Корзина документов");
+        model.addAttribute("currentUser", user);
+        model.addAttribute("activePage", "recycle-bin");
+        model.addAttribute("content", "pages/admin-recycle-bin");
+        return "admin-layout";
+    }
+
+    /**
+     * GET /admin/groups
+     * Панель администратора — управление группами пользователей (US4.1.8 / US4.1.9).
+     */
+    @GetMapping("/admin/groups")
+    public String adminGroups(@AuthenticationPrincipal User user, Model model) {
+        model.addAttribute("pageTitle", "Управление группами");
+        model.addAttribute("currentUser", user);
+        model.addAttribute("activePage", "groups");
+        model.addAttribute("content", "pages/admin-groups");
+        return "admin-layout";
+    }
+
+    /**
      * GET /admin/settings
      * Панель администратора — настройки.
      */
@@ -255,3 +291,4 @@ public class PageController {
         return "admin-layout";
     }
 }
+

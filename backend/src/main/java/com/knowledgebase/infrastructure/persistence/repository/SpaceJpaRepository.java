@@ -18,6 +18,8 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
 
     Optional<SpaceJpaEntity> findByNameAndIsDeletedFalse(String name);
 
+    Optional<SpaceJpaEntity> findByIdAndIsDeletedFalse(Long id);
+
     boolean existsByNameAndIsDeletedFalse(String name);
 
     boolean existsByNameAndIdNotAndIsDeletedFalse(String name, Long id);
@@ -31,6 +33,8 @@ public interface SpaceJpaRepository extends JpaRepository<SpaceJpaEntity, Long> 
     List<SpaceJpaEntity> findByIsDeletedFalse(org.springframework.data.domain.Sort sort);
 
     Page<SpaceJpaEntity> findByIsDeletedFalse(Pageable pageable);
+
+    List<SpaceJpaEntity> findByIsDeletedFalseOrderByCreatedAtDesc();
 
     Page<SpaceJpaEntity> findByIsDeletedTrue(Pageable pageable);
 

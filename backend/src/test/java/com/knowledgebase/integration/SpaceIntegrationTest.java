@@ -18,7 +18,9 @@ class SpaceIntegrationTest extends IntegrationTestBase {
     @Test
     void admin_canManageSpace_CRUD() throws Exception {
         User admin = persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
-        User newOwner = persistUser("newowner", "pass123", "owner@kb.local", GlobalRole.READER);
+        // Новый владелец обязан быть администратором (US4.2.1)
+        User newOwner = persistUser("newowner", "pass123", "owner@kb.local", GlobalRole.EDITOR, true);
+        User nonAdmin = persistUser("plainuser", "pass123", "plain@kb.local", GlobalRole.READER);
         String adminJwt = loginAndGetJwt("admin", "admin123");
 
         String spaceName = "space-crud-" + uniqueLogin("kb");
@@ -64,6 +66,19 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.userId == %d && @.permissionType == 'OWNER')]".formatted(newOwner.getId()), not(empty())));
 
+        // 3.1. Владельцем нельзя назначить пользователя без прав администратора (US4.2.1) — 422
+        mockMvc.perform(put("/api/admin/spaces/" + spaceId)
+                        .cookie(jwtCookie(adminJwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "%s",
+                                  "description": "updated desc",
+                                  "ownerId": %d
+                                }
+                                """.formatted(updatedName, nonAdmin.getId())))
+                .andExpect(status().isUnprocessableEntity());
+
         // 4. Delete
         mockMvc.perform(delete("/api/admin/spaces/" + spaceId)
                         .cookie(jwtCookie(adminJwt)))
@@ -107,10 +122,11 @@ class SpaceIntegrationTest extends IntegrationTestBase {
     @Test
     void admin_grantsPermission_andUserSeesSpaceInMySpaces() throws Exception {
         persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
-        User editor = persistUser("editor", "editor123", "editor@knowledgebase.local", GlobalRole.EDITOR);
+        // GUEST видит только пространства, на которые ему явно выдали права (US4.2.2)
+        User guest = persistUser("guest", "guest123", "guest@knowledgebase.local", GlobalRole.GUEST);
 
         String adminJwt = loginAndGetJwt("admin", "admin123");
-        String editorJwt = loginAndGetJwt("editor", "editor123");
+        String guestJwt = loginAndGetJwt("guest", "guest123");
 
         String spaceName = "space-" + uniqueLogin("kb");
 
@@ -131,7 +147,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
         long spaceId = Long.parseLong(createResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
         // user initially has no spaces
-        mockMvc.perform(get("/api/spaces").cookie(jwtCookie(editorJwt)))
+        mockMvc.perform(get("/api/spaces").cookie(jwtCookie(guestJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", is(empty())));
 
@@ -141,17 +157,56 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":%d,"permissionType":"READ"}
-                                """.formatted(editor.getId())))
+                                """.formatted(guest.getId())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.spaceId", is((int) spaceId)))
-                .andExpect(jsonPath("$.userId", is(editor.getId().intValue())))
+                .andExpect(jsonPath("$.userId", is(guest.getId().intValue())))
                 .andExpect(jsonPath("$.permissionType", is("READ")));
 
-        // now editor sees space
-        mockMvc.perform(get("/api/spaces").cookie(jwtCookie(editorJwt)))
+        // now guest sees space
+        mockMvc.perform(get("/api/spaces").cookie(jwtCookie(guestJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id", is((int) spaceId)))
                 .andExpect(jsonPath("$[0].name", is(spaceName)));
+    }
+
+    @Test
+    void mySpaces_searchFiltersByName_andReturnsEmptyListWhenNothingMatches() throws Exception {
+        persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
+        User reader = persistUser("reader", "reader123", "reader@knowledgebase.local", GlobalRole.READER);
+
+        String adminJwt = loginAndGetJwt("admin", "admin123");
+        String readerJwt = loginAndGetJwt("reader", "reader123");
+
+        String alphaName = "Alpha Space " + uniqueLogin("kb");
+        String betaName = "Beta Space " + uniqueLogin("kb");
+
+        mockMvc.perform(post("/api/admin/spaces")
+                        .cookie(jwtCookie(adminJwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","description":"desc"}
+                                """.formatted(alphaName)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        mockMvc.perform(post("/api/admin/spaces")
+                        .cookie(jwtCookie(adminJwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","description":"desc"}
+                                """.formatted(betaName)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        mockMvc.perform(get("/api/spaces/search?q=alpha").cookie(jwtCookie(readerJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name", is(alphaName)));
+
+        mockMvc.perform(get("/api/spaces/search?q=missing-space").cookie(jwtCookie(readerJwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", is(empty())));
     }
 
     @Test

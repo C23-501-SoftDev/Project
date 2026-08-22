@@ -2,6 +2,7 @@ package com.knowledgebase.application.service;
 
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.PermissionType;
+import com.knowledgebase.domain.repository.SpaceGroupPermissionRepository;
 import com.knowledgebase.domain.repository.SpacePermissionRepository;
 import com.knowledgebase.domain.repository.UserRepository;
 import org.slf4j.Logger;
@@ -30,11 +31,14 @@ public class PermissionService {
     private static final Logger log = LoggerFactory.getLogger(PermissionService.class);
 
     private final SpacePermissionRepository permissionRepository;
+    private final SpaceGroupPermissionRepository groupPermissionRepository;
     private final UserRepository userRepository;
 
     public PermissionService(SpacePermissionRepository permissionRepository,
+                             SpaceGroupPermissionRepository groupPermissionRepository,
                              UserRepository userRepository) {
         this.permissionRepository = permissionRepository;
+        this.groupPermissionRepository = groupPermissionRepository;
         this.userRepository = userRepository;
     }
 
@@ -64,11 +68,13 @@ public class PermissionService {
                     }
 
                     // Для всех остальных (включая ADMIN с ролью READER/GUEST):
-                    // проверяем явные права на пространство (WRITE или OWNER)
+                    // проверяем явные права на пространство (WRITE или OWNER) —
+                    // как личные, так и полученные через группы (US4.2.2)
                     if (spaceId == null) {
                         return false;
                     }
-                    return permissionRepository.hasWriteAccess(spaceId, userId);
+                    return permissionRepository.hasWriteAccess(spaceId, userId)
+                            || groupPermissionRepository.hasWriteAccessViaGroups(spaceId, userId);
                 })
                 .orElse(false);
     }
@@ -101,8 +107,9 @@ public class PermissionService {
                     if (user.getRole() == GlobalRole.READER || user.getRole() == GlobalRole.EDITOR) {
                         return true;
                     }
-                    // GUEST: проверяем явные права
-                    return permissionRepository.hasReadAccess(spaceId, userId);
+                    // GUEST: проверяем явные права (личные и групповые)
+                    return permissionRepository.hasReadAccess(spaceId, userId)
+                            || groupPermissionRepository.hasReadAccessViaGroups(spaceId, userId);
                 })
                 .orElse(false);
     }
@@ -137,10 +144,12 @@ public class PermissionService {
                         types.add(PermissionType.WRITE);
                     }
                     
-                    // Явные права из БД
+                    // Явные права из БД: личные и полученные через группы (US4.2.2).
+                    // Они могут дать WRITE пользователю с ролью READER или GUEST.
                     if (spaceId != null) {
                         permissionRepository.findBySpaceIdAndUserId(spaceId, userId)
                                 .forEach(p -> types.add(p.getPermissionType()));
+                        types.addAll(groupPermissionRepository.findTypesBySpaceIdAndMemberUserId(spaceId, userId));
                     }
 
                     // Если есть WRITE или OWNER, READ не нужен в списке

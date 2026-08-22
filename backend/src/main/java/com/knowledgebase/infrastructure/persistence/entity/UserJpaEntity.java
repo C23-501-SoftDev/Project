@@ -35,6 +35,10 @@ public class UserJpaEntity {
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
+    /** Полное отображаемое имя (ФИО) */
+    @Column(name = "full_name", nullable = true, length = 255)
+    private String fullName;
+
     /**
      * Роль хранится как строка (Guest, Reader, Editor).
      */
@@ -73,6 +77,9 @@ public class UserJpaEntity {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }

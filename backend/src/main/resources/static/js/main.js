@@ -7,7 +7,6 @@ function toggleSpaceTree(spaceId) {
     // If not on the main documents page — redirect there with the space filter
     if (window.location.pathname !== '/') {
         localStorage.setItem('space-tree-' + spaceId, 'visible');
-        // Preserve existing URL params, only override spaceId and reset page
         const currentParams = new URLSearchParams(window.location.search);
         currentParams.set('spaceId', spaceId);
         currentParams.delete('page');
@@ -50,6 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Инициализация поиска пространств (из первого файла)
+    initSpaceSidebarSearch();
+
     // Highlight the active space based on ?spaceId= URL param (main page only)
     if (window.location.pathname === '/') {
         const urlSpaceId = new URLSearchParams(window.location.search).get('spaceId');
@@ -58,6 +60,128 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+//  3. Поиск пространств в сайдбаре (из первого файла)
+
+function initSpaceSidebarSearch() {
+    const sidebar = document.getElementById('spacesSidebar');
+    const form = document.getElementById('spaceSearchForm');
+    const input = document.getElementById('spaceSearchInput');
+    const treeContainer = document.getElementById('spaceTreeContainer');
+    const resultsContainer = document.getElementById('spaceSearchResults');
+    const statusElement = document.getElementById('spaceSearchStatus');
+
+    if (!sidebar || !form || !input || !treeContainer || !resultsContainer || !statusElement) {
+        return;
+    }
+
+    let requestCounter = 0;
+    let debounceTimer = null;
+
+    function showDefaultState() {
+        treeContainer.hidden = false;
+        resultsContainer.hidden = true;
+        resultsContainer.innerHTML = '';
+        statusElement.hidden = true;
+        statusElement.textContent = '';
+        sidebar.classList.remove('sidebar-search-active');
+    }
+
+    function showLoading() {
+        treeContainer.hidden = true;
+        resultsContainer.hidden = false;
+        resultsContainer.innerHTML = '';
+        statusElement.hidden = false;
+        statusElement.textContent = 'Поиск пространств...';
+        sidebar.classList.add('sidebar-search-active');
+    }
+
+    function showResults(spaces, query) {
+        treeContainer.hidden = true;
+        resultsContainer.hidden = false;
+        sidebar.classList.add('sidebar-search-active');
+
+        if (!spaces || spaces.length === 0) {
+            statusElement.hidden = false;
+            statusElement.textContent = 'Пространства не найдены';
+            resultsContainer.innerHTML = '';
+            return;
+        }
+
+        statusElement.hidden = false;
+        statusElement.textContent = `Найдено: ${spaces.length}`;
+        resultsContainer.innerHTML = spaces.map(space => `
+            <a class="space-search-result" href="/spaces/${space.id}">
+                <span class="space-search-result-name">${escapeHtml(space.name)}</span>
+                ${space.description ? `<span class="space-search-result-description">${escapeHtml(space.description)}</span>` : ''}
+            </a>
+        `).join('');
+    }
+
+    async function searchSpaces(query) {
+        const normalizedQuery = query.trim();
+        requestCounter += 1;
+        const currentRequest = requestCounter;
+
+        if (!normalizedQuery) {
+            showDefaultState();
+            return;
+        }
+
+        showLoading();
+        try {
+            const spaces = await apiFetch(`/api/spaces/search?q=${encodeURIComponent(normalizedQuery)}&size=100`);
+            if (currentRequest !== requestCounter) {
+                return;
+            }
+            showResults(Array.isArray(spaces) ? spaces : [], normalizedQuery);
+        } catch (error) {
+            if (currentRequest !== requestCounter) {
+                return;
+            }
+            statusElement.hidden = false;
+            statusElement.textContent = 'Ошибка поиска';
+            resultsContainer.hidden = true;
+            sidebar.classList.add('sidebar-search-active');
+        }
+    }
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        searchSpaces(input.value);
+    });
+
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const value = input.value;
+
+        if (!value.trim()) {
+            requestCounter += 1;
+            showDefaultState();
+            return;
+        }
+
+        debounceTimer = setTimeout(() => {
+            searchSpaces(value);
+        }, 250);
+    });
+
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            input.value = '';
+            requestCounter += 1;
+            showDefaultState();
+        }
+    });
+
+    if (!input.value.trim()) {
+        showDefaultState();
+    } else {
+        searchSpaces(input.value);
+    }
+}
+
+//  4. Общие утилиты (из первого файла)
 
 function getCsrfToken() {
     const name = 'XSRF-TOKEN=';
@@ -93,7 +217,6 @@ async function apiFetch(url, options = {}) {
         credentials: 'same-origin',
         ...options
     };
-
     try {
         const response = await fetch(url, defaultOptions);
         if (!response.ok) {
@@ -134,7 +257,6 @@ async function deleteDocument(id) {
     try {
         await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });
         if (typeof showToast === 'function') showToast('Документ удален');
-        // Reload to update the tree sidebar
         setTimeout(() => location.reload(), 1000);
     } catch (e) {
         console.error('Delete failed:', e);
@@ -145,7 +267,6 @@ async function restoreDocument(id) {
     try {
         await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
         if (typeof showToast === 'function') showToast('Документ восстановлен');
-        // Reload to update the tree sidebar
         setTimeout(() => location.reload(), 1000);
     } catch (e) {
         console.error('Restore failed:', e);
@@ -170,7 +291,6 @@ function showToast(message, type = 'success') {
     }, 5000);
 }
 
-// ── Export → attachment ───────────────────────────────────────────────────────
 
 async function exportAndAttach(docId, format) {
     try {
@@ -189,8 +309,6 @@ async function exportAndAttach(docId, format) {
         if (typeof window.loadAttachments === 'function') window.loadAttachments();
     } catch (_) { /* apiFetch уже показывает toast */ }
 }
-
-// ── Shared floating export dropdown (position:fixed — не обрезается таблицей) ─
 
 let _exportMenuEl = null;
 
@@ -253,7 +371,7 @@ function escapeHtml(str) {
     });
 }
 
-// ── Universal Ellipsis Tooltip Mechanism ─────────────────────────────────────
+
 (function() {
     let tooltipEl = null;
 
@@ -427,4 +545,3 @@ function escapeHtml(str) {
         });
     }
 })();
-

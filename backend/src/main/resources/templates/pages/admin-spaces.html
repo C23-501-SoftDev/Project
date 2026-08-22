@@ -1,4 +1,40 @@
 <div class="admin-spaces-page">
+    <style>
+        .select-filter {
+            display: block;
+            width: calc(100% - 12px);
+            margin: 6px;
+            padding: 6px 8px;
+            border: 1px solid #D1D5DB;
+            border-radius: 4px;
+        }
+
+        .select-options {
+            max-height: 260px;
+            overflow: auto;
+            padding: 6px 0;
+        }
+
+        .select-option {
+            white-space: nowrap;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+
+        .select-option[style*="display: none"] {
+            display: none !important;
+        }
+
+        .select-styled.select-searchable {
+            cursor: text;
+            min-height: 28px;
+            padding: 6px 8px;
+        }
+
+        .select-styled.select-searchable:focus {
+            outline: 2px solid #BFDBFE;
+        }
+    </style>
     <div class="header" style="flex-direction: column; align-items: flex-start; gap: 10px;">
         <h1>Пространства</h1>
         <button class="button-primary" id="createBtn" onclick="openCreateSpaceModal()">+ Создать пространство</button>
@@ -7,11 +43,11 @@
     <div class="filter-bar" style="margin-bottom: 20px;">
         <div class="filter-group">
             <label>Статус:</label>
-            <div class="custom-select" id="statusFilterWrapper" style="width: 180px;" data-target="statusFilter">
+            <div class="custom-select" id="statusFilterWrapper" style="width: 180px;">
                 <div class="select-styled">Активные</div>
                 <div class="select-options">
                     <div class="select-option" data-value="active">Активные</div>
-                    <div class="select-option" data-value="inactive">Неактивные</div>
+                    <div class="select-option" data-value="deleted">Удалённые</div>
                     <div class="select-option" data-value="all">Все</div>
                 </div>
             </div>
@@ -52,16 +88,17 @@
     </div>
 
     <div class="pagination" id="spacesPagination" style="margin-top: 20px;">
-        <button class="button-secondary" id="spacesPrevBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Назад</button>
+        <button class="button-secondary" id="spacesPrevBtn" disabled
+            style="padding: 6px 12px; margin: 0 5px;">Назад</button>
         <span id="spacesPageInfo" style="margin: 0 10px;">Страница 1 из 1</span>
-        <button class="button-secondary" id="spacesNextBtn" disabled style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
+        <button class="button-secondary" id="spacesNextBtn" disabled
+            style="padding: 6px 12px; margin: 0 5px;">Вперед</button>
     </div>
     <div class="states">
         <p id="spacesEmptyMsg" style="display:none; text-align:center;">Пространства не найдены</p>
     </div>
 </div>
 
-<!-- Modal to confirm restore -->
 <div class="modal" id="restoreConfirmModal">
     <div class="modal-content">
         <p>Вы уверены, что хотите восстановить это пространство?</p>
@@ -72,7 +109,6 @@
     </div>
 </div>
 
-<!-- Space Modal -->
 <div class="modal" id="spaceModal">
     <div class="modal-content">
         <h3 id="spaceModalTitle">Создать пространство</h3>
@@ -88,12 +124,11 @@
             <div class="form-group">
                 <label>Владелец (пользователь)</label>
                 <input type="hidden" id="spaceOwner">
-                <div class="custom-select" id="spaceOwnerWrapper" data-target="spaceOwner">
+                <div class="custom-select" id="spaceOwnerWrapper" data-target="spaceOwner" data-searchable="true">
                     <div class="select-styled">-- Выберите владельца --</div>
                     <div class="select-options"></div>
                 </div>
             </div>
-            <!-- Статус скрыт и жестко задан как Active -->
             <input type="hidden" id="spaceStatus" value="Active">
             <div style="display:flex; gap:12px; justify-content:flex-end;">
                 <button class="button-primary" id="saveSpaceBtn">Сохранить</button>
@@ -103,7 +138,6 @@
     </div>
 </div>
 
-<!-- Модальное окно подтверждения -->
 <div class="modal" id="confirmModal">
     <div class="modal-content">
         <p id="confirmMessage">Вы уверены?</p>
@@ -117,10 +151,29 @@
     <div class="modal-content">
         <h3>Управление правами доступа</h3>
         <div class="form-group">
+            <label>Кому назначить</label>
+            <input type="hidden" id="permSubjectType" value="user">
+            <div class="custom-select" id="permSubjectTypeWrapper" data-target="permSubjectType">
+                <div class="select-styled">Пользователю</div>
+                <div class="select-options">
+                    <div class="select-option" data-value="user">Пользователю</div>
+                    <div class="select-option" data-value="group">Группе</div>
+                </div>
+            </div>
+        </div>
+        <div class="form-group" id="permUserGroup">
             <label>Пользователь</label>
             <input type="hidden" id="permUser">
-            <div class="custom-select" id="permUserWrapper" data-target="permUser">
+            <div class="custom-select" id="permUserWrapper" data-target="permUser" data-searchable="true">
                 <div class="select-styled">-- Выберите пользователя --</div>
+                <div class="select-options"></div>
+            </div>
+        </div>
+        <div class="form-group" id="permGroupGroup" style="display:none;">
+            <label>Группа</label>
+            <input type="hidden" id="permGroup">
+            <div class="custom-select" id="permGroupWrapper" data-target="permGroup">
+                <div class="select-styled">-- Выберите группу --</div>
                 <div class="select-options"></div>
             </div>
         </div>
@@ -148,18 +201,19 @@
     </div>
 </div>
 
-    <script>
-        (function () {
-            function attachSelectHandlers(wrapper) {
-                if (wrapper.dataset.handlersAttached) return;
-                wrapper.dataset.handlersAttached = 'true';
-                
+<script th:src="@{/js/custom-select.js}"></script>
+<script>
+    (function () {
+        function initLocalSelects() {
+            document.querySelectorAll('.custom-select').forEach(wrapper => {
+                if (wrapper.dataset.initialized) return;
+                wrapper.dataset.initialized = 'true';
+
                 const styled = wrapper.querySelector('.select-styled');
                 const optionsDiv = wrapper.querySelector('.select-options');
-                const hiddenInput = document.getElementById(wrapper.dataset.target || wrapper.dataset.name);
                 if (!styled || !optionsDiv) return;
-                
-                styled.onclick = function(e) {
+
+                styled.addEventListener('click', (e) => {
                     e.stopPropagation();
                     document.querySelectorAll('.select-options').forEach(el => {
                         if (el !== optionsDiv) el.style.display = 'none';
@@ -167,355 +221,513 @@
                     document.querySelectorAll('.select-styled').forEach(el => {
                         if (el !== styled) el.classList.remove('active');
                     });
+
                     const isOpen = optionsDiv.style.display === 'block';
                     optionsDiv.style.display = isOpen ? 'none' : 'block';
                     styled.classList.toggle('active', !isOpen);
-                };
-                
-                optionsDiv.onclick = function(e) {
-                    const option = e.target.closest('.select-option');
-                    if (!option) return;
-                    e.stopPropagation();
-                    const value = option.dataset.value;
-                    const text = option.textContent;
-                    styled.textContent = text;
-                    styled.style.color = 'var(--text-color)';
-                    if (hiddenInput) hiddenInput.value = value;
-                    optionsDiv.style.display = 'none';
-                    styled.classList.remove('active');
-                    
-                    // Если это фильтр статуса, обновляем список владельцев
-                    if (wrapper.id === 'statusFilterWrapper') {
-                        document.getElementById('ownerFilter').value = '';
-                        document.getElementById('ownerFilterWrapper').querySelector('.select-styled').textContent = 'Все';
-                        loadAdminSpaceOwners(value);
-                    }
-                };
-            }
+                });
 
-            let state = {
-                page: 0,
-                size: 20,
-                totalPages: 1
-            };
-            let editingSpaceId = null;
-            let managingSpaceId = null;
-            let restoringSpaceId = null;
-            let usersList = [];
-            let pendingAction = null;
-
-            async function loadAdminSpaceOwners(status) {
-                try {
-                    const data = await adminFetch('/api/admin/spaces/space-owners?status=' + status);
-                    const ownerOptionsDiv = document.getElementById('ownerFilterWrapper').querySelector('.select-options');
-                    if (ownerOptionsDiv) {
-                        const owners = data || [];
-                        ownerOptionsDiv.innerHTML = '<div class="select-option" data-value="">Все</div>';
-                        owners.forEach(function(u) {
-                            const option = document.createElement('div');
-                            option.className = 'select-option';
-                            option.dataset.value = u.id;
-                            option.textContent = u.login;
-                            ownerOptionsDiv.appendChild(option);
-                        });
-                    }
-                } catch (e) {
-                    console.error('Failed to load admin space owners:', e);
-                }
-            }
-
-            async function loadUsersList() {
-                try {
-                    if (typeof adminFetch !== 'function') return;
-                    const data = await adminFetch('/api/admin/users?page=0&size=1000&includeDeleted=false');
-                    usersList = data.content || data.users || [];
-                } catch (e) {
-                    console.error('Failed to load users:', e);
-                }
-            }
-
-            async function fetchSpaces() {
-                const tbody = document.getElementById('spacesTbody');
-                if (!tbody) return;
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Загрузка...</td></tr>';
-
-                try {
-                    const statusFilter = document.getElementById('statusFilter').value;
-                    const ownerFilter = document.getElementById('ownerFilter').value;
-                    const ownerParam = ownerFilter ? '&ownerId=' + ownerFilter : '';
-                    const url = '/api/admin/spaces?page=' + state.page + '&size=' + state.size + '&status=' + statusFilter + ownerParam;
-                    const data = await adminFetch(url);
-                    const spaces = (data.content || data.spaces || []).map(function(s) {
-                        s.isDeleted = s.isDeleted || false;
-                        return s;
+                optionsDiv.querySelectorAll('.select-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const value = option.dataset.value;
+                        const text = option.textContent;
+                        styled.textContent = text;
+                        styled.style.color = 'var(--text-color)';
+                        const targetId = wrapper.dataset.target;
+                        const targetInput = document.getElementById(targetId);
+                        if (targetInput) targetInput.value = value;
+                        optionsDiv.style.display = 'none';
+                        styled.classList.remove('active');
                     });
-                    
-                    state.totalPages = data.totalPages || 1;
+                });
+            });
 
-                    if (spaces.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Пространства не найдены</td></tr>';
-                    } else {
-                        tbody.innerHTML = spaces.map(function(s) {
-                            return '<tr>' +
-                                '<td>' + escapeHtml(s.id) + '</td>' +
-                                '<td><span class="text-truncated" style="max-width: 200px;">' + escapeHtml(s.name || '') + '</span></td>' +
-                                '<td><span class="text-truncated" style="max-width: 250px;">' + escapeHtml(s.description || '') + '</span></td>' +
-                                '<td><span class="text-truncated" style="max-width: 150px;">' + escapeHtml(s.ownerLogin || '') + '</span></td>' +
-                                '<td><span class="badge ' + (s.isDeleted ? 'inactive' : 'active') + '">' + (s.isDeleted ? 'Удалён' : 'Активен') + '</span></td>' +
-                                '<td class="actions">' +
-                                    (!s.isDeleted ? '<button class="button-secondary" onclick="window.managePermissions(' + s.id + ')">Права</button>' : '') +
-                                    (s.isDeleted 
-                                        ? '<button class="button-primary" onclick="window.restoreSpace(' + s.id + ')">Восстановить</button>'
-                                        : '<button class="button-secondary" onclick="window.editSpace(' + s.id + ')">Редактировать</button>' +
-                                          '<button class="button-danger" onclick="window.deleteSpace(' + s.id + ')">Удалить</button>') +
-                                '</td>' +
-                            '</tr>';
-                        }).join('');
-                    }
-                    updatePagination();
-                } catch (e) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
-                    console.error('Failed to fetch spaces:', e);
+            if (!window.selectCloseListenerAdded) {
+                window.addEventListener('click', () => {
+                    document.querySelectorAll('.select-options').forEach(el => el.style.display = 'none');
+                    document.querySelectorAll('.select-styled').forEach(el => el.classList.remove('active'));
+                });
+                window.selectCloseListenerAdded = true;
+            }
+        }
+
+        // Функция для добавления опции в кастомный селект (используется и для fallback, и для глобального)
+        function populateCustomSelect(wrapperId, value, text, onSelect) {
+            const wrapper = document.getElementById(wrapperId);
+            if (!wrapper) return;
+            const optionsDiv = wrapper.querySelector('.select-options');
+            if (!optionsDiv) return;
+            const option = document.createElement('div');
+            option.className = 'select-option';
+            option.textContent = text;
+            option.dataset.value = value;
+            option.dataset.search = text;
+            option.tabIndex = 0;
+            option.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    option.click();
                 }
-            }
+            });
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const styled = wrapper.querySelector('.select-styled');
+                styled.textContent = text;
+                styled.style.color = 'var(--text-color)';
+                const targetId = wrapper.dataset.target;
+                const targetInput = document.getElementById(targetId);
+                if (targetInput) targetInput.value = value;
+                optionsDiv.style.display = 'none';
+                styled.classList.remove('active');
+                if (onSelect) onSelect(value);
+            });
+            optionsDiv.appendChild(option);
+        }
 
-            function updatePagination() {
-                const currentPage = state.page + 1;
-                const info = document.getElementById('spacesPageInfo');
-                if (info) info.textContent = 'Страница ' + currentPage + ' из ' + (state.totalPages || 1);
-                var prev = document.getElementById('spacesPrevBtn');
-                if (prev) prev.disabled = state.page <= 0;
-                var next = document.getElementById('spacesNextBtn');
-                if (next) next.disabled = state.page >= state.totalPages - 1;
-            }
+        //  Состояние и переменные 
+        let state = {
+            page: 0,
+            size: 20,
+            totalPages: 1
+        };
+        let editingSpaceId = null;
+        let managingSpaceId = null;
+        let restoringSpaceId = null;
+        let usersList = [];
+        let groupsList = [];
+        let pendingAction = null;
 
-            function populateSelect(wrapperId, value, text) {
-                var wrapper = document.getElementById(wrapperId);
-                if (!wrapper) return;
-                var optionsDiv = wrapper.querySelector('.select-options');
-                if (!optionsDiv) return;
-                var option = document.createElement('div');
-                option.className = 'select-option';
-                option.dataset.value = value;
-                option.textContent = text;
-                option.onclick = function(e) {
-                    e.stopPropagation();
-                    var styled = wrapper.querySelector('.select-styled');
-                    styled.textContent = text;
-                    styled.style.color = 'var(--text-color)';
-                    var targetId = wrapper.dataset.target;
-                    var targetInput = document.getElementById(targetId);
-                    if (targetInput) targetInput.value = value;
-                    optionsDiv.style.display = 'none';
-                    styled.classList.remove('active');
-                };
-                optionsDiv.appendChild(option);
+        //  Загрузка списков пользователей и групп 
+        async function loadUsersList() {
+            try {
+                if (typeof adminFetch !== 'function') return;
+                const data = await adminFetch('/api/admin/users?page=0&size=1000&includeDeleted=false');
+                usersList = data.content || data.users || [];
+            } catch (e) {
+                console.error('Failed to load users:', e);
             }
+        }
 
-            async function managePermissions(spaceId) {
-                managingSpaceId = spaceId;
-                var userWrapper = document.getElementById('permUserWrapper');
-                if (userWrapper) {
-                    userWrapper.querySelector('.select-styled').textContent = '-- Выберите пользователя --';
-                    var options = userWrapper.querySelector('.select-options');
-                    if (options) {
-                        options.innerHTML = '';
-                        usersList.forEach(function(u) {
-                            if ((u.roleName || u.role) !== 'EDITOR') {
-                                populateSelect('permUserWrapper', u.id, u.login + ' (' + u.email + ')');
-                            }
-                        });
-                    }
+        async function loadGroupsList() {
+            try {
+                if (typeof adminFetch !== 'function') return;
+                const data = await adminFetch('/api/admin/groups?page=0&size=1000');
+                groupsList = data.content || [];
+            } catch (e) {
+                console.error('Failed to load groups:', e);
+            }
+        }
+
+        //  Загрузка владельцев для фильтра (из второго варианта) 
+        async function loadAdminSpaceOwners(status) {
+            try {
+                const data = await adminFetch('/api/admin/spaces/space-owners?status=' + status);
+                const ownerOptionsDiv = document.getElementById('ownerFilterWrapper').querySelector('.select-options');
+                if (ownerOptionsDiv) {
+                    const owners = data || [];
+                    ownerOptionsDiv.innerHTML = '<div class="select-option" data-value="">Все</div>';
+                    owners.forEach(function (u) {
+                        const option = document.createElement('div');
+                        option.className = 'select-option';
+                        option.dataset.value = u.id;
+                        option.textContent = u.login;
+                        ownerOptionsDiv.appendChild(option);
+                    });
                 }
-                document.getElementById('permUser').value = '';
-                document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Загрузка...</p>';
-                openModal('permissionsModal');
+            } catch (e) {
+                console.error('Failed to load admin space owners:', e);
+            }
+        }
 
-                try {
-                    var perms = await adminFetch('/api/admin/spaces/' + spaceId + '/permissions');
-                    var list = document.getElementById('permissionsList');
-                    if (!perms || perms.length === 0) {
-                        list.innerHTML = '<p style="color:#6B7280;">Нет прав доступа</p>';
-                    } else {
-                        var visiblePerms = perms.filter(function(p) { return p.permissionType !== 'OWNER' && p.type !== 'OWNER'; });
-                        if (visiblePerms.length === 0) {
-                            list.innerHTML = '<p style="color:#6B7280;">Нет назначенных прав</p>';
-                        } else {
-                            list.innerHTML = visiblePerms.map(function(p) {
-                                return '<div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #E5E7EB;">' +
-                                    '<span>' + escapeHtml(p.userLogin || 'User') + ' — <strong>' + escapeHtml(p.permissionType || 'READ') + '</strong></span>' +
-                                    '<button class="button-danger" style="padding:4px 8px; font-size:12px;" onclick="window.revokePermission(' + p.id + ')">Отозвать</button>' +
-                                '</div>';
-                            }).join('');
+        //  Основная загрузка пространств 
+        async function fetchSpaces() {
+            const tbody = document.getElementById('spacesTbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Загрузка...</td></tr>';
+
+            try {
+                if (typeof adminFetch !== 'function') return;
+
+                const statusFilter = document.getElementById('statusFilter').value;
+                const ownerFilter = document.getElementById('ownerFilter').value;
+                const ownerParam = ownerFilter ? '&ownerId=' + ownerFilter : '';
+                const url = `/api/admin/spaces?page=${state.page}&size=${state.size}&status=${statusFilter}${ownerParam}`;
+                const data = await adminFetch(url);
+                const spaces = (data.content || data.spaces || []).map(s => ({
+                    ...s,
+                    isDeleted: s.isDeleted || false
+                }));
+
+                state.totalPages = data.totalPages || 1;
+
+                if (spaces.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Пространства не найдены</td></tr>';
+                } else {
+                    tbody.innerHTML = spaces.map(s => `
+                        <tr>
+                            <td>${escapeHtml(s.id)}</td>
+                            <td>${escapeHtml(s.name || '')}</td>
+                            <td>${escapeHtml(s.description || '')}</td>
+                            <td>${escapeHtml(s.ownerLogin || '')}</td>
+                            <td>
+                                <span class="badge ${s.isDeleted ? 'inactive' : 'active'}">${s.isDeleted ? 'Удалён' : 'Активен'}</span>
+                            </td>
+                            <td class="actions">
+                                ${!s.isDeleted ? `<button class="button-secondary" onclick="window.managePermissions(${s.id})">Права</button>` : ''}
+                                ${s.isDeleted
+                                    ? `<button class="button-primary" onclick="window.restoreSpace(${s.id})">Восстановить</button>`
+                                    : `<button class="button-secondary" onclick="window.editSpace(${s.id})">Редактировать</button>
+                                       <button class="button-danger" onclick="window.deleteSpace(${s.id})">Удалить</button>`
+                                }
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                updatePagination();
+                updateUrl();
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Ошибка загрузки данных</td></tr>';
+                console.error('Failed to fetch spaces:', e);
+            }
+        }
+
+        function updatePagination() {
+            const currentPage = state.page + 1;
+            const info = document.getElementById('spacesPageInfo');
+            if (info) info.textContent = `Страница ${currentPage} из ${state.totalPages || 1}`;
+            const prev = document.getElementById('spacesPrevBtn');
+            if (prev) prev.disabled = state.page <= 0;
+            const next = document.getElementById('spacesNextBtn');
+            if (next) next.disabled = state.page >= state.totalPages - 1;
+        }
+
+        function updateUrl() {
+            const params = new URLSearchParams();
+            if (state.page > 0) params.set('page', state.page);
+            const statusFilter = document.getElementById('statusFilter').value;
+            if (statusFilter !== 'all') params.set('status', statusFilter);
+            const ownerFilter = document.getElementById('ownerFilter').value;
+            if (ownerFilter) params.set('ownerId', ownerFilter);
+            const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            history.replaceState(null, '', newUrl);
+        }
+
+        //  Управление правами (с поддержкой групп) 
+        async function managePermissions(spaceId) {
+            managingSpaceId = spaceId;
+
+            // Сброс типа субъекта на "Пользователю"
+            document.getElementById('permSubjectType').value = 'user';
+            const stStyled = document.querySelector('#permSubjectTypeWrapper .select-styled');
+            if (stStyled) stStyled.textContent = 'Пользователю';
+            document.getElementById('permUserGroup').style.display = '';
+            document.getElementById('permGroupGroup').style.display = 'none';
+
+            // Заполняем список пользователей (только не EDITOR)
+            const userWrapper = document.getElementById('permUserWrapper');
+            if (userWrapper) {
+                userWrapper.querySelector('.select-styled').textContent = '-- Выберите пользователя --';
+                const options = userWrapper.querySelector('.select-options');
+                if (options) {
+                    options.innerHTML = '';
+                    usersList.forEach(u => {
+                        if ((u.roleName || u.role) !== 'EDITOR') {
+                            populateCustomSelect('permUserWrapper', u.id, `${u.login} (${u.email})`);
                         }
-                    }
-                } catch (e) {
-                    document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Ошибка загрузки</p>';
+                    });
                 }
             }
+            document.getElementById('permUser').value = '';
 
-            async function openCreateSpaceModal() {
-                editingSpaceId = null;
-                document.getElementById('spaceModalTitle').textContent = 'Создать пространство';
-                document.getElementById('spaceName').value = '';
-                document.getElementById('spaceDesc').value = '';
-                document.getElementById('spaceOwner').value = '';
-                
-                var ownerWrapper = document.getElementById('spaceOwnerWrapper');
-                var styled = ownerWrapper.querySelector('.select-styled');
-                styled.textContent = '-- Выберите владельца --';
-                styled.style.color = '';
+            // Заполняем список групп
+            const groupWrapper = document.getElementById('permGroupWrapper');
+            if (groupWrapper) {
+                groupWrapper.querySelector('.select-styled').textContent = '-- Выберите группу --';
+                const groupOptions = groupWrapper.querySelector('.select-options');
+                if (groupOptions) {
+                    groupOptions.innerHTML = '';
+                    groupsList.forEach(g => populateCustomSelect('permGroupWrapper', g.id, g.name));
+                }
+            }
+            document.getElementById('permGroup').value = '';
+
+            document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Загрузка...</p>';
+            openModal('permissionsModal');
+            // Инициализация кастомных селектов (глобальная или fallback)
+            if (typeof initCustomSelects === 'function') {
+                initCustomSelects();
+            } else {
+                initLocalSelects();
+            }
+            // focus для поиска
+            const permStyled = document.getElementById('permUserWrapper')?.querySelector('.select-styled');
+            if (permStyled && permStyled.contentEditable === 'true') permStyled.focus();
+            await loadPermissionsList();
+        }
+
+        async function loadPermissionsList() {
+            const list = document.getElementById('permissionsList');
+            try {
+                const [userPerms, groupPerms] = await Promise.all([
+                    adminFetch(`/api/admin/spaces/${managingSpaceId}/permissions`).catch(() => []),
+                    adminFetch(`/api/admin/spaces/${managingSpaceId}/group-permissions`).catch(() => [])
+                ]);
+                const rows = [];
+                // Исключаем OWNER (автоматическое право владельца)
+                (userPerms || [])
+                    .filter(p => (p.permissionType || p.type) !== 'OWNER')
+                    .forEach(p => rows.push(`
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #E5E7EB;">
+                            <span>👤 ${escapeHtml(p.userLogin || 'User')} — <strong>${escapeHtml(p.permissionType || 'READ')}</strong></span>
+                            <button class="button-danger" style="padding:4px 8px; font-size:12px;" onclick="window.revokePermission(${p.id})">Отозвать</button>
+                        </div>`));
+                (groupPerms || []).forEach(p => rows.push(`
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #E5E7EB;">
+                        <span>👥 ${escapeHtml(p.groupName || 'Группа')} — <strong>${escapeHtml(p.permissionType || 'READ')}</strong></span>
+                        <button class="button-danger" style="padding:4px 8px; font-size:12px;" onclick="window.revokeGroupPermission(${p.id})">Отозвать</button>
+                    </div>`));
+                list.innerHTML = rows.length ? rows.join('') : '<p style="color:#6B7280;">Нет назначенных прав</p>';
+            } catch (e) {
+                list.innerHTML = '<p style="color:#6B7280;">Ошибка загрузки</p>';
+            }
+        }
+
+        //  Модалки создания/редактирования 
+        async function openCreateSpaceModal() {
+            editingSpaceId = null;
+            document.getElementById('spaceModalTitle').textContent = 'Создать пространство';
+            document.getElementById('spaceName').value = '';
+            document.getElementById('spaceDesc').value = '';
+            document.getElementById('spaceOwner').value = '';
+
+            const ownerWrapper = document.getElementById('spaceOwnerWrapper');
+            const styled = ownerWrapper.querySelector('.select-styled');
+            styled.textContent = '-- Выберите владельца --';
+            styled.style.color = '';
+            ownerWrapper.querySelector('.select-options').innerHTML = '';
+
+            // Только администраторы
+            usersList.forEach(u => {
+                if (u.admin === true || u.isAdmin === true) {
+                    populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
+                }
+            });
+
+            openModal('spaceModal');
+            if (typeof initCustomSelects === 'function') {
+                initCustomSelects();
+            } else {
+                initLocalSelects();
+            }
+            const ownerStyled = document.getElementById('spaceOwnerWrapper')?.querySelector('.select-styled');
+            if (ownerStyled && ownerStyled.contentEditable === 'true') ownerStyled.focus();
+        }
+
+        async function editSpace(id) {
+            editingSpaceId = id;
+            try {
+                const space = await adminFetch(`/api/admin/spaces/${id}`);
+                document.getElementById('spaceModalTitle').textContent = 'Редактировать пространство';
+                document.getElementById('spaceName').value = space.name;
+                document.getElementById('spaceDesc').value = space.description || '';
+                document.getElementById('spaceOwner').value = space.ownerId;
+
+                const user = usersList.find(u => u.id == space.ownerId);
+                const ownerWrapper = document.getElementById('spaceOwnerWrapper');
+                const styled = ownerWrapper.querySelector('.select-styled');
+                styled.textContent = user ? user.login : 'Выбрать...';
+                styled.style.color = user ? 'var(--text-color)' : '';
                 ownerWrapper.querySelector('.select-options').innerHTML = '';
-                
-                usersList.forEach(function(u) {
+
+                usersList.forEach(u => {
                     if (u.admin === true || u.isAdmin === true) {
-                        populateSelect('spaceOwnerWrapper', u.id, u.login + ' (' + u.email + ')');
+                        populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
                     }
                 });
 
                 openModal('spaceModal');
-            }
+                if (typeof initCustomSelects === 'function') {
+                    initCustomSelects();
+                } else {
+                    initLocalSelects();
+                }
+            } catch (e) { showToast('Ошибка загрузки', 'error'); }
+        }
 
-            async function editSpace(id) {
-                editingSpaceId = id;
-                try {
-                    var space = await adminFetch('/api/admin/spaces/' + id);
-                    document.getElementById('spaceModalTitle').textContent = 'Редактировать пространство';
-                    document.getElementById('spaceName').value = space.name;
-                    document.getElementById('spaceDesc').value = space.description || '';
-                    document.getElementById('spaceOwner').value = space.ownerId;
-                    
-                    var user = usersList.find(function(u) { return u.id == space.ownerId; });
-                    var ownerWrapper = document.getElementById('spaceOwnerWrapper');
-                    var styled = ownerWrapper.querySelector('.select-styled');
-                    styled.textContent = user ? user.login : 'Выбрать...';
-                    styled.style.color = user ? 'var(--text-color)' : '';
-                    ownerWrapper.querySelector('.select-options').innerHTML = '';
-                    
-                    usersList.forEach(function(u) {
-                        if (u.admin === true || u.isAdmin === true) {
-                            populateSelect('spaceOwnerWrapper', u.id, u.login + ' (' + u.email + ')');
-                        }
+        async function saveSpace() {
+            const name = document.getElementById('spaceName').value.trim();
+            const description = document.getElementById('spaceDesc').value.trim();
+            const ownerId = document.getElementById('spaceOwner').value;
+            if (!name || !ownerId) { showToast('Заполните обязательные поля', 'error'); return; }
+
+            try {
+                const method = editingSpaceId ? 'PUT' : 'POST';
+                const url = editingSpaceId ? `/api/admin/spaces/${editingSpaceId}` : '/api/admin/spaces';
+                await adminFetch(url, { method, body: JSON.stringify({ name, description, ownerId }) });
+                showToast('Успешно сохранено');
+                closeModal('spaceModal');
+                fetchSpaces();
+            } catch (e) { showToast('Ошибка сохранения', 'error'); }
+        }
+
+        //  Действия с пространствами 
+        async function deleteSpace(id) {
+            try {
+                await adminFetch(`/api/admin/spaces/${id}`, { method: 'DELETE' });
+                showToast('Удалено');
+                fetchSpaces();
+            } catch (e) { showToast('Ошибка удаления', 'error'); }
+        }
+
+        async function restoreSpace(id) {
+            restoringSpaceId = id;
+            openModal('restoreConfirmModal');
+        }
+
+        async function confirmRestore() {
+            try {
+                await adminFetch(`/api/admin/spaces/${restoringSpaceId}/restore`, { method: 'POST' });
+                showToast('Восстановлено');
+                closeModal('restoreConfirmModal');
+                fetchSpaces();
+            } catch (e) { showToast('Ошибка восстановления', 'error'); }
+        }
+
+        //  Отзыв прав 
+        async function revokePermission(id) {
+            try {
+                await adminFetch(`/api/admin/permissions/${id}`, { method: 'DELETE' });
+                await loadPermissionsList();
+            } catch (e) { showToast('Ошибка', 'error'); }
+        }
+
+        async function revokeGroupPermission(id) {
+            try {
+                await adminFetch(`/api/admin/group-permissions/${id}`, { method: 'DELETE' });
+                await loadPermissionsList();
+            } catch (e) { showToast('Ошибка', 'error'); }
+        }
+
+        async function grantPermission() {
+            const subjectType = document.getElementById('permSubjectType').value;
+            const permissionType = document.getElementById('permType').value;
+            try {
+                if (subjectType === 'group') {
+                    const groupId = document.getElementById('permGroup').value;
+                    if (!groupId) { showToast('Выберите группу', 'error'); return; }
+                    await adminFetch(`/api/admin/spaces/${managingSpaceId}/group-permissions`, {
+                        method: 'POST', body: JSON.stringify({ groupId: parseInt(groupId), permissionType })
                     });
-
-                    openModal('spaceModal');
-                } catch (e) { showToast(e.message || 'Ошибка загрузки', 'error'); }
-            }
-
-            async function saveSpace() {
-                var name = document.getElementById('spaceName').value.trim();
-                var description = document.getElementById('spaceDesc').value.trim();
-                var ownerId = document.getElementById('spaceOwner').value;
-                if (!name || !ownerId) { showToast('Заполните обязательные поля', 'error'); return; }
-
-                try {
-                    var method = editingSpaceId ? 'PUT' : 'POST';
-                    var url = editingSpaceId ? '/api/admin/spaces/' + editingSpaceId : '/api/admin/spaces';
-                    await adminFetch(url, { method: method, body: JSON.stringify({ name: name, description: description, ownerId: ownerId }) });
-                    showToast('Успешно сохранено');
-                    closeModal('spaceModal');
-                    fetchSpaces();
-                } catch (e) { showToast(e.message || 'Ошибка сохранения', 'error'); }
-            }
-
-            async function deleteSpace(id) {
-                try {
-                    await adminFetch('/api/admin/spaces/' + id, { method: 'DELETE' });
-                    showToast('Удалено');
-                    fetchSpaces();
-                } catch (e) { showToast(e.message || 'Ошибка удаления', 'error'); }
-            }
-
-            async function revokePermission(id) {
-                try {
-                    await adminFetch('/api/admin/permissions/' + id, { method: 'DELETE' });
-                    managePermissions(managingSpaceId);
-                } catch (e) { showToast(e.message || 'Ошибка', 'error'); }
-            }
-
-            async function grantPermission() {
-                var userId = document.getElementById('permUser').value;
-                var permissionType = document.getElementById('permType').value;
-                if (!userId) return;
-                try {
-                    await adminFetch('/api/admin/spaces/' + managingSpaceId + '/permissions', { 
-                        method: 'POST', body: JSON.stringify({ userId: userId, permissionType: permissionType }) 
+                } else {
+                    const userId = document.getElementById('permUser').value;
+                    if (!userId) { showToast('Выберите пользователя', 'error'); return; }
+                    await adminFetch(`/api/admin/spaces/${managingSpaceId}/permissions`, {
+                        method: 'POST', body: JSON.stringify({ userId: parseInt(userId), permissionType })
                     });
-                    managePermissions(managingSpaceId);
-                } catch (e) { showToast(e.message || 'Ошибка', 'error'); }
+                }
+                showToast('Право назначено');
+                await loadPermissionsList();
+            } catch (e) { showToast('Ошибка', 'error'); }
+        }
+
+        //  Экспорт в глобальную область 
+        window.fetchSpaces = fetchSpaces;
+        window.managePermissions = managePermissions;
+        window.editSpace = editSpace;
+        window.deleteSpace = deleteSpace;
+        window.openCreateSpaceModal = openCreateSpaceModal;
+        window.saveSpace = saveSpace;
+        window.restoreSpace = restoreSpace;
+        window.confirmRestore = confirmRestore;
+        window.revokePermission = revokePermission;
+        window.revokeGroupPermission = revokeGroupPermission;
+        window.grantPermission = grantPermission;
+        // для совместимости с populateCustomSelect извне
+        window.populateCustomSelect = populateCustomSelect;
+
+        //  Инициализация при загрузке страницы 
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Читаем параметры из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            state.page = parseInt(urlParams.get('page')) || 0;
+            const statusParam = urlParams.get('status');
+            if (statusParam) {
+                document.getElementById('statusFilter').value = statusParam;
+                const statusWrapper = document.getElementById('statusFilterWrapper');
+                const opt = statusWrapper.querySelector(`.select-option[data-value="${statusParam}"]`);
+                if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
             }
-
-            async function restoreSpace(id) {
-                restoringSpaceId = id;
-                openModal('restoreConfirmModal');
-            }
-
-            async function confirmRestore() {
-                try {
-                    await adminFetch('/api/admin/spaces/' + restoringSpaceId + '/restore', { method: 'POST' });
-                    showToast('Восстановлено');
-                    closeModal('restoreConfirmModal');
-                    fetchSpaces();
-                } catch (e) { showToast(e.message || 'Ошибка восстановления', 'error'); }
-            }
-
-            // Экспорт функций в global scope
-            window.fetchSpaces = fetchSpaces;
-            window.managePermissions = managePermissions;
-            window.editSpace = editSpace;
-            window.deleteSpace = deleteSpace;
-            window.openCreateSpaceModal = openCreateSpaceModal;
-            window.saveSpace = saveSpace;
-            window.restoreSpace = restoreSpace;
-            window.confirmRestore = confirmRestore;
-            window.revokePermission = revokePermission;
-            window.grantPermission = grantPermission;
-
-            // Инициализация при загрузке страницы
-            document.addEventListener('DOMContentLoaded', async function() {
-                // Загружаем списки
-                await loadUsersList();
+            const ownerParam = urlParams.get('ownerId');
+            if (ownerParam) {
+                document.getElementById('ownerFilter').value = ownerParam;
+                // подгрузим список владельцев, чтобы текст отобразился корректно
+                await loadAdminSpaceOwners(document.getElementById('statusFilter').value);
+                const ownerWrapper = document.getElementById('ownerFilterWrapper');
+                const opt = ownerWrapper.querySelector(`.select-option[data-value="${ownerParam}"]`);
+                if (opt) ownerWrapper.querySelector('.select-styled').textContent = opt.textContent;
+            } else {
                 await loadAdminSpaceOwners('active');
-                
-                // Инициализируем все custom select-ы с делегированием
-                document.querySelectorAll('.custom-select').forEach(function(wrapper) {
-                    attachSelectHandlers(wrapper);
-                });
-                
-                // Устанавливаем значения по умолчанию
-                document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Активные';
-                document.getElementById('statusFilter').value = 'active';
-                document.getElementById('ownerFilterWrapper').querySelector('.select-styled').textContent = 'Все';
-                document.getElementById('ownerFilter').value = '';
-                
-                await fetchSpaces();
-                
-                document.getElementById('spacesPrevBtn').addEventListener('click', function() {
-                    if (state.page > 0) { state.page--; fetchSpaces(); }
-                });
-                document.getElementById('spacesNextBtn').addEventListener('click', function() {
-                    if (state.page < state.totalPages - 1) { state.page++; fetchSpaces(); }
-                });
-                
-                document.getElementById('closeSpaceModalBtn').addEventListener('click', function() { closeModal('spaceModal'); });
-                document.getElementById('saveSpaceBtn').addEventListener('click', saveSpace);
-                document.getElementById('closePermModalBtn').addEventListener('click', function() { closeModal('permissionsModal'); });
-                document.getElementById('grantPermBtn').addEventListener('click', grantPermission);
-                document.getElementById('cancelRestoreBtn').addEventListener('click', function() { closeModal('restoreConfirmModal'); });
-                document.getElementById('confirmRestoreBtn').addEventListener('click', confirmRestore);
-                document.getElementById('applyFiltersBtn').addEventListener('click', function() {
-                    state.page = 0;
-                    fetchSpaces();
-                });
-                document.getElementById('clearFiltersBtn').addEventListener('click', async function() {
-                    document.getElementById('statusFilter').value = 'active';
-                    document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Активные';
-                    document.getElementById('ownerFilter').value = '';
-                    document.getElementById('ownerFilterWrapper').querySelector('.select-styled').textContent = 'Все';
-                    state.page = 0;
-                    await loadAdminSpaceOwners('active');
-                    fetchSpaces();
-                });
+            }
+
+            await loadUsersList();
+            await loadGroupsList();
+
+            // Переключатель "Пользователю / Группе" в модалке прав
+            document.getElementById('permSubjectType').addEventListener('change', (e) => {
+                const isGroup = e.target.value === 'group';
+                document.getElementById('permUserGroup').style.display = isGroup ? 'none' : '';
+                document.getElementById('permGroupGroup').style.display = isGroup ? '' : 'none';
             });
-        })();
-    </script>
+
+            // Инициализация кастомных селектов: сначала глобальная, потом fallback
+            if (typeof initCustomSelects === 'function') {
+                initCustomSelects();
+            } else {
+                initLocalSelects();
+            }
+
+            await fetchSpaces();
+
+            // Пагинация
+            document.getElementById('spacesPrevBtn').addEventListener('click', () => {
+                if (state.page > 0) { state.page--; fetchSpaces(); }
+            });
+            document.getElementById('spacesNextBtn').addEventListener('click', () => {
+                if (state.page < state.totalPages - 1) { state.page++; fetchSpaces(); }
+            });
+
+            // Обработчики модалок
+            document.getElementById('closeSpaceModalBtn')?.addEventListener('click', () => closeModal('spaceModal'));
+            document.getElementById('saveSpaceBtn')?.addEventListener('click', saveSpace);
+            document.getElementById('closePermModalBtn')?.addEventListener('click', () => closeModal('permissionsModal'));
+            document.getElementById('grantPermBtn')?.addEventListener('click', grantPermission);
+            document.getElementById('cancelRestoreBtn')?.addEventListener('click', () => closeModal('restoreConfirmModal'));
+            document.getElementById('confirmRestoreBtn')?.addEventListener('click', confirmRestore);
+
+            // Фильтры
+            document.getElementById('applyFiltersBtn')?.addEventListener('click', () => {
+                state.page = 0;
+                fetchSpaces();
+            });
+            document.getElementById('clearFiltersBtn')?.addEventListener('click', async () => {
+                document.getElementById('statusFilter').value = 'active';
+                document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Активные';
+                document.getElementById('ownerFilter').value = '';
+                document.getElementById('ownerFilterWrapper').querySelector('.select-styled').textContent = 'Все';
+                state.page = 0;
+                await loadAdminSpaceOwners('active');
+                fetchSpaces();
+            });
+
+            // При смене статуса обновляем список владельцев
+            document.getElementById('statusFilterWrapper')?.addEventListener('change', async (e) => {
+                const status = document.getElementById('statusFilter').value;
+                await loadAdminSpaceOwners(status);
+                // сбросить выбранного владельца
+                document.getElementById('ownerFilter').value = '';
+                document.getElementById('ownerFilterWrapper').querySelector('.select-styled').textContent = 'Все';
+            });
+        });
+    })();
+</script>

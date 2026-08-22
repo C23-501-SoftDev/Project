@@ -4,8 +4,11 @@ import com.knowledgebase.infrastructure.persistence.entity.DocumentJpaEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -48,6 +51,59 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
 
     java.util.Optional<DocumentJpaEntity> findBySpaceIdAndTitle(Long spaceId, String title);
 
+    @Query(value = """
+            SELECT * FROM documents d
+            WHERE d.status <> 'Deleted'
+              AND d.title ILIKE CONCAT('%', :query, '%')
+              AND (
+                    d.created_at BETWEEN :effectiveFrom AND :effectiveTo
+                    OR d.updated_at BETWEEN :effectiveFrom AND :effectiveTo
+                  )
+            ORDER BY d.updated_at DESC
+            """,
+            countQuery = """
+            SELECT count(*) FROM documents d
+            WHERE d.status <> 'Deleted'
+              AND d.title ILIKE CONCAT('%', :query, '%')
+              AND (
+                    d.created_at BETWEEN :effectiveFrom AND :effectiveTo
+                    OR d.updated_at BETWEEN :effectiveFrom AND :effectiveTo
+                  )
+            """,
+            nativeQuery = true)
+    Page<DocumentJpaEntity> searchByTitle(@Param("query") String query,
+                                          @Param("effectiveFrom") LocalDateTime effectiveFrom,
+                                          @Param("effectiveTo") LocalDateTime effectiveTo,
+                                          Pageable pageable);
+
+    @Query(value = """
+            SELECT * FROM documents d
+            WHERE d.status <> 'Deleted'
+              AND d.space_id IN (:spaceIds)
+              AND d.title ILIKE CONCAT('%', :query, '%')
+              AND (
+                    d.created_at BETWEEN :effectiveFrom AND :effectiveTo
+                    OR d.updated_at BETWEEN :effectiveFrom AND :effectiveTo
+                  )
+            ORDER BY d.updated_at DESC
+            """,
+            countQuery = """
+            SELECT count(*) FROM documents d
+            WHERE d.status <> 'Deleted'
+              AND d.space_id IN (:spaceIds)
+              AND d.title ILIKE CONCAT('%', :query, '%')
+              AND (
+                    d.created_at BETWEEN :effectiveFrom AND :effectiveTo
+                    OR d.updated_at BETWEEN :effectiveFrom AND :effectiveTo
+                  )
+            """,
+            nativeQuery = true)
+    Page<DocumentJpaEntity> searchByTitleInSpaces(@Param("spaceIds") Collection<Long> spaceIds,
+                                                  @Param("query") String query,
+                                                  @Param("effectiveFrom") LocalDateTime effectiveFrom,
+                                                  @Param("effectiveTo") LocalDateTime effectiveTo,
+                                                  Pageable pageable);
+
     @org.springframework.data.jpa.repository.Query(value = "SELECT count(*) FROM documents WHERE title = ?1 AND space_id = ?2 AND parent_document_id IS NULL", nativeQuery = true)
     long countByTitleAndSpaceIdAndNoParent(String title, Long spaceId);
     
@@ -64,6 +120,15 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
 
     @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT u.* FROM users u JOIN documents d ON u.id = d.author_id WHERE d.space_id IN :spaceIds", nativeQuery = true)
     List<com.knowledgebase.infrastructure.persistence.entity.UserJpaEntity> findDistinctAuthorsBySpaceIds(@org.springframework.data.repository.query.Param("spaceIds") java.util.Set<Long> spaceIds);
+
+    @org.springframework.data.jpa.repository.Query(value = """
+        SELECT * FROM documents d
+        WHERE d.status = 'Deleted'
+          AND (:spaceId IS NULL OR d.space_id = :spaceId)
+          AND (:authorId IS NULL OR d.author_id = :authorId)
+        ORDER BY d.updated_at DESC
+        """, nativeQuery = true)
+    List<DocumentJpaEntity> findDeletedDocuments(@Param("spaceId") Long spaceId, @Param("authorId") Long authorId);
 
     boolean existsByParentDocumentId(Long parentId);
 }
