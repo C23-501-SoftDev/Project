@@ -1,5 +1,7 @@
 package com.knowledgebase.domain.repository;
 
+import com.knowledgebase.domain.model.GitCommitResult;
+
 import java.util.Optional;
 
 /**
@@ -15,7 +17,15 @@ public interface DocumentContentRepository {
      * @param authorName имя автора для коммита
      * @param authorEmail email автора для коммита
      */
-    void saveContent(String gitFilePath, String content, String commitMessage, String authorName, String authorEmail);
+    GitCommitResult saveContent(String gitFilePath, String content, String commitMessage, String authorName, String authorEmail);
+
+    /**
+     * Saves a document and a versioned metadata sidecar in one Git commit. If the
+     * document was renamed, the old path is removed in that same commit.
+     */
+    GitCommitResult saveDocumentSnapshot(String oldGitFilePath, String gitFilePath, String content,
+                                         String metadataPath, String metadataContent, String commitMessage,
+                                         String authorName, String authorEmail);
 
     /**
      * Читает содержимое документа из Git.

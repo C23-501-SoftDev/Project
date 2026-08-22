@@ -39,7 +39,9 @@ class GrantPermissionTest extends IntegrationTestBase {
     @Test
     void grantPermission_existentUser_returns201() throws Exception {
         persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
-        User user = persistUser("user", "user123", "user@knowledgebase.local", GlobalRole.READER);
+        // GUEST — единственная роль, которой имеет смысл выдавать READ явно
+        // (READER/EDITOR имеют глобальное чтение, и повторная выдача вернёт 409)
+        User user = persistUser("user", "user123", "user@knowledgebase.local", GlobalRole.GUEST);
         String adminJwt = loginAndGetJwt("admin", "admin123");
 
         String spaceName = "space-" + uniqueLogin("kb");

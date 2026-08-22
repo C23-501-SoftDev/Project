@@ -121,6 +121,15 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
     @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT u.* FROM users u JOIN documents d ON u.id = d.author_id WHERE d.space_id IN :spaceIds", nativeQuery = true)
     List<com.knowledgebase.infrastructure.persistence.entity.UserJpaEntity> findDistinctAuthorsBySpaceIds(@org.springframework.data.repository.query.Param("spaceIds") java.util.Set<Long> spaceIds);
 
+    @org.springframework.data.jpa.repository.Query(value = """
+        SELECT * FROM documents d
+        WHERE d.status = 'Deleted'
+          AND (:spaceId IS NULL OR d.space_id = :spaceId)
+          AND (:authorId IS NULL OR d.author_id = :authorId)
+        ORDER BY d.updated_at DESC
+        """, nativeQuery = true)
+    List<DocumentJpaEntity> findDeletedDocuments(@Param("spaceId") Long spaceId, @Param("authorId") Long authorId);
+
     boolean existsByParentDocumentId(Long parentId);
 }
 

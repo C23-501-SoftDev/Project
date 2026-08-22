@@ -60,7 +60,32 @@
                     Список</button>
                 <button class="toolbar-btn" onclick="insertAtCursor('\n```\n')" title="Блок кода">&lt;/&gt;</button>
                 <button class="toolbar-btn" onclick="insertAtCursor('## ')" title="Заголовок H2">H2</button>
+
+                <!-- Нейроассистент -->
+                <div class="ai-assistant" id="aiAssistant" style="position:relative; display:none; margin-left:auto;">
+                    <button type="button" class="toolbar-btn" id="aiAssistBtn" title="Нейроассистент — изменить тип текста">✨ Нейроассистент</button>
+                    <div id="aiAssistPanel" style="display:none; position:absolute; right:0; top:112%; z-index:50; background:#fff; border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.12); padding:6px; min-width:210px;">
+                        <div style="font-size:11px; color:#6B7280; padding:4px 8px;">Изменить тип текста (выделите фрагмент или обработается весь текст):</div>
+                        <button type="button" class="ai-action-btn" data-action="formal">Официальный</button>
+                        <button type="button" class="ai-action-btn" data-action="professional">Профессиональный</button>
+                        <button type="button" class="ai-action-btn" data-action="simple">Проще</button>
+                        <button type="button" class="ai-action-btn" data-action="friendly">Дружелюбный</button>
+                        <button type="button" class="ai-action-btn" data-action="shorter">Короче</button>
+                        <button type="button" class="ai-action-btn" data-action="longer">Подробнее</button>
+                        <button type="button" class="ai-action-btn" data-action="grammar">Исправить ошибки</button>
+                    </div>
+                </div>
             </div>
+            <style>
+                .ai-action-btn {
+                    display: block; width: 100%; text-align: left;
+                    padding: 8px 10px; margin: 2px 0; border: none;
+                    background: transparent; border-radius: 6px; cursor: pointer;
+                    font-size: 14px; color: var(--text-color);
+                }
+                .ai-action-btn:hover { background: #F3F4F6; }
+                .ai-action-btn:disabled { opacity: .6; cursor: default; }
+            </style>
             <textarea id="editorTextarea" class="editor-textarea"
                 placeholder="Введите текст в формате Markdown..."></textarea>
         </div>
@@ -147,9 +172,66 @@
         function updateStatusBadge() {
             const status = document.getElementById('docStatusField').value;
             const badge = document.getElementById('statusBadge');
-            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+            const labels = {
+                'DRAFT': 'Черновик',
+                'PUBLISHED': 'Опубликовано',
+                'DELETED': 'Удалено'
+            };
+            badge.textContent = labels[status] || status;
             badge.className = 'badge ' + status.toLowerCase();
             badge.style = '';
+
+            // Update options in custom select based on allowed transitions
+            const optionsContainer = document.querySelector('#docStatusWrapper .select-options');
+            let allowed = [];
+            if (status === 'DRAFT') {
+                allowed = [
+                    { value: 'DRAFT', label: 'Черновик' },
+                    { value: 'PUBLISHED', label: 'Опубликовано' },
+                    { value: 'DELETED', label: 'Удалено' }
+                ];
+            } else if (status === 'PUBLISHED') {
+                allowed = [
+                    { value: 'PUBLISHED', label: 'Опубликовано' },
+                    { value: 'DELETED', label: 'Удалено' }
+                ];
+            } else if (status === 'DELETED') {
+                allowed = [
+                    { value: 'DELETED', label: 'Удалено' },
+                    { value: 'DRAFT', label: 'Черновик' }
+                ];
+            }
+
+            optionsContainer.innerHTML = allowed.map(opt => `
+                <div class="select-option" data-value="${opt.value}">${opt.label}</div>
+            `).join('');
+
+            // Re-bind click events
+            optionsContainer.querySelectorAll('.select-option').forEach(option => {
+                option.addEventListener('click', async () => {
+                    const value = option.getAttribute('data-value');
+                    const oldStatus = document.getElementById('docStatusField').value;
+                    if (value === oldStatus) return;
+                    try {
+                        if (value === 'PUBLISHED' && oldStatus === 'DRAFT') {
+                            await apiFetch(`/api/documents/${docId}/publish`, { method: 'POST' });
+                            showToast('Документ опубликован');
+                        } else if (value === 'DELETED') {
+                            await apiFetch(`/api/documents/${docId}`, { method: 'DELETE' });
+                            showToast('Документ удален');
+                        } else if (value === 'DRAFT' && oldStatus === 'DELETED') {
+                            await apiFetch(`/api/documents/${docId}/restore`, { method: 'POST' });
+                            showToast('Документ восстановлен');
+                        }
+                        document.getElementById('docStatusField').value = value;
+                        document.getElementById('statusStyled').textContent = option.textContent;
+                updateStatusBadge();
+                        setTimeout(() => location.reload(), 800);
+            } catch (e) {
+                        showToast('Ошибка изменения статуса: ' + (e.message || ''), 'error');
+            }
+                });
+            });
         }
 
         // Logic for custom select
@@ -219,13 +301,12 @@
                     ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px;">Удалить</button>` : ''}
                 </div>
             `).join('');
-
             attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
                 button.addEventListener('click', async () => {
                     const attachmentId = button.getAttribute('data-attachment-id');
                     const attachmentName = button.getAttribute('data-attachment-name') || 'вложение';
                     await deleteAttachment(attachmentId, attachmentName);
-                });
+            });
             });
         }
 
@@ -235,8 +316,8 @@
                 renderAttachments(items);
             } catch (e) {
                 attachmentList.innerHTML = '<div style="color:#B91C1C; font-size:14px;">Не удалось загрузить список вложений</div>';
+                }
             }
-        }
 
         async function uploadAttachments(files) {
             const fileArray = Array.from(files || []);
@@ -462,10 +543,12 @@
                 statusField.value = doc.status || 'DRAFT';
 
                 const statusStyled = document.getElementById('statusStyled');
-                const option = document.querySelector(`#docStatusWrapper .select-option[data-value="${statusField.value}"]`);
-                if (option) {
-                    statusStyled.textContent = option.textContent;
-                }
+                const labels = {
+                    'DRAFT': 'Черновик',
+                    'PUBLISHED': 'Опубликовано',
+                    'DELETED': 'Удалено'
+                };
+                statusStyled.textContent = labels[statusField.value] || statusField.value;
 
                 document.getElementById('authorName').textContent = doc.authorName || 'Неизвестен';
 
@@ -508,6 +591,65 @@
             }
         });
 
+        // ── Нейроассистент (routerai) ──────────────────────────────────
+        (function initAiAssistant() {
+            const wrapper = document.getElementById('aiAssistant');
+            const btn = document.getElementById('aiAssistBtn');
+            const panel = document.getElementById('aiAssistPanel');
+            if (!wrapper || !btn || !panel) return;
+
+            // Кнопку показываем только если ассистент включён на сервере
+            fetch('/api/ai/status', { credentials: 'same-origin' })
+                .then(r => r.ok ? r.json() : { enabled: false })
+                .then(s => { if (s && s.enabled) wrapper.style.display = ''; })
+                .catch(() => {});
+
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+            document.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) panel.style.display = 'none';
+            });
+            panel.querySelectorAll('.ai-action-btn').forEach(actionBtn => {
+                actionBtn.addEventListener('click', () => aiTransform(actionBtn.dataset.action));
+            });
+
+            async function aiTransform(action) {
+                const hasSelection = textarea.selectionStart !== textarea.selectionEnd;
+                const start = textarea.selectionStart, end = textarea.selectionEnd;
+                const text = hasSelection ? textarea.value.substring(start, end) : textarea.value;
+                if (!text.trim()) { showToast('Нет текста для обработки', 'error'); return; }
+
+                panel.style.display = 'none';
+                const prev = btn.textContent;
+                btn.disabled = true; btn.textContent = '✨ Обработка...';
+                try {
+                    const resp = await fetch('/api/ai/transform', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ text, action })
+                    });
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok) { showToast(data.error || 'Ошибка нейроассистента', 'error'); return; }
+                    const result = data.result || '';
+                    if (hasSelection) {
+                        textarea.setRangeText(result, start, end, 'end');
+                    } else {
+                        textarea.value = result;
+                    }
+                    renderPreview();
+                    showToast('Готово ✨');
+                } catch (e) {
+                    showToast('Ошибка запроса к нейроассистенту', 'error');
+                } finally {
+                    btn.disabled = false; btn.textContent = prev;
+                }
+            }
+        })();
+
         loadDocument();
     })();
 </script>
+

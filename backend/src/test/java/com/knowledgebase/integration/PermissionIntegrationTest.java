@@ -34,23 +34,27 @@ class PermissionIntegrationTest extends IntegrationTestBase {
                 .andReturn().getResponse().getContentAsString();
         long spaceId = Long.parseLong(spaceResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
+        // Создатель пространства получает OWNER, роль EDITOR даёт WRITE.
+        // READ в списке не дублируется: PermissionService убирает его, когда есть WRITE/OWNER
+        // (WRITE подразумевает чтение). Флаги для UI при этом остаются полными.
         mockMvc.perform(get("/api/user/permissions?spaceId=" + spaceId)
                         .cookie(jwtCookie(adminJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.spaceId", is((int) spaceId)))
-                .andExpect(jsonPath("$.permissions", containsInAnyOrder("READ", "WRITE", "OWNER")))
+                .andExpect(jsonPath("$.permissions", containsInAnyOrder("WRITE", "OWNER")))
                 .andExpect(jsonPath("$.canRead", is(true)))
                 .andExpect(jsonPath("$.canEdit", is(true)))
                 .andExpect(jsonPath("$.canCreate", is(true)));
     }
 
     @Test
-    void myPermissions_editorFlags_dependOnSpacePermissions() throws Exception {
+    void myPermissions_guestFlags_dependOnSpacePermissions() throws Exception {
         persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
-        User editor = persistUser("editor", "editor123", "editor@knowledgebase.local", GlobalRole.EDITOR);
+        // GUEST: доступ определяется только явными правами на пространство (US4.2.2)
+        User guest = persistUser("guest", "guest123", "guest@knowledgebase.local", GlobalRole.GUEST);
 
         String adminJwt = loginAndGetJwt("admin", "admin123");
-        String editorJwt = loginAndGetJwt("editor", "editor123");
+        String guestJwt = loginAndGetJwt("guest", "guest123");
 
         String spaceName = "space-" + uniqueLogin("kb");
         String spaceResp = mockMvc.perform(post("/api/admin/spaces")
@@ -65,7 +69,7 @@ class PermissionIntegrationTest extends IntegrationTestBase {
 
         // no permissions -> canRead false/canEdit false
         mockMvc.perform(get("/api/user/permissions?spaceId=" + spaceId)
-                        .cookie(jwtCookie(editorJwt)))
+                        .cookie(jwtCookie(guestJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.canRead", is(false)))
                 .andExpect(jsonPath("$.canEdit", is(false)))
@@ -78,30 +82,30 @@ class PermissionIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":%d,"permissionType":"READ"}
-                                """.formatted(editor.getId())))
+                                """.formatted(guest.getId())))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/user/permissions?spaceId=" + spaceId)
-                        .cookie(jwtCookie(editorJwt)))
+                        .cookie(jwtCookie(guestJwt)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.permissions", contains("READ")))
                 .andExpect(jsonPath("$.canRead", is(true)))
                 .andExpect(jsonPath("$.canEdit", is(false)))
                 .andExpect(jsonPath("$.canCreate", is(false)));
 
-        // grant WRITE -> canEdit/canCreate true
+        // grant WRITE -> canEdit/canCreate true (WRITE поглощает READ)
         mockMvc.perform(post("/api/admin/spaces/" + spaceId + "/permissions")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":%d,"permissionType":"WRITE"}
-                                """.formatted(editor.getId())))
+                                """.formatted(guest.getId())))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/user/permissions?spaceId=" + spaceId)
-                        .cookie(jwtCookie(editorJwt)))
+                        .cookie(jwtCookie(guestJwt)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.permissions", containsInAnyOrder("READ", "WRITE")))
+                .andExpect(jsonPath("$.permissions", contains("WRITE")))
                 .andExpect(jsonPath("$.canRead", is(true)))
                 .andExpect(jsonPath("$.canEdit", is(true)))
                 .andExpect(jsonPath("$.canCreate", is(true)));
@@ -110,7 +114,8 @@ class PermissionIntegrationTest extends IntegrationTestBase {
     @Test
     void mySpaces_endpoint_returnsSpacesWithAnyPermission() throws Exception {
         persistUser("admin", "admin123", "admin@knowledgebase.local", GlobalRole.EDITOR, true);
-        User reader = persistUser("reader", "reader123", "reader@knowledgebase.local", GlobalRole.READER);
+        // GUEST: получает доступ к пространству только после явной выдачи права
+        User reader = persistUser("reader", "reader123", "reader@knowledgebase.local", GlobalRole.GUEST);
 
         String adminJwt = loginAndGetJwt("admin", "admin123");
         String readerJwt = loginAndGetJwt("reader", "reader123");

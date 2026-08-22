@@ -15,7 +15,26 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
-      GIT_REPO_PATH: /workspace
+      # Email-уведомления (US4.3.1/US4.3.2): выключатель рассылки + параметры SMTP.
+      # Значения берутся из .env; при отсутствии — безопасные значения по умолчанию
+      # (enabled=false → письма только логируются, реальная отправка не идёт).
+      NOTIFICATIONS_ENABLED: ${NOTIFICATIONS_ENABLED:-false}
+      NOTIFICATIONS_FROM: ${NOTIFICATIONS_FROM:-no-reply@knowledgebase.local}
+      NOTIFICATIONS_ADMIN_EMAIL: ${NOTIFICATIONS_ADMIN_EMAIL:-admin@knowledgebase.local}
+      MAIL_HOST: ${MAIL_HOST:-localhost}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      # Нейроассистент редактирования текста (routerai.ru)
+      AI_ENABLED: ${AI_ENABLED:-false}
+      AI_BASE_URL: ${AI_BASE_URL:-https://routerai.ru/api/v1}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-deepseek/deepseek-v4-pro}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
+      # Separate content repository; do not use the application source checkout.
+      GIT_REPO_PATH: /workspace/backend/data/git-repo
       # SSH URL репозитория для git push/pull (например: git@github.com:USERNAME/REPO.git)
       # Используется для быстрой установки remote: git remote set-url origin $GIT_REPO_SSH_URL
       GIT_REPO_SSH_URL: ${GIT_REPO_SSH_URL}

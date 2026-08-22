@@ -81,6 +81,12 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Mail — JavaMailSender для асинхронной рассылки email-уведомлений (US4.3.1) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- =====================================================
              БАЗА ДАННЫХ
              ===================================================== -->

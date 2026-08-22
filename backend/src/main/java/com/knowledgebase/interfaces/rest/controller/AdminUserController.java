@@ -216,8 +216,9 @@ public class AdminUserController {
         @ApiResponse(responseCode = "404", description = "Пользователь не найден",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<UserResponse> deleteUser(@PathVariable Long id) {
-        User user = userService.deleteUser(id);
+    public ResponseEntity<UserResponse> deleteUser(@PathVariable Long id,
+                                                   @AuthenticationPrincipal User currentUser) {
+        User user = userService.deleteUser(id, currentUser != null ? currentUser.getId() : null);
         return ResponseEntity.ok(mapper.toUserResponse(user));
     }
 
