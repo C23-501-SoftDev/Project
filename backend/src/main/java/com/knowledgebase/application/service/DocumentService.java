@@ -182,6 +182,130 @@ public class DocumentService {
         }
     }
 
+    /**
+     * Перемещает документ в другое пространство или меняет его родителя.
+     */
+    @Transactional
+    public Document moveDocument(Long id, Long targetSpaceId, Long targetParentId, Long editorId) {
+        Document document = getDocumentById(id);
+        if (document.getStatus() == DocumentStatus.DELETED) {
+            throw new DocumentValidationException("Нельзя перемещать удаленный документ");
+        }
+
+        User editor = userRepository.findById(editorId)
+                .orElseThrow(() -> new UserNotFoundException(editorId));
+
+        Long sourceSpaceId = document.getSpaceId();
+        
+        // Если целевое пространство не указано, оставляем текущее
+        Long finalSpaceId = targetSpaceId != null ? targetSpaceId : sourceSpaceId;
+
+        // Валидация иерархии
+        validateHierarchy(id, targetParentId, finalSpaceId);
+
+        // Если родитель указан, проверяем, принадлежит ли он целевому пространству
+        if (targetParentId != null) {
+            Document targetParent = getDocumentById(targetParentId);
+            if (!targetParent.getSpaceId().equals(finalSpaceId)) {
+                throw new DocumentValidationException("Родительский документ принадлежит другому пространству");
+            }
+        }
+
+        // Проверяем уникальность названия на новом уровне
+        validateTitleUniqueness(document.getTitle(), finalSpaceId, targetParentId, id);
+
+        // Если пространство изменилось, нам нужно обновить пути в Git для этого документа и всех его потомков
+        boolean spaceChanged = !sourceSpaceId.equals(finalSpaceId);
+        boolean parentChanged = !java.util.Objects.equals(document.getParentDocumentId(), targetParentId);
+
+        if (spaceChanged || parentChanged) {
+            if (spaceChanged) {
+                // Перемещаем документ и всех его потомков рекурсивно в новое пространство
+                moveDocumentAndDescendantsToSpace(document, finalSpaceId, targetParentId, editor);
+            } else {
+                // Изменился только родитель в том же пространстве
+                document.setParentDocumentId(targetParentId);
+                documentRepository.save(document);
+                
+                // Фиксируем изменение в Git, если документ опубликован
+                if (document.getStatus() == DocumentStatus.PUBLISHED) {
+                    String gitPath = document.getGitFilePath();
+                    String content = getDocumentContent(document);
+                    String metadataPath = ".metadata/documents/" + document.getId() + ".json";
+                    contentRepository.saveDocumentSnapshot(
+                            gitPath, gitPath, content, metadataPath,
+                            documentMetadataJson(document), "Move document: " + document.getTitle(),
+                            editor.getLogin(), editor.getEmail());
+                } else {
+                    documentRepository.save(document);
+                }
+            }
+
+            auditService.record("DOCUMENT_MOVED", AuditService.RESOURCE_DOCUMENT, id,
+                    "title='" + document.getTitle() + "', fromSpaceId=" + sourceSpaceId + ", toSpaceId=" + finalSpaceId + ", parentId=" + targetParentId);
+            
+            // Генерируем событие обновления
+            eventPublisher.publishEvent(new DocumentUpdatedEvent(
+                    document.getId(),
+                    document.getTitle(),
+                    finalSpaceId,
+                    editorId,
+                    editor.getLogin()
+            ));
+        }
+
+        return getDocumentById(id);
+    }
+
+    private void moveDocumentAndDescendantsToSpace(Document document, Long targetSpaceId, Long targetParentId, User editor) {
+        String targetSpaceName = spaceRepository.findById(targetSpaceId)
+                .map(s -> s.getName().replaceAll("[\\\\/:*?\"<>|\\s]", "-"))
+                .orElse(String.valueOf(targetSpaceId));
+
+        // Сначала соберем все descendants рекурсивно
+        List<Document> allDocs = documentRepository.findBySpaceId(document.getSpaceId(), true);
+        java.util.Map<Long, List<Document>> childrenMap = allDocs.stream()
+                .filter(d -> d.getParentDocumentId() != null)
+                .collect(Collectors.groupingBy(Document::getParentDocumentId));
+
+        // Будем обходить дерево в ширину или глубину, обновляя spaceId, parentDocumentId и gitFilePath
+        updateSpaceAndPathsRecursive(document, targetSpaceId, targetParentId, targetSpaceName, childrenMap, editor);
+    }
+
+    private void updateSpaceAndPathsRecursive(Document doc, Long targetSpaceId, Long targetParentId, String targetSpaceName,
+                                             java.util.Map<Long, List<Document>> childrenMap, User editor) {
+        String oldPath = doc.getGitFilePath();
+        String content = getDocumentContent(doc);
+
+        String sanitizedTitle = doc.getTitle().replaceAll("[\\\\/:*?\"<>|\\s]", "-");
+        String newPath = String.format("spaces/%s/%s.md", targetSpaceName, sanitizedTitle);
+
+        // Обновляем spaceId и parentId в доменной модели
+        doc.moveToSpace(targetSpaceId);
+        doc.setParentDocumentId(targetParentId);
+        doc.updateGitFilePath(newPath);
+
+        // Сохраняем в Git / переносим контент
+        if (doc.getStatus() == DocumentStatus.PUBLISHED) {
+            String metadataPath = ".metadata/documents/" + doc.getId() + ".json";
+            contentRepository.saveDocumentSnapshot(
+                    oldPath, newPath, content, metadataPath,
+                    documentMetadataJson(doc), "Move document: " + doc.getTitle() + " to space " + targetSpaceName,
+                    editor.getLogin(), editor.getEmail());
+        } else {
+            contentRepository.moveContent(oldPath, newPath, "Move document: " + doc.getTitle() + " to space " + targetSpaceName);
+        }
+
+        documentRepository.save(doc);
+
+        // Рекурсивно обрабатываем детей
+        List<Document> children = childrenMap.getOrDefault(doc.getId(), java.util.Collections.emptyList());
+        for (Document child : children) {
+            // Для ребенка родителем остается текущий документ doc.getId(), а targetSpaceId передается дальше
+            updateSpaceAndPathsRecursive(child, targetSpaceId, doc.getId(), targetSpaceName, childrenMap, editor);
+        }
+    }
+
     private void validateTitleUniqueness(String title, Long spaceId, Long parentId, Long currentDocumentId) {
         boolean exists;
         // Если parentId == 0, считаем его NULL для БД (H2/Postgres)

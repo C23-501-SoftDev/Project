@@ -67,10 +67,11 @@
             <div class="sidebar-search-status" id="spaceSearchStatus" hidden></div>
             <div class="space-tree" id="spaceTreeContainer" th:if="${spaces != null}">
                 <ul class="space-list">
-                    <li th:each="space : ${spaces}" class="space-item">
+                    <li th:each="space : ${spaces}" class="space-item" th:data-space-id="${space.id}">
                         <button type="button" class="space-button" th:onclick="'toggleSpaceTree(' + ${space.id} + ')'"
                             th:text="${space.name}"
-                            th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'">
+                            th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'"
+                            th:data-space-id="${space.id}">
                             Пространство
                         </button>
                         <!-- Дерево отображается, если оно было загружено, скрытие/раскрытие через JS -->

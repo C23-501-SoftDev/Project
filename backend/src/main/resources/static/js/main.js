@@ -59,7 +59,117 @@ document.addEventListener('DOMContentLoaded', () => {
             setActiveSpaceButton(urlSpaceId);
         }
     }
+
+    // Инициализация Drag and Drop для дерева документов
+    initDragAndDrop();
 });
+
+// Инициализация Drag and Drop
+function initDragAndDrop() {
+    document.addEventListener('dragstart', (e) => {
+        const docItem = e.target.closest('.document-item');
+        if (docItem) {
+            docItem.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', docItem.dataset.documentId);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+    });
+
+    document.addEventListener('dragend', (e) => {
+        const docItem = e.target.closest('.document-item');
+        if (docItem) {
+            docItem.classList.remove('dragging');
+        }
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+
+    document.addEventListener('dragover', (e) => {
+        const draggingEl = document.querySelector('.document-item.dragging');
+        if (!draggingEl) return;
+
+        const docItem = e.target.closest('.document-item');
+        const spaceBtn = e.target.closest('.space-button');
+
+        if (docItem && docItem !== draggingEl && !draggingEl.contains(docItem)) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        } else if (spaceBtn) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+    });
+
+    document.addEventListener('dragenter', (e) => {
+        const draggingEl = document.querySelector('.document-item.dragging');
+        if (!draggingEl) return;
+
+        const docItem = e.target.closest('.document-item');
+        const spaceBtn = e.target.closest('.space-button');
+
+        document.querySelectorAll('.drag-over').forEach(el => {
+            if (el !== docItem && el !== spaceBtn) {
+                el.classList.remove('drag-over');
+            }
+        });
+
+        if (docItem && docItem !== draggingEl && !draggingEl.contains(docItem)) {
+            docItem.classList.add('drag-over');
+        } else if (spaceBtn) {
+            spaceBtn.classList.add('drag-over');
+        }
+    });
+
+    document.addEventListener('dragleave', (e) => {
+        const docItem = e.target.closest('.document-item');
+        const spaceBtn = e.target.closest('.space-button');
+        
+        if (docItem && e.target === docItem.querySelector('a')) {
+            docItem.classList.remove('drag-over');
+        }
+        if (spaceBtn && e.target === spaceBtn) {
+            spaceBtn.classList.remove('drag-over');
+        }
+    });
+
+    document.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+        const draggedId = e.dataTransfer.getData('text/plain');
+        if (!draggedId) return;
+
+        const docItem = e.target.closest('.document-item');
+        const spaceBtn = e.target.closest('.space-button');
+
+        let targetSpaceId = null;
+        let targetParentId = null;
+
+        if (docItem) {
+            targetSpaceId = docItem.dataset.spaceId;
+            targetParentId = docItem.dataset.documentId;
+        } else if (spaceBtn) {
+            targetSpaceId = spaceBtn.dataset.spaceId;
+            targetParentId = null;
+        }
+
+        if (targetSpaceId) {
+            try {
+                showToast('Перемещение документа...');
+                await apiFetch(`/api/documents/${draggedId}/move`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        spaceId: Number(targetSpaceId),
+                        parentId: targetParentId ? Number(targetParentId) : null
+                    })
+                });
+                showToast('Документ успешно перемещен');
+                setTimeout(() => location.reload(), 800);
+            } catch (err) {
+                showToast(err.message || 'Ошибка при перемещении документа', 'error');
+            }
+        }
+    });
+}
 
 //  3. Поиск пространств в сайдбаре (из первого файла)
 

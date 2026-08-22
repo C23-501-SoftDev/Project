@@ -1195,4 +1195,22 @@ body {
     white-space: normal;
 }
 
+/* Drag and Drop Styles */
+.document-item.dragging {
+    opacity: 0.5;
+}
+
+.document-item.drag-over > a {
+    background-color: var(--primary-light) !important;
+    border-left-color: var(--primary-color) !important;
+    color: var(--primary-hover) !important;
+}
+
+.space-button.drag-over {
+    background-color: var(--primary-light) !important;
+    border-color: var(--primary-color) !important;
+    color: var(--primary-hover) !important;
+}
+
+
 

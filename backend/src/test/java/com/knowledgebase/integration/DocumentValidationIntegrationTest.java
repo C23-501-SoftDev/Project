@@ -57,6 +57,44 @@ class DocumentValidationIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isUnprocessableEntity());
     }
 
+    @Test
+    void moveDocument_betweenSpacesAndParenting() throws Exception {
+        persistUser("user", "user123", "user@kb.local", GlobalRole.EDITOR, true);
+        String jwt = loginAndGetJwt("user", "user123");
+        long space1Id = createSpace("SpaceOne", "Desc1");
+        long space2Id = createSpace("SpaceTwo", "Desc2");
+
+        String doc1Resp = mockMvc.perform(post("/api/documents")
+                        .cookie(jwtCookie(jwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"title\":\"Doc1\",\"spaceId\":" + space1Id + "}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long doc1Id = Long.parseLong(doc1Resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
+
+        String doc2Resp = mockMvc.perform(post("/api/documents")
+                        .cookie(jwtCookie(jwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"title\":\"Doc2\",\"spaceId\":" + space2Id + "}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long doc2Id = Long.parseLong(doc2Resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
+
+        // Move Doc1 to SpaceTwo and make it child of Doc2
+        mockMvc.perform(post("/api/documents/" + doc1Id + "/move")
+                        .cookie(jwtCookie(jwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"spaceId\":" + space2Id + ",\"parentId\":" + doc2Id + "}"))
+                .andExpect(status().isOk());
+
+        // Verify circular dependency is validated on move
+        mockMvc.perform(post("/api/documents/" + doc2Id + "/move")
+                        .cookie(jwtCookie(jwt))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"spaceId\":" + space2Id + ",\"parentId\":" + doc1Id + "}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
     private long createSpace(String name, String desc) throws Exception {
         persistUser("admin", "admin123", "admin@kb.local", GlobalRole.EDITOR, true);
         String adminJwt = loginAndGetJwt("admin", "admin123");

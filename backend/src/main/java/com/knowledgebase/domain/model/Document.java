@@ -127,6 +127,11 @@ public class Document {
         restore(originalGitPath, this.previousParentId);
     }
 
+    public void moveToSpace(Long newSpaceId) {
+        this.spaceId = newSpaceId;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getters
     public Long getId() { return id; }
     public String getTitle() { return title; }
