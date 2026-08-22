@@ -70,3 +70,29 @@ window.documentHistoryDiff.addVersionOptions(oneVersionSelect, [
     {gitHash: 'c'.repeat(40), comment: 'Only version', createdAt: null}
 ]);
 assert.equal(oneVersionSelect.disabled, false);
+
+(async () => {
+    const versionHash = 'd'.repeat(40);
+    let requestCount = 0;
+    const cancelled = await window.documentHistoryDiff.restoreVersion(
+        '7', versionHash, async () => { requestCount++; }, () => false, () => {}
+    );
+    assert.equal(cancelled, false);
+    assert.equal(requestCount, 0);
+
+    let request;
+    let refreshed = 0;
+    const restored = await window.documentHistoryDiff.restoreVersion(
+        '7', versionHash,
+        async (url, options) => { request = {url, options}; },
+        () => true,
+        () => { refreshed++; }
+    );
+    assert.equal(restored, true);
+    assert.equal(request.url, `/api/documents/7/versions/${versionHash}/restore`);
+    assert.equal(request.options.method, 'POST');
+    assert.equal(refreshed, 1);
+})().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});

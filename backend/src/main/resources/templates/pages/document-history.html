@@ -7,6 +7,7 @@
         <button type="submit">Сравнить</button>
         <button id="diffModeToggle" type="button" disabled>Две панели</button>
         <button id="diffContextToggle" type="button" disabled>Показать весь файл</button>
+        <button id="restoreVersion" type="button" th:if="${canEdit}" disabled>Восстановить версию «До»</button>
     </form>
     <p id="diffStatus" class="diff-status" hidden aria-live="polite"></p>
     <section id="diffResult" class="diff-result" hidden aria-live="polite"></section>

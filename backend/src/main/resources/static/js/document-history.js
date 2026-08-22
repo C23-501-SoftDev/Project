@@ -78,7 +78,19 @@
         select.disabled = versions.length === 0;
     }
 
-    window.documentHistoryDiff = {renderDiff, addVersionOptions};
+    async function restoreVersion(documentId, gitHash, apiRequest = apiFetch, confirmAction = window.confirm,
+                                  afterSuccess = () => {}) {
+        if (!confirmAction(`Восстановить документ до версии ${gitHash.slice(0, 7)}? Будет создана новая версия.`)) {
+            return false;
+        }
+        await apiRequest(`/api/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(gitHash)}/restore`, {
+            method: 'POST'
+        });
+        await afterSuccess();
+        return true;
+    }
+
+    window.documentHistoryDiff = {renderDiff, addVersionOptions, restoreVersion};
 
     document.addEventListener('DOMContentLoaded', () => {
         const root = document.getElementById('documentHistory');
@@ -92,6 +104,7 @@
         const compareButton = form.querySelector('button[type="submit"]');
         const modeToggle = document.getElementById('diffModeToggle');
         const contextToggle = document.getElementById('diffContextToggle');
+        const restoreButton = document.getElementById('restoreVersion');
         const documentId = root.dataset.documentId;
         let diffLines = [];
         let diffMode = 'inline';
@@ -101,7 +114,7 @@
             compareButton.disabled = !fromInput.value || !toInput.value || fromInput.value === toInput.value;
         };
 
-        (async () => {
+        const loadVersions = async () => {
             try {
                 const versions = await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/versions`);
                 addVersionOptions(fromInput, versions);
@@ -111,11 +124,13 @@
                     toInput.value = versions[versions.length - 1].gitHash;
                 }
                 updateCompareButton();
+                if (restoreButton) restoreButton.disabled = versions.length === 0;
             } catch (error) {
                 status.hidden = false;
                 status.textContent = error.message || 'Не удалось загрузить историю версий.';
             }
-        })();
+        };
+        loadVersions();
 
         fromInput.addEventListener('change', updateCompareButton);
         toInput.addEventListener('change', updateCompareButton);
@@ -171,5 +186,26 @@
                 status.textContent = error.message || 'Не удалось загрузить полный файл.';
             }
         });
+
+        if (restoreButton) {
+            restoreButton.addEventListener('click', async () => {
+                const gitHash = fromInput.value.trim();
+                if (!/^[0-9a-f]{40}$/i.test(gitHash)) {
+                    status.hidden = false;
+                    status.textContent = 'Выберите версию для восстановления.';
+                    return;
+                }
+                try {
+                    const restored = await restoreVersion(documentId, gitHash, apiFetch, window.confirm, loadVersions);
+                    if (restored) {
+                        status.hidden = false;
+                        status.textContent = 'Версия восстановлена и сохранена как новая текущая версия.';
+                    }
+                } catch (error) {
+                    status.hidden = false;
+                    status.textContent = error.message || 'Не удалось восстановить версию документа.';
+                }
+            });
+        }
     });
 })();
