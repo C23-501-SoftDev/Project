@@ -37,6 +37,20 @@ public interface DocumentContentRepository {
      */
     Optional<String> findContentByPath(String gitFilePath);
 
+    List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
+                                        int maxLines, int maxBytes);
+
+    default List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
+                                                int maxLines, int maxBytes, boolean includeAllContext) {
+        return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes);
+    }
+
+    default List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
+                                                int maxLines, int maxBytes, boolean includeAllContext,
+                                                DiffAlgorithmType algorithm) {
+        return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes, includeAllContext);
+    }
+
     /**
      * Reads a document file from an immutable Git commit without changing the
      * repository working tree or HEAD.

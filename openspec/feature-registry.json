@@ -397,6 +397,24 @@
             "dependsOn": [
                 "documents-crud"
             ]
+        },
+        {
+            "featureId": "document-version-diff-mode",
+            "title": "Document version comparison mode",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E2 Жизненный цикл и Версионность (Lifecycle & Versioning)/F2.2 Контроль версий (Git Integration)/US2.2.3 Режим сравнения версий (Diff)/description.md"
+            ],
+            "endpoints": [
+                "GET /api/documents/{id}/versions",
+                "GET /api/documents/{id}/diff?from={hash1}&to={hash2}",
+                "GET /documents/{id}/history"
+            ],
+            "dependsOn": [
+                "git-commit-on-document-save"
+            ]
         }
     ]
 }
