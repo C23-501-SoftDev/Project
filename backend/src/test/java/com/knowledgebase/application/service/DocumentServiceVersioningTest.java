@@ -38,6 +38,7 @@ class DocumentServiceVersioningTest {
     @Mock private SpacePermissionRepository permissionRepository;
     @Mock private TemplateRepository templateRepository;
     @Mock private UserRepository userRepository;
+    @Mock private PermissionService permissionService;
     @Mock private RequirementNumberService requirementNumberService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private AuditService auditService;
@@ -49,9 +50,9 @@ class DocumentServiceVersioningTest {
     void setUp() {
         service = new DocumentService(documentRepository, contentRepository, documentVersionRepository,
                 spaceRepository, permissionRepository, templateRepository, userRepository,
-                requirementNumberService, eventPublisher, auditService);
+                permissionService, requirementNumberService, eventPublisher, auditService);
         document = Document.restore(10L, "Document", "spaces/Space/Document.md", DocumentStatus.DRAFT,
-                1L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
+                null, 1L, 2L, null, null, null, LocalDateTime.now(), LocalDateTime.now());
 
         when(documentRepository.findById(10L)).thenReturn(Optional.of(document));
         when(userRepository.findById(3L)).thenReturn(Optional.of(User.restore(3L, "editor", "hash",
