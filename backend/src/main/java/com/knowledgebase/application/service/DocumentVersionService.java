@@ -4,6 +4,7 @@ import com.knowledgebase.domain.exception.DocumentNotFoundException;
 import com.knowledgebase.domain.exception.DocumentVersionNotFoundException;
 import com.knowledgebase.domain.exception.DocumentVersionPathUnavailableException;
 import com.knowledgebase.domain.model.DocumentDiff;
+import com.knowledgebase.domain.model.DiffAlgorithmType;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
 import com.knowledgebase.domain.repository.DocumentVersionRepository;
@@ -43,6 +44,11 @@ public class DocumentVersionService {
     }
 
     public DocumentDiff compareVersions(Long documentId, String fromHash, String toHash, boolean includeAllContext) {
+        return compareVersions(documentId, fromHash, toHash, includeAllContext, DiffAlgorithmType.HYBRID);
+    }
+
+    public DocumentDiff compareVersions(Long documentId, String fromHash, String toHash, boolean includeAllContext,
+                                        DiffAlgorithmType algorithm) {
         validateHashes(fromHash, toHash);
         fromHash = fromHash.toLowerCase(Locale.ROOT);
         toHash = toHash.toLowerCase(Locale.ROOT);
@@ -50,11 +56,11 @@ public class DocumentVersionService {
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
         var fromVersion = requireRegisteredVersion(documentId, fromHash);
         var toVersion = requireRegisteredVersion(documentId, toHash);
-        return new DocumentDiff(documentId, fromHash, toHash,
+        return new DocumentDiff(documentId, fromHash, toHash, algorithm,
                 contentRepository.diffDocumentVersions(
                         pathForVersion(fromVersion, document.getGitFilePath()),
                         pathForVersion(toVersion, document.getGitFilePath()),
-                        fromHash, toHash, maxDiffLines, maxDiffBytes, includeAllContext));
+                        fromHash, toHash, maxDiffLines, maxDiffBytes, includeAllContext, algorithm));
     }
 
     public List<com.knowledgebase.domain.model.DocumentVersion> listVersions(Long documentId) {
