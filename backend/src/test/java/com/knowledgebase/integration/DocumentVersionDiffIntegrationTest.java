@@ -36,10 +36,59 @@ class DocumentVersionDiffIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/documents/" + documentId + "/diff")
                         .param("from", hashes.get(0)).param("to", hashes.get(1)).cookie(jwtCookie(jwt)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("REMOVED")))
-                .andExpect(content().string(containsString("ADDED")))
+                .andExpect(jsonPath("$.algorithm").value("HYBRID"))
+                .andExpect(content().string(containsString("MODIFIED")))
                 .andExpect(content().string(containsString("Removed")))
                 .andExpect(content().string(containsString("Added")));
+    }
+
+    @Test
+    void supportsEveryTextComparisonAlgorithmAndHighlightsHybridSegments() throws Exception {
+        persistUser("editor-algorithms", "editor123", "algorithms@kb.local", GlobalRole.EDITOR, true);
+        String jwt = loginAndGetJwt("editor-algorithms", "editor123");
+        long documentId = createDocument(jwt, createSpace(jwt), "Algorithms");
+        updatePublished(jwt, documentId, "Цвет: синий");
+        updatePublished(jwt, documentId, "Цвет: зелёный");
+        List<String> hashes = jdbcTemplate.queryForList(
+                "SELECT git_hash FROM versions WHERE document_id = ? ORDER BY created_at", String.class, documentId);
+
+        for (String algorithm : List.of("HYBRID", "CHARACTER", "WORD", "LINE")) {
+            mockMvc.perform(get("/api/documents/" + documentId + "/diff")
+                            .param("from", hashes.get(0)).param("to", hashes.get(1))
+                            .param("algorithm", algorithm).cookie(jwtCookie(jwt)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.algorithm").value(algorithm));
+        }
+
+        mockMvc.perform(get("/api/documents/" + documentId + "/diff")
+                        .param("from", hashes.get(0)).param("to", hashes.get(1))
+                        .param("algorithm", "HYBRID").cookie(jwtCookie(jwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lines[?(@.type == 'MODIFIED')].segments[0].type").exists())
+                .andExpect(content().string(containsString("UNCHANGED")));
+    }
+
+    @Test
+    void characterAlgorithmReturnsOneTextStreamForAnInWordReplacement() throws Exception {
+        persistUser("editor-character", "editor123", "character@kb.local", GlobalRole.EDITOR, true);
+        String jwt = loginAndGetJwt("editor-character", "editor123");
+        long documentId = createDocument(jwt, createSpace(jwt), "Character stream");
+        updatePublished(jwt, documentId, "Чаша");
+        updatePublished(jwt, documentId, "Чаши");
+        List<String> hashes = jdbcTemplate.queryForList(
+                "SELECT git_hash FROM versions WHERE document_id = ? ORDER BY created_at", String.class, documentId);
+
+        mockMvc.perform(get("/api/documents/" + documentId + "/diff")
+                        .param("from", hashes.get(0)).param("to", hashes.get(1))
+                        .param("algorithm", "CHARACTER").cookie(jwtCookie(jwt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lines.length()").value(1))
+                .andExpect(jsonPath("$.lines[0].type").value("MODIFIED"))
+                .andExpect(jsonPath("$.lines[0].segments[0].content").value("Чаш"))
+                .andExpect(jsonPath("$.lines[0].segments[1].type").value("REMOVED"))
+                .andExpect(jsonPath("$.lines[0].segments[1].content").value("а"))
+                .andExpect(jsonPath("$.lines[0].segments[2].type").value("ADDED"))
+                .andExpect(jsonPath("$.lines[0].segments[2].content").value("и"));
     }
 
     @Test

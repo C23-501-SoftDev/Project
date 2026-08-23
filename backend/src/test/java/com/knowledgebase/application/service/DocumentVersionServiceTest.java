@@ -3,6 +3,7 @@ package com.knowledgebase.application.service;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
 import com.knowledgebase.domain.model.DocumentVersion;
+import com.knowledgebase.domain.model.DiffAlgorithmType;
 import com.knowledgebase.domain.exception.DocumentVersionNotFoundException;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import com.knowledgebase.domain.repository.DocumentRepository;
@@ -60,13 +61,13 @@ class DocumentVersionServiceTest {
         when(versions.findByDocumentIdAndGitHash(7L, toHash))
                 .thenReturn(Optional.of(DocumentVersion.create(7L, toHash, "spaces/test.md", 2L, null, LocalDateTime.now())));
         when(content.diffDocumentVersions("spaces/current.md", "spaces/test.md", fromHash, toHash,
-                2000, 1_048_576, false)).thenReturn(List.of());
+                2000, 1_048_576, false, DiffAlgorithmType.HYBRID)).thenReturn(List.of());
 
         DocumentVersionService service = new DocumentVersionService(documents, versions, content, 2000, 1_048_576);
 
         service.compareVersions(7L, fromHash, toHash);
 
         verify(content).diffDocumentVersions("spaces/current.md", "spaces/test.md", fromHash, toHash,
-                2000, 1_048_576, false);
+                2000, 1_048_576, false, DiffAlgorithmType.HYBRID);
     }
 }

@@ -6,6 +6,27 @@
         return cell;
     }
 
+    function appendSegments(cell, line, allowedType) {
+        const segments = line.segments && line.segments.length
+            ? line.segments
+            : [{type: line.type === 'CONTEXT' ? 'UNCHANGED' : line.type, content: line.content}];
+        segments.forEach(segment => {
+            const type = String(segment.type || 'UNCHANGED').toLowerCase();
+            if (allowedType && type !== 'unchanged' && type !== allowedType) return;
+            const span = document.createElement('span');
+            span.className = 'diff-segment-' + type;
+            span.textContent = segment.content == null ? '' : String(segment.content);
+            cell.append(span);
+        });
+    }
+
+    function createContentCell(className, line, allowedType) {
+        const cell = document.createElement('td');
+        cell.className = className;
+        appendSegments(cell, line, allowedType);
+        return cell;
+    }
+
     function renderInlineDiff(container, lines) {
         const table = document.createElement('table');
         table.className = 'diff-table';
@@ -16,8 +37,8 @@
             row.className = 'diff-line diff-line-' + type;
             row.append(createCell('diff-line-number', line.beforeLineNumber));
             row.append(createCell('diff-line-number', line.afterLineNumber));
-            row.append(createCell('diff-line-marker', type === 'removed' ? '−' : type === 'added' ? '+' : ''));
-            row.append(createCell('diff-line-content', line.content));
+            row.append(createCell('diff-line-marker', type === 'removed' ? '−' : type === 'added' ? '+' : type === 'modified' ? '±' : ''));
+            row.append(createContentCell('diff-line-content', line));
             body.append(row);
         });
         table.append(body);
@@ -33,11 +54,13 @@
             const type = String(line.type || 'CONTEXT').toLowerCase();
             row.className = 'diff-line diff-line-' + type;
             row.append(createCell('diff-line-number diff-before-number', line.beforeLineNumber));
-            row.append(createCell('diff-line-content diff-before-content', type === 'added' ? '' : line.content));
-            row.append(createCell('diff-line-marker diff-before-marker', type === 'removed' ? '−' : ''));
-            row.append(createCell('diff-line-marker diff-after-marker', type === 'added' ? '+' : ''));
+            row.append(createContentCell('diff-line-content diff-before-content', line, 'removed'));
+            row.append(createCell('diff-line-marker diff-before-marker',
+                type === 'removed' || type === 'modified' ? '−' : ''));
+            row.append(createCell('diff-line-marker diff-after-marker',
+                type === 'added' || type === 'modified' ? '+' : ''));
             row.append(createCell('diff-line-number diff-after-number', line.afterLineNumber));
-            row.append(createCell('diff-line-content diff-after-content', type === 'removed' ? '' : line.content));
+            row.append(createContentCell('diff-line-content diff-after-content', line, 'added'));
             body.append(row);
         });
         table.append(body);
@@ -76,6 +99,7 @@
         // A single version is still useful to inspect; only the compare action
         // requires two distinct hashes.
         select.disabled = versions.length === 0;
+        select.setAttribute('aria-busy', 'false');
     }
 
     window.documentHistoryDiff = {renderDiff, addVersionOptions};
@@ -92,6 +116,7 @@
         const compareButton = form.querySelector('button[type="submit"]');
         const modeToggle = document.getElementById('diffModeToggle');
         const contextToggle = document.getElementById('diffContextToggle');
+        const algorithmInput = document.getElementById('diffAlgorithm');
         const documentId = root.dataset.documentId;
         let diffLines = [];
         let diffMode = 'inline';
@@ -112,6 +137,8 @@
                 }
                 updateCompareButton();
             } catch (error) {
+                fromInput.setAttribute('aria-busy', 'false');
+                toInput.setAttribute('aria-busy', 'false');
                 status.hidden = false;
                 status.textContent = error.message || 'Не удалось загрузить историю версий.';
             }
@@ -122,7 +149,8 @@
 
         async function loadDiff(from, to) {
             const context = fullContext ? 'all' : 'changed';
-            const diff = await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&context=${context}`);
+            const algorithm = algorithmInput.value || 'CHARACTER';
+            const diff = await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&context=${context}&algorithm=${encodeURIComponent(algorithm)}`);
             diffLines = diff.lines || [];
             renderDiff(result, diffLines, diffMode);
             result.hidden = false;
