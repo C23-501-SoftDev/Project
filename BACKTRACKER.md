@@ -75,7 +75,7 @@
 | POST | `/api/documents/{id}/attachments` | Загрузка вложений (multipart/form-data) | ✅ |
 | DELETE | `/api/documents/{id}/attachments/{attachmentId}` | Удаление вложения | ✅ |
 | GET | `/api/documents/{id}/permissions` | Права доступа к документу (поверх прав пространства) | ❌ |
-| GET | `/api/documents/{id}/versions?page=0&size=10` | Список версий документа | ❌ |
+| GET | `/api/documents/{id}/versions` | Список сохранённых версий документа | ✅ |
 | GET | `/api/user/permissions?spaceId={id}` | Права в пространстве (для отображения кнопок Edit/Delete) | ✅ |
 
 **Данные для SSR-страницы:**
@@ -138,9 +138,9 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/{id}/versions?page=0&size=20` | Список версий с пагинацией (gitHash, author, comment, createdAt) | ❌ |
+| GET | `/api/documents/{id}/versions` | Список сохранённых версий (gitHash, comment, createdAt) | ✅ |
 | GET | `/api/documents/{id}/versions/{gitHash}` | Содержимое конкретной версии | ❌ |
-| GET | `/api/documents/{id}/diff?from={hash1}&to={hash2}` | Сравнение двух версий (diff) | ❌ |
+| GET | `/api/documents/{id}/diff?from={hash1}&to={hash2}&algorithm={HYBRID|CHARACTER|WORD|LINE}` | Безопасное сравнение двух версий с подсветкой фрагментов; по умолчанию гибридное | ✅ |
 | POST | `/api/documents/{id}/restore/{gitHash}` | Откат к версии (создаёт новую версию-копию) | ❌ |
 
 **Формат ответа версии:**
@@ -293,8 +293,8 @@
 | **Документы — создание** | POST `/api/documents` (400, 422) + шаблоны | ✅ |
 | **Документы — редактирование** | PUT `/api/documents/{id}` (400, 422, 404) | ✅ |
 | **Документы — удаление** | DELETE `/api/documents/{id}` (soft) | ✅ |
-| **Версии** | GET `/api/documents/{id}/versions` | ❌ |
-| **Diff версий** | GET `/api/documents/{id}/diff` | ❌ |
+| **Версии** | GET `/api/documents/{id}/versions` | ✅ |
+| **Diff версий** | GET `/api/documents/{id}/diff` | ✅ |
 | **Откат версии** | POST `/api/documents/{id}/restore` | ❌ |
 | **Поиск** | GET `/api/documents/search` | ❌ |
 | **Вложения** | GET/POST/DELETE `/api/documents/{id}/attachments` | ✅ |
