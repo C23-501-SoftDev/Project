@@ -33,6 +33,7 @@ import java.nio.file.Paths;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Optional;
@@ -48,6 +49,7 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
 
     private static final Logger log = LoggerFactory.getLogger(JGitDocumentContentRepository.class);
     private static final int DIFF_CONTEXT_LINES = 3;
+    private static final Pattern GIT_HASH = Pattern.compile("^[0-9a-fA-F]{40}$");
 
     private final String gitRepoPath;
 
@@ -143,6 +145,40 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
         } catch (IOException e) {
             log.error("Ошибка при чтении контента из Git: {}", gitFilePath, e);
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public synchronized Optional<String> readDocumentVersion(String gitFilePath, String gitHash) {
+        validateVersionReadArguments(gitFilePath, gitHash);
+        try (Git git = Git.open(new File(gitRepoPath))) {
+            org.eclipse.jgit.lib.Repository repository = git.getRepository();
+            ObjectId commitId = repository.resolve(gitHash);
+            if (commitId == null) {
+                throw new IllegalArgumentException("Git-коммит не найден");
+            }
+            try (RevWalk walk = new RevWalk(repository)) {
+                RevCommit commit = walk.parseCommit(commitId);
+                try (TreeWalk treeWalk = TreeWalk.forPath(repository, gitFilePath, commit.getTree())) {
+                    if (treeWalk == null) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(new String(repository.open(treeWalk.getObjectId(0)).getBytes(), StandardCharsets.UTF_8));
+                }
+            }
+        } catch (IOException e) {
+            log.error("Ошибка при чтении версии документа {} из Git-коммита {}", gitFilePath, gitHash, e);
+            throw new RuntimeException("Ошибка Git-хранилища", e);
+        }
+    }
+
+    private void validateVersionReadArguments(String gitFilePath, String gitHash) {
+        if (gitFilePath == null || gitFilePath.isBlank()) {
+            throw new IllegalArgumentException("Путь файла не должен быть пустым");
+        }
+        resolvePath(gitFilePath);
+        if (gitHash == null || !GIT_HASH.matcher(gitHash).matches()) {
+            throw new IllegalArgumentException("Git SHA должен быть 40-символьным шестнадцатеричным идентификатором");
         }
     }
 

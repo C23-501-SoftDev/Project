@@ -117,3 +117,13 @@ assert.match(historyTemplate, /id="diffContextToggle" class="diff-secondary-butt
 
 const documentViewTemplate = fs.readFileSync(path.resolve(__dirname, '../../main/resources/templates/pages/document-view.html'), 'utf8');
 assert.match(documentViewTemplate, /id="historyLink"/);
+
+const editorTemplate = fs.readFileSync(path.resolve(__dirname, '../../main/resources/templates/pages/document-edit.html'), 'utf8');
+assert.match(editorTemplate, /id="rollbackVersionLink"/);
+assert.match(editorTemplate, /rollback=true/);
+assert.match(historyTemplate, /id="rollbackSave"/);
+
+const historyScript = fs.readFileSync(path.resolve(__dirname, '../../main/resources/static/js/document-history.js'), 'utf8');
+assert.match(historyScript, /get\('rollback'\) === 'true'/);
+assert.match(historyScript, /fromInput\.disabled = true/);
+assert.match(historyScript, /versions\/\$\{encodeURIComponent\(targetHash\)\}\/restore/);

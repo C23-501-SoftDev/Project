@@ -52,6 +52,30 @@ public interface DocumentContentRepository {
     }
 
     /**
+     * Reads a document file from an immutable Git commit without changing the
+     * repository working tree or HEAD.
+     *
+     * @param gitFilePath repository-relative document path
+     * @param gitHash full 40-character Git commit SHA
+     * @return file content, or empty when the file is absent from that commit
+     */
+    Optional<String> readDocumentVersion(String gitFilePath, String gitHash);
+
+    List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
+                                        int maxLines, int maxBytes);
+
+    default List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
+                                                int maxLines, int maxBytes, boolean includeAllContext) {
+        return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes);
+    }
+
+    default List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
+                                                int maxLines, int maxBytes, boolean includeAllContext,
+                                                DiffAlgorithmType algorithm) {
+        return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes, includeAllContext);
+    }
+
+    /**
      * Перемещает файл в Git (используется при архивации).
      * @param oldPath текущий путь
      * @param newPath новый путь

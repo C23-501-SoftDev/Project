@@ -117,7 +117,9 @@
         const modeToggle = document.getElementById('diffModeToggle');
         const contextToggle = document.getElementById('diffContextToggle');
         const algorithmInput = document.getElementById('diffAlgorithm');
+        const rollbackSave = document.getElementById('rollbackSave');
         const documentId = root.dataset.documentId;
+        const rollbackMode = new URLSearchParams(window.location.search).get('rollback') === 'true';
         let diffLines = [];
         let diffMode = 'inline';
         let fullContext = false;
@@ -126,14 +128,29 @@
             compareButton.disabled = !fromInput.value || !toInput.value || fromInput.value === toInput.value;
         };
 
+        const updateRollbackButton = () => {
+            if (!rollbackMode) return;
+            rollbackSave.disabled = !toInput.value || toInput.value === fromInput.value;
+        };
+
         (async () => {
             try {
                 const versions = await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/versions`);
                 addVersionOptions(fromInput, versions);
                 addVersionOptions(toInput, versions);
                 if (versions.length >= 2) {
-                    fromInput.value = versions[0].gitHash;
-                    toInput.value = versions[versions.length - 1].gitHash;
+                    if (rollbackMode) {
+                        fromInput.value = versions[versions.length - 1].gitHash;
+                        fromInput.disabled = true;
+                        toInput.value = versions[versions.length - 2].gitHash;
+                        compareButton.hidden = true;
+                        rollbackSave.hidden = false;
+                        updateRollbackButton();
+                        await loadDiff(fromInput.value, toInput.value);
+                    } else {
+                        fromInput.value = versions[0].gitHash;
+                        toInput.value = versions[versions.length - 1].gitHash;
+                    }
                 }
                 updateCompareButton();
             } catch (error) {
@@ -145,7 +162,15 @@
         })();
 
         fromInput.addEventListener('change', updateCompareButton);
-        toInput.addEventListener('change', updateCompareButton);
+        toInput.addEventListener('change', async () => {
+            updateCompareButton();
+            updateRollbackButton();
+            if (rollbackMode && toInput.value && toInput.value !== fromInput.value) {
+                status.hidden = false;
+                status.textContent = 'Загрузка сравнения…';
+                await loadDiff(fromInput.value, toInput.value);
+            }
+        });
 
         async function loadDiff(from, to) {
             const context = fullContext ? 'all' : 'changed';
@@ -180,6 +205,23 @@
             } catch (error) {
                 status.textContent = error.message || 'Не удалось загрузить сравнение версий.';
                 result.hidden = true;
+            }
+        });
+
+        rollbackSave.addEventListener('click', async () => {
+            const targetHash = toInput.value.trim();
+            if (!/^[0-9a-f]{40}$/i.test(targetHash) || targetHash === fromInput.value) return;
+            rollbackSave.disabled = true;
+            status.hidden = false;
+            status.textContent = 'Сохранение отката…';
+            try {
+                await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(targetHash)}/restore`, {
+                    method: 'POST'
+                });
+                window.location.assign(`/documents/${encodeURIComponent(documentId)}/edit`);
+            } catch (error) {
+                rollbackSave.disabled = false;
+                status.textContent = error.message || 'Не удалось сохранить откат версии.';
             }
         });
 

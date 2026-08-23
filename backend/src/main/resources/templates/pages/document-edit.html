@@ -7,14 +7,16 @@
                 Назад</a>
             <h2 style="margin:0; font-size:18px; max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="headerTitle" title="">Редактирование</h2>
         </div>
-        <div class="editor-actions" style="display: flex; align-items: center; gap: 12px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <span>Статус:</span>
-                <span id="statusBadge" class="badge">Draft</span>
+            <div class="editor-actions" style="display: flex; align-items: center; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span>Статус:</span>
+                    <span id="statusBadge" class="badge">Draft</span>
+                </div>
+                <a id="rollbackVersionLink" th:href="@{/documents/{id}/history(id=${documentId},rollback=true)}"
+                    class="button-secondary" style="text-decoration:none;">Откат версии</a>
+                <button class="button-primary" id="saveBtn">Сохранить (Ctrl+S)</button>
+                <span id="autosaveStatus" class="autosave-status" data-state="saved">Сохранено</span>
             </div>
-            <span id="autosaveStatus" class="autosave-status" data-state="saved">Сохранено</span>
-            <button class="button-primary" id="saveBtn">Сохранить (Ctrl+S)</button>
-        </div>
     </div>
 
     <div class="editor-metadata"
@@ -652,4 +654,3 @@
         loadDocument();
     })();
 </script>
-

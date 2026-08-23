@@ -134,6 +134,7 @@ public class PageController {
         model.addAttribute("pageTitle", "История версий");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
+        model.addAttribute("canEdit", permissionService.canWrite(user.getId(), user.isAdmin(), document.getSpaceId()));
         addSidebarData(document.getSpaceId(), model, user);
         model.addAttribute("content", "pages/document-history");
         return "layout";

@@ -55,6 +55,20 @@ class JGitDocumentContentRepositoryIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void readsHistoricalBlobWithoutMovingHead() throws Exception {
+        var firstCommit = gitRepository.saveContent("docs/versioned.md", "First version",
+                "First version", "Editor", "editor@kb.local");
+        var secondCommit = gitRepository.saveContent("docs/versioned.md", "Second version",
+                "Second version", "Editor", "editor@kb.local");
+
+        assertEquals("First version", gitRepository.readDocumentVersion("docs/versioned.md", firstCommit.hash()).orElseThrow());
+
+        try (Git git = Git.open(tempDir.resolve("git-repo").toFile())) {
+            assertEquals(secondCommit.hash(), git.log().setMaxCount(1).call().iterator().next().getId().name());
+        }
+    }
+
+    @Test
     void shouldMoveContent() {
         // Given
         String oldPath = "old/folder/doc.md";
