@@ -104,6 +104,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(DocumentDiffTooLargeException.class)
+    public ResponseEntity<ErrorResponse> handleDocumentDiffTooLarge(
+            DocumentDiffTooLargeException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage(), request);
+    }
+
     // ── 403 Forbidden: ошибки авторизации ────────────────────────────────────
 
     /**
@@ -152,6 +158,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GroupNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleGroupNotFound(
             GroupNotFoundException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler({DocumentNotFoundException.class, DocumentVersionNotFoundException.class,
+            DocumentVersionPathUnavailableException.class})
+    public ResponseEntity<ErrorResponse> handleDocumentVersionNotFound(
+            DomainException ex, HttpServletRequest request) {
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
     }
 

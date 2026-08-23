@@ -1,5 +1,26 @@
-<div class="document-history-page">
-    <h1>История версий документа</h1>
-    <p>Документ #<span th:text="${documentId}">ID</span></p>
-    <p>История изменений будет отображаться здесь.</p>
+<div id="documentHistory" class="document-history-page" th:attr="data-document-id=${documentId}">
+    <div class="diff-page-heading">
+        <div>
+            <p class="diff-eyebrow">Версионность</p>
+            <h1>История и сравнение</h1>
+            <p>Документ #<span th:text="${documentId}">ID</span>. Выберите две версии, чтобы увидеть правки.</p>
+        </div>
+    </div>
+    <form id="diffSelector" class="diff-selector">
+        <label>До <select id="diffFrom" required aria-busy="true"></select></label>
+        <label>После <select id="diffTo" required aria-busy="true"></select></label>
+        <label>Способ сравнения
+            <select id="diffAlgorithm">
+                <option value="CHARACTER" selected>Символьный</option>
+                <option value="LINE">Построчный</option>
+            </select>
+        </label>
+        <button type="submit" class="diff-compare-button">Сравнить</button>
+                <button id="rollbackSave" type="button" class="diff-compare-button" hidden disabled>Сохранить</button>
+        <button id="diffModeToggle" class="diff-secondary-button" type="button" disabled>Две панели</button>
+        <button id="diffContextToggle" class="diff-secondary-button" type="button" disabled>Показать весь файл</button>
+    </form>
+    <p id="diffStatus" class="diff-status" hidden aria-live="polite"></p>
+    <section id="diffResult" class="diff-result" hidden aria-live="polite"></section>
 </div>
+<script src="/js/document-history.js"></script>
