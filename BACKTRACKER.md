@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-08-19
+**Дата обновления:** 2026-08-12
 
 ---
 
@@ -75,8 +75,7 @@
 | POST | `/api/documents/{id}/attachments` | Загрузка вложений (multipart/form-data) | ✅ |
 | DELETE | `/api/documents/{id}/attachments/{attachmentId}` | Удаление вложения | ✅ |
 | GET | `/api/documents/{id}/permissions` | Права доступа к документу (поверх прав пространства) | ❌ |
-| GET | `/api/documents/{id}/versions` | Список сохранённых версий документа | ✅ |
-| POST | `/api/documents/{id}/versions/{gitHash}/restore` | Безопасно восстановить версию как новый Git-снимок | ✅ |
+| GET | `/api/documents/{id}/versions?page=0&size=10` | Список версий документа | ❌ |
 | GET | `/api/user/permissions?spaceId={id}` | Права в пространстве (для отображения кнопок Edit/Delete) | ✅ |
 
 **Данные для SSR-страницы:**
@@ -139,10 +138,10 @@
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/{id}/versions` | Список сохранённых версий (gitHash, comment, createdAt) | ✅ |
+| GET | `/api/documents/{id}/versions?page=0&size=20` | Список версий с пагинацией (gitHash, author, comment, createdAt) | ❌ |
 | GET | `/api/documents/{id}/versions/{gitHash}` | Содержимое конкретной версии | ❌ |
-| GET | `/api/documents/{id}/diff?from={hash1}&to={hash2}&algorithm={HYBRID|CHARACTER|WORD|LINE}` | Безопасное сравнение двух версий с подсветкой фрагментов; по умолчанию гибридное | ✅ |
-| POST | `/api/documents/{id}/versions/{gitHash}/restore` | Откат к версии (создаёт новую версию-копию) | ✅ |
+| GET | `/api/documents/{id}/diff?from={hash1}&to={hash2}` | Сравнение двух версий (diff) | ❌ |
+| POST | `/api/documents/{id}/restore/{gitHash}` | Откат к версии (создаёт новую версию-копию) | ❌ |
 
 **Формат ответа версии:**
 ```json
@@ -294,9 +293,9 @@
 | **Документы — создание** | POST `/api/documents` (400, 422) + шаблоны | ✅ |
 | **Документы — редактирование** | PUT `/api/documents/{id}` (400, 422, 404) | ✅ |
 | **Документы — удаление** | DELETE `/api/documents/{id}` (soft) | ✅ |
-| **Версии** | GET `/api/documents/{id}/versions` | ✅ |
-| **Diff версий** | GET `/api/documents/{id}/diff` | ✅ |
-| **Откат версии** | POST `/api/documents/{id}/versions/{gitHash}/restore` | ✅ |
+| **Версии** | GET `/api/documents/{id}/versions` | ❌ |
+| **Diff версий** | GET `/api/documents/{id}/diff` | ❌ |
+| **Откат версии** | POST `/api/documents/{id}/restore` | ❌ |
 | **Поиск** | GET `/api/documents/search` | ❌ |
 | **Вложения** | GET/POST/DELETE `/api/documents/{id}/attachments` | ✅ |
 | **Экспорт** | GET `/api/documents/{id}/export` | ❌ |

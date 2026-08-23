@@ -369,7 +369,7 @@ public class DocumentService {
             }
             Document updatedMetadata = documentRepository.save(document);
             try {
-                documentVersionRepository.save(DocumentVersion.create(updatedMetadata.getId(), commit.hash(), newPath,
+                documentVersionRepository.save(DocumentVersion.create(updatedMetadata.getId(), commit.hash(),
                         editor.getId(), commitMessage, commit.committedAt()));
             } catch (RuntimeException e) {
                 log.error("Git-коммит {} создан, но метаданные версии документа {} не сохранены",
