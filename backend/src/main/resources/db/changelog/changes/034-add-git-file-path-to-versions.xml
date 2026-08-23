@@ -2,7 +2,7 @@
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
-    <changeSet id="033-add-git-file-path-to-versions" author="knowledgebase-dev">
+    <changeSet id="034-add-git-file-path-to-versions" author="knowledgebase-dev">
         <comment>Сохраняет путь файла на момент версии для корректного diff после переименования документа</comment>
         <addColumn tableName="versions">
             <column name="git_file_path" type="varchar(500)"/>

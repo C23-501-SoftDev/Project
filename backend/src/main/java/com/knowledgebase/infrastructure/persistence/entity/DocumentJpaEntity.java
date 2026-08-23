@@ -31,6 +31,9 @@ public class DocumentJpaEntity {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+    @Column(name = "previous_status", length = 20)
+    private String previousStatus;
+
     @Column(name = "author_id", nullable = false)
     private Long authorId;
 
@@ -43,8 +46,14 @@ public class DocumentJpaEntity {
     @Column(name = "parent_document_id")
     private Long parentDocumentId;
 
+    @Column(name = "previous_parent_id")
+    private Long previousParentId;
+
     public Long getParentDocumentId() { return parentDocumentId; }
     public void setParentDocumentId(Long parentDocumentId) { this.parentDocumentId = parentDocumentId; }
+
+    public Long getPreviousParentId() { return previousParentId; }
+    public void setPreviousParentId(Long previousParentId) { this.previousParentId = previousParentId; }
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -68,6 +77,8 @@ public class DocumentJpaEntity {
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
+    public String getPreviousStatus() { return previousStatus; }
+    public void setPreviousStatus(String previousStatus) { this.previousStatus = previousStatus; }
     public Long getAuthorId() { return authorId; }
     public void setAuthorId(Long authorId) { this.authorId = authorId; }
 

@@ -382,6 +382,21 @@
                 "git-commit-on-document-save",
                 "document-version-diff-mode"
             ]
+        },
+        {
+            "featureId": "safe-document-save",
+            "title": "Safe document save: CSRF-protected save with 401/403/400 handling and debounce autosave",
+            "status": "done",
+            "area": "frontend",
+            "repo": "Project",
+            "docs": [],
+            "endpoints": [
+                "PUT /api/documents/{id}"
+            ],
+            "description": "Safe document save in edit page: explicit HTTP status handling (200/400/401/403), 3-second debounce autosave, status indicator (Saved/Unsaved/Saving/Error), CSRF-safe requests reusing XSRF-TOKEN cookie and credentials same-origin.",
+            "dependsOn": [
+                "documents-crud"
+            ]
         }
     ]
 }

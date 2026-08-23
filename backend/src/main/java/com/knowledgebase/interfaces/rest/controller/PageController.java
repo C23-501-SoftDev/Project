@@ -79,6 +79,9 @@ public class PageController {
         model.addAttribute("documentId", id);
 
         var doc = documentService.getDocumentById(id);
+        if (!documentService.canViewDocument(user.getId(), user.isAdmin(), doc)) {
+            return "redirect:/";
+        }
         addSidebarData(doc.getSpaceId(), model, user);
 
         model.addAttribute("content", "pages/document-view");
@@ -98,7 +101,6 @@ public class PageController {
         if (spaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
             return "redirect:/spaces/" + spaceId;
         }
-
         model.addAttribute("pageTitle", "Создание документа");
         model.addAttribute("currentUser", user);
         addAllSpacesTrees(model, user);
@@ -109,7 +111,6 @@ public class PageController {
     @GetMapping("/documents/{id}/edit")
     public String editDocument(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
         var doc = documentService.getDocumentById(id);
-
         // Проверка прав на редактирование
         if (!permissionService.canWrite(user.getId(), user.isAdmin(), doc.getSpaceId())) {
             return "redirect:/documents/" + id;
@@ -118,7 +119,6 @@ public class PageController {
         model.addAttribute("pageTitle", "Редактирование документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
-
         addSidebarData(doc.getSpaceId(), model, user);
 
         model.addAttribute("content", "pages/document-edit");
@@ -149,7 +149,11 @@ public class PageController {
         String normalizedQuery = q != null ? q.trim() : "";
         var searchPage = documentService.searchDocumentsByTitle(q, dateFrom, dateTo, user.getId(), user.isAdmin(), 0, 20);
 
-        model.addAttribute("searchResults", searchPage.getContent().stream()
+        var visibleDocs = searchPage.getContent().stream()
+                .filter(doc -> documentService.canViewDocument(user.getId(), user.isAdmin(), doc))
+                .toList();
+
+        model.addAttribute("searchResults", visibleDocs.stream()
                 .map(document -> new DocumentResponse(
                         document.getId(),
                         document.getTitle(),
@@ -170,7 +174,7 @@ public class PageController {
         model.addAttribute("searchQuery", normalizedQuery);
         model.addAttribute("searchDateFrom", dateFrom);
         model.addAttribute("searchDateTo", dateTo);
-        model.addAttribute("searchTotalElements", searchPage.getTotalElements());
+        model.addAttribute("searchTotalElements", (long) visibleDocs.size());
         model.addAttribute("content", "pages/search-results");
         return "layout";
     }
@@ -182,7 +186,6 @@ public class PageController {
         model.addAttribute("spaceId", id);
 
         addSidebarData(id, model, user);
-
         model.addAttribute("content", "pages/space-view");
         return "layout";
     }
@@ -192,6 +195,9 @@ public class PageController {
         // Декодируем docTitle, так как он может приходить в URL с закодированными символами
         String decodedTitle = java.net.URLDecoder.decode(docTitle, java.nio.charset.StandardCharsets.UTF_8);
         var doc = documentService.getDocumentBySpaceAndTitle(spaceId, decodedTitle);
+        if (!documentService.canViewDocument(user.getId(), user.isAdmin(), doc)) {
+            return "redirect:/spaces/" + spaceId;
+        }
         model.addAttribute("pageTitle", "Просмотр документа");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", doc.getId());
@@ -245,6 +251,19 @@ public class PageController {
     }
 
     /**
+     * GET /admin/recycle-bin
+     * Панель администратора — корзина документов.
+     */
+    @GetMapping("/admin/recycle-bin")
+    public String adminRecycleBin(@AuthenticationPrincipal User user, Model model) {
+        model.addAttribute("pageTitle", "Корзина документов");
+        model.addAttribute("currentUser", user);
+        model.addAttribute("activePage", "recycle-bin");
+        model.addAttribute("content", "pages/admin-recycle-bin");
+        return "admin-layout";
+    }
+
+    /**
      * GET /admin/groups
      * Панель администратора — управление группами пользователей (US4.1.8 / US4.1.9).
      */
@@ -270,3 +289,4 @@ public class PageController {
         return "admin-layout";
     }
 }
+

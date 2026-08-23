@@ -64,7 +64,7 @@
             document.getElementById(id).addEventListener('click', (e) => {
                 e.preventDefault();
                 document.getElementById('exportMenu').style.display = 'none';
-                exportAndAttach(docId, fmt);
+                triggerExportDownload(docId, fmt);
             });
         });
 
@@ -176,6 +176,11 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', loadDocument);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadDocument);
+        } else {
+            loadDocument();
+        }
     })();
 </script>
+

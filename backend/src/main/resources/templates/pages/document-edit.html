@@ -15,6 +15,7 @@
                 <a id="rollbackVersionLink" th:href="@{/documents/{id}/history(id=${documentId},rollback=true)}"
                     class="button-secondary" style="text-decoration:none;">Откат версии</a>
                 <button class="button-primary" id="saveBtn">Сохранить (Ctrl+S)</button>
+                <span id="autosaveStatus" class="autosave-status" data-state="saved">Сохранено</span>
             </div>
     </div>
 
@@ -127,6 +128,31 @@
 <!-- Подключаем marked.js для рендеринга Markdown -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+<style>
+.autosave-status {
+    font-size: 13px;
+    color: #6B7280;
+    font-weight: 500;
+    transition: color 0.15s ease;
+}
+
+.autosave-status[data-state="saved"] {
+    color: #059669;
+}
+
+.autosave-status[data-state="unsaved"] {
+    color: #D97706;
+}
+
+.autosave-status[data-state="saving"] {
+    color: #3B82F6;
+}
+
+.autosave-status[data-state="error"] {
+    color: #DC2626;
+}
+</style>
+
 <script>
     (function () {
         const docId = document.getElementById('documentId').value;
@@ -136,15 +162,78 @@
         const attachmentList = document.getElementById('attachmentList');
         const dropzone = document.getElementById('attachmentDropzone');
         const chooseButton = document.getElementById('attachChooseBtn');
+        const titleField = document.getElementById('docTitleField');
+        
+        // State management
         let currentDoc = null;
         let canManageAttachments = false;
+        let documentLoaded = false;
+        let autosaveTimer = null;
+        let isSaving = false;
 
         function updateStatusBadge() {
             const status = document.getElementById('docStatusField').value;
             const badge = document.getElementById('statusBadge');
-            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+            const labels = {
+                'DRAFT': 'Черновик',
+                'PUBLISHED': 'Опубликовано',
+                'DELETED': 'Удалено'
+            };
+            badge.textContent = labels[status] || status;
             badge.className = 'badge ' + status.toLowerCase();
             badge.style = '';
+
+            // Update options in custom select based on allowed transitions
+            const optionsContainer = document.querySelector('#docStatusWrapper .select-options');
+            let allowed = [];
+            if (status === 'DRAFT') {
+                allowed = [
+                    { value: 'DRAFT', label: 'Черновик' },
+                    { value: 'PUBLISHED', label: 'Опубликовано' },
+                    { value: 'DELETED', label: 'Удалено' }
+                ];
+            } else if (status === 'PUBLISHED') {
+                allowed = [
+                    { value: 'PUBLISHED', label: 'Опубликовано' },
+                    { value: 'DELETED', label: 'Удалено' }
+                ];
+            } else if (status === 'DELETED') {
+                allowed = [
+                    { value: 'DELETED', label: 'Удалено' },
+                    { value: 'DRAFT', label: 'Черновик' }
+                ];
+            }
+
+            optionsContainer.innerHTML = allowed.map(opt => `
+                <div class="select-option" data-value="${opt.value}">${opt.label}</div>
+            `).join('');
+
+            // Re-bind click events
+            optionsContainer.querySelectorAll('.select-option').forEach(option => {
+                option.addEventListener('click', async () => {
+                    const value = option.getAttribute('data-value');
+                    const oldStatus = document.getElementById('docStatusField').value;
+                    if (value === oldStatus) return;
+                    try {
+                        if (value === 'PUBLISHED' && oldStatus === 'DRAFT') {
+                            await apiFetch(`/api/documents/${docId}/publish`, { method: 'POST' });
+                            showToast('Документ опубликован');
+                        } else if (value === 'DELETED') {
+                            await apiFetch(`/api/documents/${docId}`, { method: 'DELETE' });
+                            showToast('Документ удален');
+                        } else if (value === 'DRAFT' && oldStatus === 'DELETED') {
+                            await apiFetch(`/api/documents/${docId}/restore`, { method: 'POST' });
+                            showToast('Документ восстановлен');
+                        }
+                        document.getElementById('docStatusField').value = value;
+                        document.getElementById('statusStyled').textContent = option.textContent;
+                updateStatusBadge();
+                        setTimeout(() => location.reload(), 800);
+            } catch (e) {
+                        showToast('Ошибка изменения статуса: ' + (e.message || ''), 'error');
+            }
+                });
+            });
         }
 
         // Logic for custom select
@@ -214,13 +303,12 @@
                     ${canManageAttachments ? `<button type="button" class="button-secondary" data-attachment-id="${item.id}" data-attachment-name="${escapeHtml(item.filename)}" style="min-width:auto; padding:6px 12px;">Удалить</button>` : ''}
                 </div>
             `).join('');
-
             attachmentList.querySelectorAll('[data-attachment-id]').forEach(button => {
                 button.addEventListener('click', async () => {
                     const attachmentId = button.getAttribute('data-attachment-id');
                     const attachmentName = button.getAttribute('data-attachment-name') || 'вложение';
                     await deleteAttachment(attachmentId, attachmentName);
-                });
+            });
             });
         }
 
@@ -230,8 +318,8 @@
                 renderAttachments(items);
             } catch (e) {
                 attachmentList.innerHTML = '<div style="color:#B91C1C; font-size:14px;">Не удалось загрузить список вложений</div>';
+                }
             }
-        }
 
         async function uploadAttachments(files) {
             const fileArray = Array.from(files || []);
@@ -306,48 +394,136 @@
             renderPreview();
         }
 
-        async function saveDocument() {
-            console.log("Save button clicked, docId:", docId);
-            const title = document.getElementById('docTitleField').value.trim();
+        /**
+         * Update the autosave status indicator
+         * @param {string} state - One of: saved, unsaved, saving, error
+         */
+        function updateAutosaveStatus(state) {
+            const statusEl = document.getElementById('autosaveStatus');
+            if (!statusEl) return;
+            
+            statusEl.setAttribute('data-state', state);
+            
+            const messages = {
+                saved: 'Сохранено',
+                unsaved: 'Несохранённые изменения',
+                saving: 'Сохранение...',
+                error: 'Ошибка сохранения'
+            };
+            
+            statusEl.textContent = messages[state] || '';
+        }
+
+        /**
+         * Save document with enhanced security and error handling
+         * @param {Object} options - Options object
+         * @param {boolean} options.silent - If true, don't show success toast (for autosave)
+         */
+        async function saveDocument(options = {}) {
+            const silent = options.silent || false;
+            
+            // Clear autosave timer to prevent race conditions
+            if (autosaveTimer) {
+                clearTimeout(autosaveTimer);
+                autosaveTimer = null;
+            }
+            
+            // Client-side validation
+            const title = titleField.value.trim();
             const status = document.getElementById('docStatusField').value;
             const content = textarea.value;
-            console.log("Data to save:", { title, status, content });
 
             if (!title) {
                 showToast('Заголовок не может быть пустым', 'error');
                 return;
             }
+            
+            // Prevent double submission
+            if (isSaving) return;
+            isSaving = true;
 
             const btn = document.getElementById('saveBtn');
             btn.disabled = true;
             btn.textContent = 'Сохранение...';
+            updateAutosaveStatus('saving');
 
             try {
-                console.log("Sending PUT request to:", `/api/documents/${docId}`);
                 const result = await apiFetch(`/api/documents/${docId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({
-                        title,
-                        status,
-                        content
-                    })
+                    body: JSON.stringify({ title, status, content })
                 });
-                console.log("Save successful, response:", result);
+                
+                // Success (200 OK)
                 currentDoc = result;
                 document.getElementById('headerTitle').textContent = title;
                 document.getElementById('headerTitle').title = title;
                 updateStatusBadge();
-                showToast('Сохранено');
-                setTimeout(() => {
-                    location.href = '/';
-                }, 1000);
+                updateAutosaveStatus('saved');
+                
+                if (!silent) {
+                    showToast('Документ сохранён');
+                }
+                
             } catch (e) {
                 console.error('Save failed:', e);
-                showToast('Ошибка сохранения: ' + e.message, 'error');
+                
+                // Handle 401 Unauthorized - session expired
+                if (e.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                // Handle 403 Forbidden - CSRF token expired/missing
+                if (e.status === 403) {
+                    showToast('Ошибка безопасности. Обновите страницу.', 'error');
+                    updateAutosaveStatus('error');
+                    return;
+                }
+                
+                // Handle 400 Bad Request - validation errors
+                // apiFetch already formats fieldErrors into error.message
+                if (e.status === 400) {
+                    showToast(e.message, 'error');
+                    updateAutosaveStatus('error');
+                    return;
+                }
+                
+                // Other errors
+                showToast(e.message || 'Ошибка сохранения', 'error');
+                updateAutosaveStatus('error');
+                
             } finally {
+                isSaving = false;
                 btn.disabled = false;
                 btn.textContent = 'Сохранить (Ctrl+S)';
             }
+        }
+
+        /**
+         * Setup autosave with debounce (3 seconds after last input)
+         */
+        function setupAutosave() {
+            const fields = [textarea, titleField];
+            
+            fields.forEach(field => {
+                field.addEventListener('input', () => {
+                    // Don't autosave until document is fully loaded
+                    if (!documentLoaded) return;
+                    
+                    // Clear previous timer
+                    if (autosaveTimer) {
+                        clearTimeout(autosaveTimer);
+                    }
+                    
+                    // Show unsaved indicator
+                    updateAutosaveStatus('unsaved');
+                    
+                    // Start new timer (3 seconds)
+                    autosaveTimer = setTimeout(() => {
+                        saveDocument({ silent: true });
+                    }, 3000);
+                });
+            });
         }
 
         async function loadDocument() {
@@ -369,10 +545,12 @@
                 statusField.value = doc.status || 'DRAFT';
 
                 const statusStyled = document.getElementById('statusStyled');
-                const option = document.querySelector(`#docStatusWrapper .select-option[data-value="${statusField.value}"]`);
-                if (option) {
-                    statusStyled.textContent = option.textContent;
-                }
+                const labels = {
+                    'DRAFT': 'Черновик',
+                    'PUBLISHED': 'Опубликовано',
+                    'DELETED': 'Удалено'
+                };
+                statusStyled.textContent = labels[statusField.value] || statusField.value;
 
                 document.getElementById('authorName').textContent = doc.authorName || 'Неизвестен';
 
@@ -387,9 +565,14 @@
                 updateStatusBadge();
                 renderPreview();
                 await loadAttachments();
+                
+                // Mark document as loaded and enable autosave
+                documentLoaded = true;
+                updateAutosaveStatus('saved');
+                setupAutosave();
+                
             } catch (e) {
                 console.error('Failed to load document:', e);
-                // showToast assumes a global function exists, which it might given the context of other templates
                 if (typeof showToast === 'function') {
                     showToast(e.message || 'Ошибка при загрузке документа', 'error');
                 }
