@@ -2,6 +2,7 @@ package com.knowledgebase.domain.repository;
 
 import com.knowledgebase.domain.model.GitCommitResult;
 import com.knowledgebase.domain.model.DiffLine;
+import com.knowledgebase.domain.model.DiffAlgorithmType;
 
 import java.util.List;
 import java.util.Optional;
@@ -52,6 +53,12 @@ public interface DocumentContentRepository {
     default List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
                                                 int maxLines, int maxBytes, boolean includeAllContext) {
         return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes);
+    }
+
+    default List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
+                                                int maxLines, int maxBytes, boolean includeAllContext,
+                                                DiffAlgorithmType algorithm) {
+        return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes, includeAllContext);
     }
 
     /**

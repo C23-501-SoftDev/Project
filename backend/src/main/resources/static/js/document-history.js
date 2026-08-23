@@ -6,6 +6,27 @@
         return cell;
     }
 
+    function appendSegments(cell, line, allowedType) {
+        const segments = line.segments && line.segments.length
+            ? line.segments
+            : [{type: line.type === 'CONTEXT' ? 'UNCHANGED' : line.type, content: line.content}];
+        segments.forEach(segment => {
+            const type = String(segment.type || 'UNCHANGED').toLowerCase();
+            if (allowedType && type !== 'unchanged' && type !== allowedType) return;
+            const span = document.createElement('span');
+            span.className = 'diff-segment-' + type;
+            span.textContent = segment.content == null ? '' : String(segment.content);
+            cell.append(span);
+        });
+    }
+
+    function createContentCell(className, line, allowedType) {
+        const cell = document.createElement('td');
+        cell.className = className;
+        appendSegments(cell, line, allowedType);
+        return cell;
+    }
+
     function renderInlineDiff(container, lines) {
         const table = document.createElement('table');
         table.className = 'diff-table';
@@ -16,8 +37,8 @@
             row.className = 'diff-line diff-line-' + type;
             row.append(createCell('diff-line-number', line.beforeLineNumber));
             row.append(createCell('diff-line-number', line.afterLineNumber));
-            row.append(createCell('diff-line-marker', type === 'removed' ? '−' : type === 'added' ? '+' : ''));
-            row.append(createCell('diff-line-content', line.content));
+            row.append(createCell('diff-line-marker', type === 'removed' ? '−' : type === 'added' ? '+' : type === 'modified' ? '±' : ''));
+            row.append(createContentCell('diff-line-content', line));
             body.append(row);
         });
         table.append(body);
@@ -33,11 +54,13 @@
             const type = String(line.type || 'CONTEXT').toLowerCase();
             row.className = 'diff-line diff-line-' + type;
             row.append(createCell('diff-line-number diff-before-number', line.beforeLineNumber));
-            row.append(createCell('diff-line-content diff-before-content', type === 'added' ? '' : line.content));
-            row.append(createCell('diff-line-marker diff-before-marker', type === 'removed' ? '−' : ''));
-            row.append(createCell('diff-line-marker diff-after-marker', type === 'added' ? '+' : ''));
+            row.append(createContentCell('diff-line-content diff-before-content', line, 'removed'));
+            row.append(createCell('diff-line-marker diff-before-marker',
+                type === 'removed' || type === 'modified' ? '−' : ''));
+            row.append(createCell('diff-line-marker diff-after-marker',
+                type === 'added' || type === 'modified' ? '+' : ''));
             row.append(createCell('diff-line-number diff-after-number', line.afterLineNumber));
-            row.append(createCell('diff-line-content diff-after-content', type === 'removed' ? '' : line.content));
+            row.append(createContentCell('diff-line-content diff-after-content', line, 'added'));
             body.append(row);
         });
         table.append(body);
@@ -76,21 +99,10 @@
         // A single version is still useful to inspect; only the compare action
         // requires two distinct hashes.
         select.disabled = versions.length === 0;
+        select.setAttribute('aria-busy', 'false');
     }
 
-    async function restoreVersion(documentId, gitHash, apiRequest = apiFetch, confirmAction = window.confirm,
-                                  afterSuccess = () => {}) {
-        if (!confirmAction(`Восстановить документ до версии ${gitHash.slice(0, 7)}? Будет создана новая версия.`)) {
-            return false;
-        }
-        await apiRequest(`/api/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(gitHash)}/restore`, {
-            method: 'POST'
-        });
-        await afterSuccess();
-        return true;
-    }
-
-    window.documentHistoryDiff = {renderDiff, addVersionOptions, restoreVersion};
+    window.documentHistoryDiff = {renderDiff, addVersionOptions};
 
     document.addEventListener('DOMContentLoaded', () => {
         const root = document.getElementById('documentHistory');
@@ -104,8 +116,10 @@
         const compareButton = form.querySelector('button[type="submit"]');
         const modeToggle = document.getElementById('diffModeToggle');
         const contextToggle = document.getElementById('diffContextToggle');
-        const restoreButton = document.getElementById('restoreVersion');
+        const algorithmInput = document.getElementById('diffAlgorithm');
+        const rollbackSave = document.getElementById('rollbackSave');
         const documentId = root.dataset.documentId;
+        const rollbackMode = new URLSearchParams(window.location.search).get('rollback') === 'true';
         let diffLines = [];
         let diffMode = 'inline';
         let fullContext = false;
@@ -114,30 +128,54 @@
             compareButton.disabled = !fromInput.value || !toInput.value || fromInput.value === toInput.value;
         };
 
-        const loadVersions = async () => {
+        const updateRollbackButton = () => {
+            if (!rollbackMode) return;
+            rollbackSave.disabled = !toInput.value || toInput.value === fromInput.value;
+        };
+
+        (async () => {
             try {
                 const versions = await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/versions`);
                 addVersionOptions(fromInput, versions);
                 addVersionOptions(toInput, versions);
                 if (versions.length >= 2) {
-                    fromInput.value = versions[0].gitHash;
-                    toInput.value = versions[versions.length - 1].gitHash;
+                    if (rollbackMode) {
+                        fromInput.value = versions[versions.length - 1].gitHash;
+                        fromInput.disabled = true;
+                        toInput.value = versions[versions.length - 2].gitHash;
+                        compareButton.hidden = true;
+                        rollbackSave.hidden = false;
+                        updateRollbackButton();
+                        await loadDiff(fromInput.value, toInput.value);
+                    } else {
+                        fromInput.value = versions[0].gitHash;
+                        toInput.value = versions[versions.length - 1].gitHash;
+                    }
                 }
                 updateCompareButton();
-                if (restoreButton) restoreButton.disabled = versions.length === 0;
             } catch (error) {
+                fromInput.setAttribute('aria-busy', 'false');
+                toInput.setAttribute('aria-busy', 'false');
                 status.hidden = false;
                 status.textContent = error.message || 'Не удалось загрузить историю версий.';
             }
-        };
-        loadVersions();
+        })();
 
         fromInput.addEventListener('change', updateCompareButton);
-        toInput.addEventListener('change', updateCompareButton);
+        toInput.addEventListener('change', async () => {
+            updateCompareButton();
+            updateRollbackButton();
+            if (rollbackMode && toInput.value && toInput.value !== fromInput.value) {
+                status.hidden = false;
+                status.textContent = 'Загрузка сравнения…';
+                await loadDiff(fromInput.value, toInput.value);
+            }
+        });
 
         async function loadDiff(from, to) {
             const context = fullContext ? 'all' : 'changed';
-            const diff = await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&context=${context}`);
+            const algorithm = algorithmInput.value || 'CHARACTER';
+            const diff = await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&context=${context}&algorithm=${encodeURIComponent(algorithm)}`);
             diffLines = diff.lines || [];
             renderDiff(result, diffLines, diffMode);
             result.hidden = false;
@@ -170,6 +208,23 @@
             }
         });
 
+        rollbackSave.addEventListener('click', async () => {
+            const targetHash = toInput.value.trim();
+            if (!/^[0-9a-f]{40}$/i.test(targetHash) || targetHash === fromInput.value) return;
+            rollbackSave.disabled = true;
+            status.hidden = false;
+            status.textContent = 'Сохранение отката…';
+            try {
+                await apiFetch(`/api/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(targetHash)}/restore`, {
+                    method: 'POST'
+                });
+                window.location.assign(`/documents/${encodeURIComponent(documentId)}/edit`);
+            } catch (error) {
+                rollbackSave.disabled = false;
+                status.textContent = error.message || 'Не удалось сохранить откат версии.';
+            }
+        });
+
         modeToggle.addEventListener('click', () => {
             diffMode = diffMode === 'inline' ? 'side-by-side' : 'inline';
             modeToggle.textContent = diffMode === 'inline' ? 'Две панели' : 'Построчно';
@@ -186,26 +241,5 @@
                 status.textContent = error.message || 'Не удалось загрузить полный файл.';
             }
         });
-
-        if (restoreButton) {
-            restoreButton.addEventListener('click', async () => {
-                const gitHash = fromInput.value.trim();
-                if (!/^[0-9a-f]{40}$/i.test(gitHash)) {
-                    status.hidden = false;
-                    status.textContent = 'Выберите версию для восстановления.';
-                    return;
-                }
-                try {
-                    const restored = await restoreVersion(documentId, gitHash, apiFetch, window.confirm, loadVersions);
-                    if (restored) {
-                        status.hidden = false;
-                        status.textContent = 'Версия восстановлена и сохранена как новая текущая версия.';
-                    }
-                } catch (error) {
-                    status.hidden = false;
-                    status.textContent = error.message || 'Не удалось восстановить версию документа.';
-                }
-            });
-        }
     });
 })();

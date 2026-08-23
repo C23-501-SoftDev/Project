@@ -4,5 +4,6 @@ package com.knowledgebase.domain.model;
 public enum DiffLineType {
     CONTEXT,
     ADDED,
-    REMOVED
+    REMOVED,
+    MODIFIED
 }

@@ -141,7 +141,7 @@
 |-------|----------|----------|--------|
 | GET | `/api/documents/{id}/versions` | Список сохранённых версий (gitHash, comment, createdAt) | ✅ |
 | GET | `/api/documents/{id}/versions/{gitHash}` | Содержимое конкретной версии | ❌ |
-| GET | `/api/documents/{id}/diff?from={hash1}&to={hash2}` | Безопасное построчное сравнение двух версий (diff) | ✅ |
+| GET | `/api/documents/{id}/diff?from={hash1}&to={hash2}&algorithm={HYBRID|CHARACTER|WORD|LINE}` | Безопасное сравнение двух версий с подсветкой фрагментов; по умолчанию гибридное | ✅ |
 | POST | `/api/documents/{id}/versions/{gitHash}/restore` | Откат к версии (создаёт новую версию-копию) | ✅ |
 
 **Формат ответа версии:**

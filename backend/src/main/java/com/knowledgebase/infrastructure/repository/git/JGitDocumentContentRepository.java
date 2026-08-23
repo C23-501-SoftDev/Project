@@ -3,6 +3,9 @@ package com.knowledgebase.infrastructure.repository.git;
 import com.knowledgebase.domain.model.GitCommitResult;
 import com.knowledgebase.domain.model.DiffLine;
 import com.knowledgebase.domain.model.DiffLineType;
+import com.knowledgebase.domain.model.DiffAlgorithmType;
+import com.knowledgebase.domain.model.DiffSegment;
+import com.knowledgebase.domain.model.DiffSegmentType;
 import com.knowledgebase.domain.exception.DocumentDiffTooLargeException;
 import com.knowledgebase.domain.repository.DocumentContentRepository;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -27,6 +30,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.nio.charset.StandardCharsets;
@@ -188,17 +192,41 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
     public synchronized List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash,
                                                              String toHash, int maxLines, int maxBytes,
                                                              boolean includeAllContext) {
+        return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes, includeAllContext,
+                DiffAlgorithmType.HYBRID);
+    }
+
+    @Override
+    public synchronized List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash,
+                                                             String toHash, int maxLines, int maxBytes,
+                                                             boolean includeAllContext, DiffAlgorithmType algorithm) {
         try (Git git = Git.open(new File(gitRepoPath))) {
             org.eclipse.jgit.lib.Repository repository = git.getRepository();
-            RawText before = new RawText(readVersionFile(repository, fromHash, fromPath, maxBytes));
-            RawText after = new RawText(readVersionFile(repository, toHash, toPath, maxBytes));
+            byte[] beforeBytes = readVersionFile(repository, fromHash, fromPath, maxBytes);
+            byte[] afterBytes = readVersionFile(repository, toHash, toPath, maxBytes);
+            if (algorithm == DiffAlgorithmType.CHARACTER || algorithm == DiffAlgorithmType.WORD) {
+                return toStreamDiff(new String(beforeBytes, StandardCharsets.UTF_8),
+                        new String(afterBytes, StandardCharsets.UTF_8), maxLines, algorithm);
+            }
+            RawText before = new RawText(beforeBytes);
+            RawText after = new RawText(afterBytes);
             EditList edits = DiffAlgorithm.getAlgorithm(DiffAlgorithm.SupportedAlgorithm.HISTOGRAM)
                     .diff(RawTextComparator.DEFAULT, before, after);
-            return toDiffLines(before, after, edits, maxLines, includeAllContext);
+            return toDiffLines(before, after, edits, maxLines, includeAllContext, algorithm);
         } catch (IOException e) {
             log.error("Ошибка при сравнении версий документа from={} to={}", fromHash, toHash, e);
             throw new RuntimeException("Ошибка Git-хранилища", e);
         }
+    }
+
+    private List<DiffLine> toStreamDiff(String before, String after, int maxLines, DiffAlgorithmType algorithm) {
+        if (before.equals(after)) {
+            return List.of();
+        }
+        List<DiffSegment> segments = diffSegments(before, after, algorithm);
+        List<DiffLine> lines = new ArrayList<>();
+        addLine(lines, new DiffLine(DiffLineType.MODIFIED, 1, 1, after, segments), maxLines);
+        return List.copyOf(lines);
     }
 
     private byte[] readVersionFile(org.eclipse.jgit.lib.Repository repository, String hash, String path,
@@ -223,7 +251,7 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
     }
 
     private List<DiffLine> toDiffLines(RawText before, RawText after, EditList edits, int maxLines,
-                                       boolean includeAllContext) {
+                                       boolean includeAllContext, DiffAlgorithmType algorithm) {
         if (edits.isEmpty()) {
             if (!includeAllContext) {
                 return List.of();
@@ -251,7 +279,7 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
                 beforeIndex++;
                 afterIndex++;
             }
-            appendEdit(lines, before, after, edit, maxLines);
+            appendEdit(lines, before, after, edit, maxLines, algorithm);
             beforeIndex = edit.getEndA();
             afterIndex = edit.getEndB();
         }
@@ -276,7 +304,8 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
         return List.copyOf(lines);
     }
 
-    private void appendEdit(List<DiffLine> lines, RawText before, RawText after, Edit edit, int maxLines) {
+    private void appendEdit(List<DiffLine> lines, RawText before, RawText after, Edit edit, int maxLines,
+                            DiffAlgorithmType algorithm) {
         int beforeIndex = edit.getBeginA();
         int afterIndex = edit.getBeginB();
         while (beforeIndex < edit.getEndA() && afterIndex < edit.getEndB()) {
@@ -286,10 +315,8 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
                 addLine(lines, new DiffLine(DiffLineType.CONTEXT, beforeIndex + 1, afterIndex + 1,
                         beforeLine), maxLines);
             } else {
-                addLine(lines, new DiffLine(DiffLineType.REMOVED, beforeIndex + 1, null,
-                        beforeLine), maxLines);
-                addLine(lines, new DiffLine(DiffLineType.ADDED, null, afterIndex + 1,
-                        afterLine), maxLines);
+                appendChangedLinePair(lines, beforeIndex + 1, afterIndex + 1, beforeLine, afterLine,
+                        maxLines, algorithm);
             }
             beforeIndex++;
             afterIndex++;
@@ -301,6 +328,60 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
         while (afterIndex < edit.getEndB()) {
             addLine(lines, new DiffLine(DiffLineType.ADDED, null, afterIndex + 1,
                     after.getString(afterIndex++)), maxLines);
+        }
+    }
+
+    private void appendChangedLinePair(List<DiffLine> lines, int beforeLineNumber, int afterLineNumber,
+                                       String beforeLine, String afterLine, int maxLines,
+                                       DiffAlgorithmType algorithm) {
+        if (algorithm == DiffAlgorithmType.LINE) {
+            addLine(lines, new DiffLine(DiffLineType.REMOVED, beforeLineNumber, null, beforeLine), maxLines);
+            addLine(lines, new DiffLine(DiffLineType.ADDED, null, afterLineNumber, afterLine), maxLines);
+            return;
+        }
+        List<DiffSegment> operations = diffSegments(beforeLine, afterLine, algorithm);
+        addLine(lines, new DiffLine(DiffLineType.MODIFIED, beforeLineNumber, afterLineNumber, afterLine,
+                operations), maxLines);
+    }
+
+    private List<DiffSegment> diffSegments(String before, String after, DiffAlgorithmType algorithm) {
+        List<String> left = tokens(before, algorithm);
+        List<String> right = tokens(after, algorithm);
+        int[][] lengths = new int[left.size() + 1][right.size() + 1];
+        for (int i = left.size() - 1; i >= 0; i--) {
+            for (int j = right.size() - 1; j >= 0; j--) {
+                lengths[i][j] = left.get(i).equals(right.get(j)) ? lengths[i + 1][j + 1] + 1
+                        : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
+            }
+        }
+        List<DiffSegment> result = new ArrayList<>();
+        for (int i = 0, j = 0; i < left.size() || j < right.size();) {
+            if (i < left.size() && j < right.size() && left.get(i).equals(right.get(j))) {
+                appendSegment(result, DiffSegmentType.UNCHANGED, left.get(i++));
+                j++;
+            } else if (i < left.size() && (j == right.size() || lengths[i + 1][j] >= lengths[i][j + 1])) {
+                appendSegment(result, DiffSegmentType.REMOVED, left.get(i++));
+            } else {
+                appendSegment(result, DiffSegmentType.ADDED, right.get(j++));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private List<String> tokens(String text, DiffAlgorithmType algorithm) {
+        if (algorithm == DiffAlgorithmType.CHARACTER || algorithm == DiffAlgorithmType.HYBRID) {
+            return text.codePoints().mapToObj(codePoint -> new String(Character.toChars(codePoint))).toList();
+        }
+        return Pattern.compile("\\p{L}[\\p{L}\\p{M}]*|\\p{N}+|\\s+|[^\\s\\p{L}\\p{N}]")
+                .matcher(text).results().map(match -> match.group()).toList();
+    }
+
+    private void appendSegment(List<DiffSegment> segments, DiffSegmentType type, String content) {
+        if (!segments.isEmpty() && segments.get(segments.size() - 1).type() == type) {
+            DiffSegment previous = segments.remove(segments.size() - 1);
+            segments.add(new DiffSegment(type, previous.content() + content));
+        } else {
+            segments.add(new DiffSegment(type, content));
         }
     }
 

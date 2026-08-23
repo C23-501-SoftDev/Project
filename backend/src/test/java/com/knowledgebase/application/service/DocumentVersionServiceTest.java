@@ -3,6 +3,7 @@ package com.knowledgebase.application.service;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.DocumentStatus;
 import com.knowledgebase.domain.model.DocumentVersion;
+import com.knowledgebase.domain.model.DiffAlgorithmType;
 import com.knowledgebase.domain.model.GitCommitResult;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
@@ -192,7 +193,7 @@ class DocumentVersionServiceTest {
         when(versions.findByDocumentIdAndGitHash(7L, toHash))
                 .thenReturn(Optional.of(DocumentVersion.create(7L, toHash, "spaces/test.md", 2L, null, LocalDateTime.now())));
         when(content.diffDocumentVersions("spaces/current.md", "spaces/test.md", fromHash, toHash,
-                2000, 1_048_576, false)).thenReturn(List.of());
+                2000, 1_048_576, false, DiffAlgorithmType.HYBRID)).thenReturn(List.of());
 
         DocumentVersionService service = service(documents, versions, content, mock(UserRepository.class),
                 mock(ApplicationEventPublisher.class), mock(AuditService.class));
@@ -200,7 +201,7 @@ class DocumentVersionServiceTest {
         service.compareVersions(7L, fromHash, toHash);
 
         verify(content).diffDocumentVersions("spaces/current.md", "spaces/test.md", fromHash, toHash,
-                2000, 1_048_576, false);
+                2000, 1_048_576, false, DiffAlgorithmType.HYBRID);
     }
 
     private DocumentVersionService service(DocumentRepository documents, DocumentVersionRepository versions,
