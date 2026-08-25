@@ -1223,6 +1223,20 @@ body {
     pointer-events: auto;
 }
 
+/*
+ * Корневая конечная зона должна оставаться легко доступной даже когда
+ * последний корневой документ содержит вложенное дерево.
+ *
+ * Вложенная end-zone означает "последним ребёнком текущего родителя",
+ * корневая end-zone — "последним документом пространства".
+ */
+.document-drag-active
+.document-tree:not(.nested-document-list) > .document-tree-end-drop-zone {
+    height: 20px;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
 .document-tree-end-drop-zone.drag-over::after {
     content: '';
     position: absolute;
