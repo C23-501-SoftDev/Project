@@ -1,4 +1,4 @@
-<!-- Фрагмент дерева документов -->
+
 <ul th:fragment="documentTree(nodes, nested)" class="document-tree"
     th:classappend="${nested} ? ' nested-document-list'">
     <li th:each="node : ${nodes}" class="document-item"
@@ -18,4 +18,5 @@
             <th:block th:replace="~{::documentTree(${node.children}, true)}"></th:block>
         </th:block>
     </li>
+    <li class="document-tree-end-drop-zone" aria-hidden="true"></li>
 </ul>

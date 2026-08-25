@@ -4,7 +4,6 @@ function toggleSpaceTree(spaceId) {
     localStorage.setItem('selectedSpaceId', String(spaceId));
     localStorage.setItem('selectedSpaceName', spaceName);
 
-    // If not on the main documents page — redirect there with the space filter
     if (window.location.pathname !== '/') {
         localStorage.setItem('space-tree-' + spaceId, 'visible');
         const currentParams = new URLSearchParams(window.location.search);
@@ -14,7 +13,6 @@ function toggleSpaceTree(spaceId) {
         return;
     }
 
-    // On the main page: toggle tree visibility
     const treeElement = document.getElementById('tree-' + spaceId);
     if (treeElement) {
         const isVisible = treeElement.style.display !== 'none';
@@ -37,7 +35,6 @@ function setActiveSpaceButton(spaceId) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Restore tree expand/collapse state from localStorage
     const allTrees = document.querySelectorAll('[id^="tree-"]');
     allTrees.forEach(tree => {
         const spaceId = tree.id.replace('tree-', '');
@@ -49,10 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Инициализация поиска пространств (из первого файла)
     initSpaceSidebarSearch();
 
-    // Highlight the active space based on ?spaceId= URL param (main page only)
     if (window.location.pathname === '/') {
         const urlSpaceId = new URLSearchParams(window.location.search).get('spaceId');
         if (urlSpaceId) {
@@ -73,7 +68,10 @@ function initDragAndDrop() {
     }
 
     function clearDropIndicators() {
-        document.querySelectorAll('.drop-before, .drop-inside, .drop-after, .space-button.drag-over')
+        document.querySelectorAll(
+            '.drop-before, .drop-inside, .drop-after, .space-button.drag-over, ' +
+            '.document-tree-end-drop-zone.drag-over'
+        )
             .forEach(element => element.classList.remove(...dropIndicatorClasses, 'drag-over'));
     }
 
@@ -81,6 +79,10 @@ function initDragAndDrop() {
         return targetItem
             && targetItem !== draggedItem
             && !draggedItem.contains(targetItem);
+    }
+
+    function isValidTreeEndTarget(endDropZone) {
+        return endDropZone && !draggedItem.contains(endDropZone);
     }
 
     function getDropMode(row, pointerY) {
@@ -117,12 +119,28 @@ function initDragAndDrop() {
         return directDocumentItems(rootTree);
     }
 
+    function treeEndDestination(endDropZone, sourceItem) {
+        const tree = endDropZone ? endDropZone.closest('.document-tree') : null;
+        const items = directDocumentItems(tree);
+        const referenceItem = items[0] || null;
+        const treeContainer = tree ? tree.closest('[id^="tree-"]') : null;
+
+        return {
+            spaceId: referenceItem
+                ? referenceItem.dataset.spaceId
+                : treeContainer?.id.replace('tree-', ''),
+            parentId: referenceItem?.dataset.parentId || null,
+            position: items.filter(item => item !== sourceItem).length
+        };
+    }
+
     document.addEventListener('dragstart', (e) => {
         const row = closestElement(e.target, '.document-row');
         if (!row) return;
 
         draggedItem = row.closest('.document-item');
         draggedItem.classList.add('dragging');
+        document.body.classList.add('document-drag-active');
         e.dataTransfer.setData('text/plain', draggedItem.dataset.documentId);
         e.dataTransfer.effectAllowed = 'move';
     });
@@ -132,6 +150,7 @@ function initDragAndDrop() {
             draggedItem.classList.remove('dragging');
         }
         draggedItem = null;
+        document.body.classList.remove('document-drag-active');
         clearDropIndicators();
     });
 
@@ -140,12 +159,18 @@ function initDragAndDrop() {
 
         const row = closestElement(e.target, '.document-row');
         const targetItem = row ? row.closest('.document-item') : null;
+        const endDropZone = closestElement(e.target, '.document-tree-end-drop-zone');
         const spaceButton = closestElement(e.target, '.space-button');
 
         if (row && isValidDocumentTarget(targetItem)) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             showDocumentDropIndicator(row, getDropMode(row, e.clientY));
+        } else if (isValidTreeEndTarget(endDropZone)) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            clearDropIndicators();
+            endDropZone.classList.add('drag-over');
         } else if (spaceButton) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
@@ -165,6 +190,7 @@ function initDragAndDrop() {
 
         const row = closestElement(e.target, '.document-row');
         const targetItem = row ? row.closest('.document-item') : null;
+        const endDropZone = closestElement(e.target, '.document-tree-end-drop-zone');
         const spaceButton = closestElement(e.target, '.space-button');
 
         let targetSpaceId = null;
@@ -186,6 +212,11 @@ function initDragAndDrop() {
                 const targetIndex = siblings.indexOf(targetItem);
                 targetPosition = Math.max(0, targetIndex + (mode === 'after' ? 1 : 0));
             }
+        } else if (isValidTreeEndTarget(endDropZone)) {
+            const destination = treeEndDestination(endDropZone, sourceItem);
+            targetSpaceId = destination.spaceId;
+            targetParentId = destination.parentId;
+            targetPosition = destination.position;
         } else if (spaceButton) {
             targetSpaceId = spaceButton.dataset.spaceId;
             targetParentId = null;
@@ -219,7 +250,6 @@ function initDragAndDrop() {
     });
 }
 
-//  3. Поиск пространств в сайдбаре (из первого файла)
 
 function initSpaceSidebarSearch() {
     const sidebar = document.getElementById('spacesSidebar');
@@ -339,7 +369,6 @@ function initSpaceSidebarSearch() {
     }
 }
 
-//  4. Общие утилиты (из первого файла)
 
 function getCsrfToken() {
     const name = 'XSRF-TOKEN=';
@@ -465,7 +494,7 @@ async function exportAndAttach(docId, format) {
 
         showToast(`«${filename}» добавлен как вложение`);
         if (typeof window.loadAttachments === 'function') window.loadAttachments();
-    } catch (_) { /* apiFetch уже показывает toast */ }
+    } catch (_) {  }
 }
 
 let _exportMenuEl = null;
