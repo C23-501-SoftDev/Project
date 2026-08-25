@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @Table(name = "documents", indexes = {
     @Index(name = "idx_documents_author", columnList = "author_id"),
     @Index(name = "idx_documents_space_status", columnList = "space_id, status"),
+    @Index(name = "idx_documents_sibling_order", columnList = "space_id, parent_document_id, sort_order, id"),
     @Index(name = "uq_documents_git_file_path", columnList = "git_file_path", unique = true)
 })
 public class DocumentJpaEntity {
@@ -49,11 +50,17 @@ public class DocumentJpaEntity {
     @Column(name = "previous_parent_id")
     private Long previousParentId;
 
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
     public Long getParentDocumentId() { return parentDocumentId; }
     public void setParentDocumentId(Long parentDocumentId) { this.parentDocumentId = parentDocumentId; }
 
     public Long getPreviousParentId() { return previousParentId; }
     public void setPreviousParentId(Long previousParentId) { this.previousParentId = previousParentId; }
+
+    public int getSortOrder() { return sortOrder; }
+    public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -94,4 +101,3 @@ public class DocumentJpaEntity {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
-

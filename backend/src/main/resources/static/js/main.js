@@ -60,97 +60,144 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Инициализация Drag and Drop для дерева документов
     initDragAndDrop();
 });
 
-// Инициализация Drag and Drop
 function initDragAndDrop() {
+    let draggedItem = null;
+
+    const dropIndicatorClasses = ['drop-before', 'drop-inside', 'drop-after'];
+
+    function closestElement(target, selector) {
+        return target instanceof Element ? target.closest(selector) : null;
+    }
+
+    function clearDropIndicators() {
+        document.querySelectorAll('.drop-before, .drop-inside, .drop-after, .space-button.drag-over')
+            .forEach(element => element.classList.remove(...dropIndicatorClasses, 'drag-over'));
+    }
+
+    function isValidDocumentTarget(targetItem) {
+        return targetItem
+            && targetItem !== draggedItem
+            && !draggedItem.contains(targetItem);
+    }
+
+    function getDropMode(row, pointerY) {
+        const rect = row.getBoundingClientRect();
+        if (rect.height <= 0) return 'inside';
+
+        const relativeY = (pointerY - rect.top) / rect.height;
+        if (relativeY < 0.3) return 'before';
+        if (relativeY > 0.7) return 'after';
+        return 'inside';
+    }
+
+    function showDocumentDropIndicator(row, mode) {
+        clearDropIndicators();
+        row.classList.add(`drop-${mode}`);
+    }
+
+    function directDocumentItems(tree) {
+        if (!tree) return [];
+        return Array.from(tree.children)
+            .filter(child => child.classList.contains('document-item'));
+    }
+
+    function childDocumentTree(item) {
+        return Array.from(item.children)
+            .find(child => child.classList.contains('document-tree')) || null;
+    }
+
+    function rootDocumentItems(spaceId) {
+        const treeContainer = document.getElementById(`tree-${spaceId}`);
+        const rootTree = treeContainer
+            ? treeContainer.querySelector('.document-tree:not(.nested-document-list)')
+            : null;
+        return directDocumentItems(rootTree);
+    }
+
     document.addEventListener('dragstart', (e) => {
-        const docItem = e.target.closest('.document-item');
-        if (docItem) {
-            docItem.classList.add('dragging');
-            e.dataTransfer.setData('text/plain', docItem.dataset.documentId);
-            e.dataTransfer.effectAllowed = 'move';
-        }
+        const row = closestElement(e.target, '.document-row');
+        if (!row) return;
+
+        draggedItem = row.closest('.document-item');
+        draggedItem.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', draggedItem.dataset.documentId);
+        e.dataTransfer.effectAllowed = 'move';
     });
 
-    document.addEventListener('dragend', (e) => {
-        const docItem = e.target.closest('.document-item');
-        if (docItem) {
-            docItem.classList.remove('dragging');
+    document.addEventListener('dragend', () => {
+        if (draggedItem) {
+            draggedItem.classList.remove('dragging');
         }
-        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        draggedItem = null;
+        clearDropIndicators();
     });
 
     document.addEventListener('dragover', (e) => {
-        const draggingEl = document.querySelector('.document-item.dragging');
-        if (!draggingEl) return;
+        if (!draggedItem) return;
 
-        const docItem = e.target.closest('.document-item');
-        const spaceBtn = e.target.closest('.space-button');
+        const row = closestElement(e.target, '.document-row');
+        const targetItem = row ? row.closest('.document-item') : null;
+        const spaceButton = closestElement(e.target, '.space-button');
 
-        if (docItem && docItem !== draggingEl && !draggingEl.contains(docItem)) {
+        if (row && isValidDocumentTarget(targetItem)) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-        } else if (spaceBtn) {
+            showDocumentDropIndicator(row, getDropMode(row, e.clientY));
+        } else if (spaceButton) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-        }
-    });
-
-    document.addEventListener('dragenter', (e) => {
-        const draggingEl = document.querySelector('.document-item.dragging');
-        if (!draggingEl) return;
-
-        const docItem = e.target.closest('.document-item');
-        const spaceBtn = e.target.closest('.space-button');
-
-        document.querySelectorAll('.drag-over').forEach(el => {
-            if (el !== docItem && el !== spaceBtn) {
-                el.classList.remove('drag-over');
-            }
-        });
-
-        if (docItem && docItem !== draggingEl && !draggingEl.contains(docItem)) {
-            docItem.classList.add('drag-over');
-        } else if (spaceBtn) {
-            spaceBtn.classList.add('drag-over');
-        }
-    });
-
-    document.addEventListener('dragleave', (e) => {
-        const docItem = e.target.closest('.document-item');
-        const spaceBtn = e.target.closest('.space-button');
-        
-        if (docItem && e.target === docItem.querySelector('a')) {
-            docItem.classList.remove('drag-over');
-        }
-        if (spaceBtn && e.target === spaceBtn) {
-            spaceBtn.classList.remove('drag-over');
+            clearDropIndicators();
+            spaceButton.classList.add('drag-over');
+        } else {
+            clearDropIndicators();
         }
     });
 
     document.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        if (!draggedItem) return;
 
-        const draggedId = e.dataTransfer.getData('text/plain');
+        const sourceItem = draggedItem;
+        const draggedId = e.dataTransfer.getData('text/plain') || sourceItem.dataset.documentId;
         if (!draggedId) return;
 
-        const docItem = e.target.closest('.document-item');
-        const spaceBtn = e.target.closest('.space-button');
+        const row = closestElement(e.target, '.document-row');
+        const targetItem = row ? row.closest('.document-item') : null;
+        const spaceButton = closestElement(e.target, '.space-button');
 
         let targetSpaceId = null;
         let targetParentId = null;
+        let targetPosition = 0;
 
-        if (docItem) {
-            targetSpaceId = docItem.dataset.spaceId;
-            targetParentId = docItem.dataset.documentId;
-        } else if (spaceBtn) {
-            targetSpaceId = spaceBtn.dataset.spaceId;
+        if (row && isValidDocumentTarget(targetItem)) {
+            const mode = getDropMode(row, e.clientY);
+            targetSpaceId = targetItem.dataset.spaceId;
+
+            if (mode === 'inside') {
+                targetParentId = targetItem.dataset.documentId;
+                targetPosition = directDocumentItems(childDocumentTree(targetItem))
+                    .filter(item => item !== sourceItem).length;
+            } else {
+                targetParentId = targetItem.dataset.parentId || null;
+                const siblings = directDocumentItems(targetItem.parentElement)
+                    .filter(item => item !== sourceItem);
+                const targetIndex = siblings.indexOf(targetItem);
+                targetPosition = Math.max(0, targetIndex + (mode === 'after' ? 1 : 0));
+            }
+        } else if (spaceButton) {
+            targetSpaceId = spaceButton.dataset.spaceId;
             targetParentId = null;
+            targetPosition = rootDocumentItems(targetSpaceId)
+                .filter(item => item !== sourceItem).length;
+        } else {
+            clearDropIndicators();
+            return;
         }
+
+        e.preventDefault();
+        clearDropIndicators();
 
         if (targetSpaceId) {
             try {
@@ -159,7 +206,8 @@ function initDragAndDrop() {
                     method: 'POST',
                     body: JSON.stringify({
                         spaceId: Number(targetSpaceId),
-                        parentId: targetParentId ? Number(targetParentId) : null
+                        parentId: targetParentId ? Number(targetParentId) : null,
+                        position: targetPosition
                     })
                 });
                 showToast('Документ успешно перемещен');

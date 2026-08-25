@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="034-add-document-sort-order" author="knowledgebase-dev">
+        <comment>Сохраняемый порядок документов среди элементов одного уровня дерева</comment>
+
+        <addColumn tableName="documents">
+            <column name="sort_order" type="INTEGER"/>
+        </addColumn>
+
+        <sql>
+            UPDATE documents AS document
+            SET sort_order = (
+                SELECT ranked.calculated_order
+                FROM (
+                    SELECT id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY space_id, parent_document_id
+                               ORDER BY created_at, id
+                           ) - 1 AS calculated_order
+                    FROM documents
+                ) AS ranked
+                WHERE ranked.id = document.id
+            );
+        </sql>
+
+        <addDefaultValue tableName="documents" columnName="sort_order"
+                         columnDataType="INTEGER" defaultValueNumeric="0"/>
+        <addNotNullConstraint tableName="documents" columnName="sort_order"
+                              columnDataType="INTEGER"/>
+
+        <createIndex tableName="documents" indexName="idx_documents_sibling_order">
+            <column name="space_id"/>
+            <column name="parent_document_id"/>
+            <column name="sort_order"/>
+            <column name="id"/>
+        </createIndex>
+
+        <rollback>
+            <dropIndex tableName="documents" indexName="idx_documents_sibling_order"/>
+            <dropColumn tableName="documents" columnName="sort_order"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

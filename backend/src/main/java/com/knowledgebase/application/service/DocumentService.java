@@ -37,7 +37,9 @@ import java.util.Set;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -131,6 +133,7 @@ public class DocumentService {
         if (parentId != null) {
             document.setParentDocumentId(parentId);
         }
+        document.setSortOrder(nextSiblingOrder(spaceId, parentId, null));
 
         Document savedDocument = documentRepository.save(document);
 
@@ -174,19 +177,34 @@ public class DocumentService {
             }
 
             if (documentId != null) {
-                List<Long> ancestors = documentRepository.findAncestorIds(documentId);
-                if (ancestors.contains(parentId)) {
+                List<Long> parentAncestors = documentRepository.findAncestorIds(parentId);
+                if (parentAncestors.contains(documentId)) {
                     throw new DocumentValidationException("Циклическая зависимость: выбранный родитель является дочерним элементом");
                 }
+            }
+
+            if (parent.getStatus() == DocumentStatus.DELETED) {
+                throw new DocumentValidationException("Удаленный документ нельзя выбрать родителем");
             }
         }
     }
 
     /**
-     * Перемещает документ в другое пространство или меняет его родителя.
+     * Перемещает документ в другое пространство, меняет его родителя или позицию среди соседей.
      */
     @Transactional
     public Document moveDocument(Long id, Long targetSpaceId, Long targetParentId, Long editorId) {
+        return moveDocument(id, targetSpaceId, targetParentId, null, editorId);
+    }
+
+    /**
+     * @param targetPosition итоговая позиция среди документов с тем же родителем, начиная с нуля;
+     *                       {@code null} сохраняет позицию при перемещении в пределах одного уровня
+     *                       и добавляет документ в конец при смене уровня
+     */
+    @Transactional
+    public Document moveDocument(Long id, Long targetSpaceId, Long targetParentId,
+                                 Integer targetPosition, Long editorId) {
         Document document = getDocumentById(id);
         if (document.getStatus() == DocumentStatus.DELETED) {
             throw new DocumentValidationException("Нельзя перемещать удаленный документ");
@@ -196,9 +214,14 @@ public class DocumentService {
                 .orElseThrow(() -> new UserNotFoundException(editorId));
 
         Long sourceSpaceId = document.getSpaceId();
-        
+        Long sourceParentId = document.getParentDocumentId();
+
         // Если целевое пространство не указано, оставляем текущее
         Long finalSpaceId = targetSpaceId != null ? targetSpaceId : sourceSpaceId;
+
+        if (spaceRepository.findById(finalSpaceId).isEmpty()) {
+            throw new SpaceNotFoundException(finalSpaceId);
+        }
 
         // Валидация иерархии
         validateHierarchy(id, targetParentId, finalSpaceId);
@@ -214,11 +237,37 @@ public class DocumentService {
         // Проверяем уникальность названия на новом уровне
         validateTitleUniqueness(document.getTitle(), finalSpaceId, targetParentId, id);
 
-        // Если пространство изменилось, нам нужно обновить пути в Git для этого документа и всех его потомков
         boolean spaceChanged = !sourceSpaceId.equals(finalSpaceId);
-        boolean parentChanged = !java.util.Objects.equals(document.getParentDocumentId(), targetParentId);
+        boolean parentChanged = !Objects.equals(sourceParentId, targetParentId);
+        boolean sameSiblingGroup = !spaceChanged && !parentChanged;
+
+        List<Document> sourceOrder = findActiveSiblings(sourceSpaceId, sourceParentId, null);
+        int sourceIndex = indexOfDocument(sourceOrder, id);
+        if (sourceIndex < 0) {
+            throw new DocumentValidationException("Документ отсутствует среди элементов исходного уровня");
+        }
+
+        List<Document> targetOrder = sameSiblingGroup
+                ? new ArrayList<>(sourceOrder)
+                : findActiveSiblings(finalSpaceId, targetParentId, id);
+        targetOrder.removeIf(candidate -> candidate.getId().equals(id));
+
+        int insertionIndex;
+        if (targetPosition == null && sameSiblingGroup) {
+            insertionIndex = Math.min(sourceIndex, targetOrder.size());
+        } else if (targetPosition == null) {
+            insertionIndex = targetOrder.size();
+        } else {
+            insertionIndex = Math.max(0, Math.min(targetPosition, targetOrder.size()));
+        }
+        targetOrder.add(insertionIndex, document);
+
+        List<Long> currentIds = sourceOrder.stream().map(Document::getId).toList();
+        List<Long> targetIds = targetOrder.stream().map(Document::getId).toList();
+        boolean orderChanged = !sameSiblingGroup || !currentIds.equals(targetIds);
 
         if (spaceChanged || parentChanged) {
+            document.setSortOrder(insertionIndex);
             if (spaceChanged) {
                 // Перемещаем документ и всех его потомков рекурсивно в новое пространство
                 moveDocumentAndDescendantsToSpace(document, finalSpaceId, targetParentId, editor);
@@ -240,10 +289,22 @@ public class DocumentService {
                     documentRepository.save(document);
                 }
             }
+        }
 
+        if (!sameSiblingGroup) {
+            List<Document> remainingSourceOrder = sourceOrder.stream()
+                    .filter(candidate -> !candidate.getId().equals(id))
+                    .toList();
+            persistSiblingOrder(remainingSourceOrder);
+        }
+        persistSiblingOrder(targetOrder);
+
+        if (spaceChanged || parentChanged || orderChanged) {
             auditService.record("DOCUMENT_MOVED", AuditService.RESOURCE_DOCUMENT, id,
-                    "title='" + document.getTitle() + "', fromSpaceId=" + sourceSpaceId + ", toSpaceId=" + finalSpaceId + ", parentId=" + targetParentId);
-            
+                    "title='" + document.getTitle() + "', fromSpaceId=" + sourceSpaceId
+                            + ", toSpaceId=" + finalSpaceId + ", parentId=" + targetParentId
+                            + ", position=" + insertionIndex);
+
             // Генерируем событие обновления
             eventPublisher.publishEvent(new DocumentUpdatedEvent(
                     document.getId(),
@@ -255,6 +316,45 @@ public class DocumentService {
         }
 
         return getDocumentById(id);
+    }
+
+    private List<Document> findActiveSiblings(Long spaceId, Long parentId, Long excludedDocumentId) {
+        return documentRepository.findBySpaceId(spaceId, false).stream()
+                .filter(candidate -> Objects.equals(candidate.getParentDocumentId(), parentId))
+                .filter(candidate -> excludedDocumentId == null || !candidate.getId().equals(excludedDocumentId))
+                .sorted(documentOrderComparator())
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private int nextSiblingOrder(Long spaceId, Long parentId, Long excludedDocumentId) {
+        return findActiveSiblings(spaceId, parentId, excludedDocumentId).stream()
+                .mapToInt(Document::getSortOrder)
+                .max()
+                .orElse(-1) + 1;
+    }
+
+    private int indexOfDocument(List<Document> documents, Long documentId) {
+        for (int index = 0; index < documents.size(); index++) {
+            if (documents.get(index).getId().equals(documentId)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private void persistSiblingOrder(List<Document> documents) {
+        for (int index = 0; index < documents.size(); index++) {
+            Document sibling = documents.get(index);
+            if (sibling.getSortOrder() != index) {
+                sibling.setSortOrder(index);
+                documentRepository.save(sibling);
+            }
+        }
+    }
+
+    private Comparator<Document> documentOrderComparator() {
+        return Comparator.comparingInt(Document::getSortOrder)
+                .thenComparing(Document::getId, Comparator.nullsLast(Comparator.naturalOrder()));
     }
 
     private void moveDocumentAndDescendantsToSpace(Document document, Long targetSpaceId, Long targetParentId, User editor) {
@@ -534,7 +634,8 @@ public class DocumentService {
                 + "  \"title\": \"" + jsonEscape(document.getTitle()) + "\",\n"
                 + "  \"status\": \"" + document.getStatus().name() + "\",\n"
                 + "  \"parentDocumentId\": "
-                + (document.getParentDocumentId() == null ? "null" : document.getParentDocumentId()) + "\n"
+                + (document.getParentDocumentId() == null ? "null" : document.getParentDocumentId()) + ",\n"
+                + "  \"sortOrder\": " + document.getSortOrder() + "\n"
                 + "}\n";
     }
 
@@ -871,12 +972,15 @@ public class DocumentService {
     private List<DocumentTreeNode> buildTree(List<Document> documents) {
         Map<Long, DocumentTreeNode> nodeMap = new java.util.LinkedHashMap<>();
         List<DocumentTreeNode> roots = new ArrayList<>();
+        List<Document> orderedDocuments = documents.stream()
+                .sorted(documentOrderComparator())
+                .toList();
 
-        for (Document doc : documents) {
+        for (Document doc : orderedDocuments) {
             nodeMap.put(doc.getId(), new DocumentTreeNode(doc, new ArrayList<>()));
         }
 
-        for (Document doc : documents) {
+        for (Document doc : orderedDocuments) {
             DocumentTreeNode node = nodeMap.get(doc.getId());
             Long parentId = doc.getParentDocumentId();
             if (parentId != null && nodeMap.containsKey(parentId)) {

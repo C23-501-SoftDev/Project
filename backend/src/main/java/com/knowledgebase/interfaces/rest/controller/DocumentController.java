@@ -332,9 +332,9 @@ public class DocumentController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Document moved = documentService.moveDocument(id, request.spaceId(), request.parentId(), currentUser.getId());
+        Document moved = documentService.moveDocument(
+                id, request.spaceId(), request.parentId(), request.position(), currentUser.getId());
         String content = documentService.getDocumentContent(moved);
         return ResponseEntity.ok(mapper.toDocumentResponse(moved, content));
     }
 }
-

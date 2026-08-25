@@ -79,7 +79,7 @@
                             th:style="${currentSpace != null && currentSpace.id == space.id} ? 'display:block' : 'display:none'">
                             <div th:if="${spaceTrees != null && spaceTrees.get(space.id) != null}">
                                 <div
-                                    th:replace="~{fragments/document-tree :: documentTree(${spaceTrees.get(space.id)})}">
+                                    th:replace="~{fragments/document-tree :: documentTree(${spaceTrees.get(space.id)}, false)}">
                                 </div>
                             </div>
                         </div>
@@ -151,4 +151,3 @@
 </body>
 
 </html>
-
