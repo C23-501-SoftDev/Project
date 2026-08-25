@@ -132,9 +132,15 @@ public class PageController {
 
     @GetMapping("/documents/{id}/history")
     public String documentHistory(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
+        var document = documentService.getDocumentById(id);
+        if (!permissionService.canRead(user.getId(), user.isAdmin(), document.getSpaceId())) {
+            return "redirect:/documents/" + id;
+        }
         model.addAttribute("pageTitle", "История версий");
         model.addAttribute("currentUser", user);
         model.addAttribute("documentId", id);
+        model.addAttribute("canEdit", permissionService.canWrite(user.getId(), user.isAdmin(), document.getSpaceId()));
+        addSidebarData(document.getSpaceId(), model, user);
         model.addAttribute("content", "pages/document-history");
         return "layout";
     }

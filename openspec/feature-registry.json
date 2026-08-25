@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-08-12",
+    "updatedAt": "2026-08-19",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -345,6 +345,75 @@
             "description": "Full URL parameter support for filters (spaceId, authorId, status, sortBy, sortDir, q, page). Preserves filters when navigating via space tree. Restores filter state from URL on page load.",
             "dependsOn": [
                 "documents-crud"
+            ]
+        },
+        {
+            "featureId": "document-version-diff-mode",
+            "title": "Document version comparison mode",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E2 Жизненный цикл и Версионность (Lifecycle & Versioning)/F2.2 Контроль версий (Git Integration)/US2.2.3 Режим сравнения версий (Diff)/description.md"
+            ],
+            "endpoints": [
+                "GET /api/documents/{id}/versions",
+                "GET /api/documents/{id}/diff?from={hash1}&to={hash2}",
+                "GET /documents/{id}/history"
+            ],
+            "dependsOn": [
+                "git-commit-on-document-save"
+            ]
+        },
+        {
+            "featureId": "document-version-rollback",
+            "title": "Safe document version rollback",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E2 Жизненный цикл и Версионность (Lifecycle & Versioning)/F2.2 Контроль версий (Git Integration)/US2.2.4 Безопасный откат версии/description.md"
+            ],
+            "endpoints": [
+                "POST /api/documents/{id}/versions/{gitHash}/restore",
+                "GET /documents/{id}/history"
+            ],
+            "dependsOn": [
+                "git-commit-on-document-save",
+                "document-version-diff-mode"
+            ]
+        },
+        {
+            "featureId": "safe-document-save",
+            "title": "Safe document save: CSRF-protected save with 401/403/400 handling and debounce autosave",
+            "status": "done",
+            "area": "frontend",
+            "repo": "Project",
+            "docs": [],
+            "endpoints": [
+                "PUT /api/documents/{id}"
+            ],
+            "description": "Safe document save in edit page: explicit HTTP status handling (200/400/401/403), 3-second debounce autosave, status indicator (Saved/Unsaved/Saving/Error), CSRF-safe requests reusing XSRF-TOKEN cookie and credentials same-origin.",
+            "dependsOn": [
+                "documents-crud"
+            ]
+        },
+        {
+            "featureId": "document-version-diff-mode",
+            "title": "Document version comparison mode",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "../../Docs/documents/backlog-descriptions/E2 Жизненный цикл и Версионность (Lifecycle & Versioning)/F2.2 Контроль версий (Git Integration)/US2.2.3 Режим сравнения версий (Diff)/description.md"
+            ],
+            "endpoints": [
+                "GET /api/documents/{id}/versions",
+                "GET /api/documents/{id}/diff?from={hash1}&to={hash2}",
+                "GET /documents/{id}/history"
+            ],
+            "dependsOn": [
+                "git-commit-on-document-save"
             ]
         }
     ]

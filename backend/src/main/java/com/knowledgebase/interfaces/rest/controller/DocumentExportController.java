@@ -5,7 +5,6 @@ import com.knowledgebase.application.service.MarkdownService;
 import com.knowledgebase.domain.model.Document;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -45,11 +44,10 @@ public class DocumentExportController {
                 "<title>" + escapeHtml(doc.getTitle()) + "</title></head><body>" +
                 "<h1>" + escapeHtml(doc.getTitle()) + "</h1>" + bodyHtml + "</body></html>";
         byte[] bytes = fullHtml.getBytes(StandardCharsets.UTF_8);
-        return ResponseEntity.ok()
-                .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        contentDisposition(doc.getTitle(), "html").toString())
-                .body(bytes);
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
+                .contentType(new MediaType("text", "html", StandardCharsets.UTF_8));
+        addContentDispositionHeader(builder, doc.getTitle(), "html");
+        return builder.body(bytes);
     }
 
     @GetMapping("/pdf")
@@ -59,11 +57,10 @@ public class DocumentExportController {
         Document doc = documentService.getDocumentById(id);
         String markdown = documentService.getDocumentContent(doc);
         byte[] pdf = markdownService.toPdf(doc.getTitle(), markdown);
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        contentDisposition(doc.getTitle(), "pdf").toString())
-                .body(pdf);
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF);
+        addContentDispositionHeader(builder, doc.getTitle(), "pdf");
+        return builder.body(pdf);
     }
 
     @GetMapping("/docx")
@@ -73,16 +70,24 @@ public class DocumentExportController {
         Document doc = documentService.getDocumentById(id);
         String markdown = documentService.getDocumentContent(doc);
         byte[] docx = markdownService.toDocx(doc.getTitle(), markdown);
-        return ResponseEntity.ok()
-                .contentType(MEDIA_DOCX)
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        contentDisposition(doc.getTitle(), "docx").toString())
-                .body(docx);
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
+                .contentType(MEDIA_DOCX);
+        addContentDispositionHeader(builder, doc.getTitle(), "docx");
+        return builder.body(docx);
     }
 
-    private ContentDisposition contentDisposition(String title, String extension) {
-        String filename = title.replaceAll("[\\\\/:*?\"<>|]", "_") + "." + extension;
-        return ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
+    private void addContentDispositionHeader(ResponseEntity.BodyBuilder builder, String title, String extension) {
+        String sanitized = title.replaceAll("[\\\\/:*?\"<>|]", "_");
+        String filename = sanitized + "." + extension;
+        // ASCII-safe fallback для старых клиентов
+        String asciiFilename = filename.replaceAll("[^\\x20-\\x7E]", "_");
+        // RFC 5987 — filename* для поддержки Unicode; filename= — ASCII-fallback
+        String encoded = java.net.URLEncoder.encode(filename, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        builder.header(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"" + asciiFilename + "\"; filename*=UTF-8''" + encoded);
+        // Открываем заголовок для JS fetch()
+        builder.header("Access-Control-Expose-Headers", HttpHeaders.CONTENT_DISPOSITION);
     }
 
     private String escapeHtml(String text) {

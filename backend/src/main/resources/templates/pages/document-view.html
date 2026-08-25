@@ -20,6 +20,8 @@
                 style="text-decoration:none; display:none;">Редактировать</a>
             <a id="createChildLink" href="#" class="button-secondary"
                 style="text-decoration:none; display:none;">+ Дочерний документ</a>
+            <a id="historyLink" th:href="@{/documents/{id}/history(id=${documentId})}" class="button-secondary"
+                style="text-decoration:none;">История и сравнение</a>
             <div style="position:relative; display:inline-block;" id="exportDropdownWrapper">
                 <button class="button-secondary" id="exportMenuBtn"
                         style="display:flex; align-items:center; gap:6px;">
@@ -65,7 +67,7 @@
             document.getElementById(id).addEventListener('click', (e) => {
                 e.preventDefault();
                 document.getElementById('exportMenu').style.display = 'none';
-                exportAndAttach(docId, fmt);
+                triggerExportDownload(docId, fmt);
             });
         });
 
@@ -195,6 +197,11 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', loadDocument);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadDocument);
+        } else {
+            loadDocument();
+        }
     })();
 </script>
+

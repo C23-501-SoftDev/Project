@@ -424,7 +424,11 @@ async function apiFetch(url, options = {}) {
                 } catch (e) {
                 }
             }
-            throw new Error(errorMessage);
+
+            const error = new Error(errorMessage);
+            error.status = response.status;
+            throw error;
+
         }
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -497,6 +501,54 @@ async function exportAndAttach(docId, format) {
     } catch (_) {  }
 }
 
+
+// ── Экспорт — прямая загрузка ────────────────────────────────────────────
+
+async function triggerExportDownload(docId, format) {
+  try {
+    showToast(`Подготовка ${format.toUpperCase()}…`);
+    const response = await apiFetch(`/api/documents/${docId}/export/${format}`);
+    const blob = await response.blob();
+
+    // Парсим Content-Disposition: сначала filename*=UTF-8''..., затем filename="..."
+    const cd = response.headers.get('Content-Disposition') || '';
+    let filename = null;
+    const rfcMatch = cd.match(/filename\*=UTF-8''([^;\s]+)/i);
+    if (rfcMatch) {
+      try { filename = decodeURIComponent(rfcMatch[1]); } catch (_) {}
+    }
+    if (!filename) {
+      const plainMatch = cd.match(/filename="([^"]+)"/i);
+      if (plainMatch) filename = plainMatch[1];
+    }
+    // Если заголовок не доступен из JS — берём название документа из DOM
+    if (!filename) {
+      const titleEl = document.getElementById('docTitle');
+      const docTitle = titleEl ? titleEl.textContent.trim() : '';
+      filename = (docTitle || `document`) + '.' + format;
+    }
+
+    const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    showToast(`«${filename}» загружен`);
+  } catch (err) {
+    console.error('Export download failed:', err);
+    if (typeof showToast === 'function') {
+      showToast('Ошибка при скачивании файла экспорта', 'error');
+    }
+  }
+}
+
+// ── Shared floating export dropdown (position:fixed — не обрезается таблицей) ─
+
+
 let _exportMenuEl = null;
 
 function _getExportMenuEl() {
@@ -516,7 +568,7 @@ function _getExportMenuEl() {
             e.preventDefault();
             const id = _exportMenuEl.dataset.docId;
             _exportMenuEl.style.display = 'none';
-            if (id) exportAndAttach(Number(id), fmt);
+            if (id) triggerExportDownload(Number(id), fmt);
         });
         _exportMenuEl.appendChild(a);
     });
