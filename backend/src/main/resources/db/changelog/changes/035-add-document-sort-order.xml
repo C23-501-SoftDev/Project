@@ -5,7 +5,7 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
-    <changeSet id="034-add-document-sort-order" author="knowledgebase-dev">
+    <changeSet id="035-add-document-sort-order" author="knowledgebase-dev">
         <comment>Сохраняемый порядок документов среди элементов одного уровня дерева</comment>
 
         <addColumn tableName="documents">

@@ -47,7 +47,7 @@
     <include file="db/changelog/changes/031-add-user-fullname.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/032-repair-system-template-newlines.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/033-add-document-previous-status-and-parent.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changes/034-add-document-sort-order.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/035-add-document-sort-order.xml" relativeToChangelogFile="false"/>
 
     <!-- US4.1.5 — Журнал аудита действий системы -->
     <include file="db/changelog/changes/029-create-audit-log-table.xml" relativeToChangelogFile="false"/>
