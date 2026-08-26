@@ -4,8 +4,10 @@ function toggleSpaceTree(spaceId) {
     localStorage.setItem('selectedSpaceId', String(spaceId));
     localStorage.setItem('selectedSpaceName', spaceName);
 
+    // If not on the main documents page — redirect there with the space filter
     if (window.location.pathname !== '/') {
         localStorage.setItem('space-tree-' + spaceId, 'visible');
+        // Preserve existing URL params, only override spaceId and reset page
         const currentParams = new URLSearchParams(window.location.search);
         currentParams.set('spaceId', spaceId);
         currentParams.delete('page');
@@ -13,6 +15,7 @@ function toggleSpaceTree(spaceId) {
         return;
     }
 
+    // On the main page: toggle tree visibility
     const treeElement = document.getElementById('tree-' + spaceId);
     if (treeElement) {
         const isVisible = treeElement.style.display !== 'none';
@@ -35,6 +38,7 @@ function setActiveSpaceButton(spaceId) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Restore tree expand/collapse state from localStorage
     const allTrees = document.querySelectorAll('[id^="tree-"]');
     allTrees.forEach(tree => {
         const spaceId = tree.id.replace('tree-', '');
@@ -46,329 +50,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    initSpaceSidebarSearch();
-
+    // Highlight the active space based on ?spaceId= URL param (main page only)
     if (window.location.pathname === '/') {
         const urlSpaceId = new URLSearchParams(window.location.search).get('spaceId');
         if (urlSpaceId) {
             setActiveSpaceButton(urlSpaceId);
         }
     }
-
-    initDragAndDrop();
 });
-
-function initDragAndDrop() {
-    let draggedItem = null;
-
-    const dropIndicatorClasses = ['drop-before', 'drop-inside', 'drop-after'];
-
-    function closestElement(target, selector) {
-        return target instanceof Element ? target.closest(selector) : null;
-    }
-
-    function clearDropIndicators() {
-        document.querySelectorAll(
-            '.drop-before, .drop-inside, .drop-after, .space-button.drag-over, ' +
-            '.document-tree-end-drop-zone.drag-over'
-        )
-            .forEach(element => element.classList.remove(...dropIndicatorClasses, 'drag-over'));
-    }
-
-    function isValidDocumentTarget(targetItem) {
-        return targetItem
-            && targetItem !== draggedItem
-            && !draggedItem.contains(targetItem);
-    }
-
-    function isValidTreeEndTarget(endDropZone) {
-        return endDropZone && !draggedItem.contains(endDropZone);
-    }
-
-    function getDropMode(row, pointerY) {
-        const rect = row.getBoundingClientRect();
-        if (rect.height <= 0) return 'inside';
-
-        const relativeY = (pointerY - rect.top) / rect.height;
-        if (relativeY < 0.3) return 'before';
-        if (relativeY > 0.7) return 'after';
-        return 'inside';
-    }
-
-    function showDocumentDropIndicator(row, mode) {
-        clearDropIndicators();
-        row.classList.add(`drop-${mode}`);
-    }
-
-    function directDocumentItems(tree) {
-        if (!tree) return [];
-        return Array.from(tree.children)
-            .filter(child => child.classList.contains('document-item'));
-    }
-
-    function childDocumentTree(item) {
-        return Array.from(item.children)
-            .find(child => child.classList.contains('document-tree')) || null;
-    }
-
-    function rootDocumentItems(spaceId) {
-        const treeContainer = document.getElementById(`tree-${spaceId}`);
-        const rootTree = treeContainer
-            ? treeContainer.querySelector('.document-tree:not(.nested-document-list)')
-            : null;
-        return directDocumentItems(rootTree);
-    }
-
-    function treeEndDestination(endDropZone, sourceItem) {
-        const tree = endDropZone ? endDropZone.closest('.document-tree') : null;
-        const items = directDocumentItems(tree);
-        const referenceItem = items[0] || null;
-        const treeContainer = tree ? tree.closest('[id^="tree-"]') : null;
-
-        return {
-            spaceId: referenceItem
-                ? referenceItem.dataset.spaceId
-                : treeContainer?.id.replace('tree-', ''),
-            parentId: referenceItem?.dataset.parentId || null,
-            position: items.filter(item => item !== sourceItem).length
-        };
-    }
-
-    document.addEventListener('dragstart', (e) => {
-        const row = closestElement(e.target, '.document-row');
-        if (!row) return;
-
-        draggedItem = row.closest('.document-item');
-        draggedItem.classList.add('dragging');
-        document.body.classList.add('document-drag-active');
-        e.dataTransfer.setData('text/plain', draggedItem.dataset.documentId);
-        e.dataTransfer.effectAllowed = 'move';
-    });
-
-    document.addEventListener('dragend', () => {
-        if (draggedItem) {
-            draggedItem.classList.remove('dragging');
-        }
-        draggedItem = null;
-        document.body.classList.remove('document-drag-active');
-        clearDropIndicators();
-    });
-
-    document.addEventListener('dragover', (e) => {
-        if (!draggedItem) return;
-
-        const row = closestElement(e.target, '.document-row');
-        const targetItem = row ? row.closest('.document-item') : null;
-        const endDropZone = closestElement(e.target, '.document-tree-end-drop-zone');
-        const spaceButton = closestElement(e.target, '.space-button');
-
-        if (row && isValidDocumentTarget(targetItem)) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            showDocumentDropIndicator(row, getDropMode(row, e.clientY));
-        } else if (isValidTreeEndTarget(endDropZone)) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            clearDropIndicators();
-            endDropZone.classList.add('drag-over');
-        } else if (spaceButton) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            clearDropIndicators();
-            spaceButton.classList.add('drag-over');
-        } else {
-            clearDropIndicators();
-        }
-    });
-
-    document.addEventListener('drop', async (e) => {
-        if (!draggedItem) return;
-
-        const sourceItem = draggedItem;
-        const draggedId = e.dataTransfer.getData('text/plain') || sourceItem.dataset.documentId;
-        if (!draggedId) return;
-
-        const row = closestElement(e.target, '.document-row');
-        const targetItem = row ? row.closest('.document-item') : null;
-        const endDropZone = closestElement(e.target, '.document-tree-end-drop-zone');
-        const spaceButton = closestElement(e.target, '.space-button');
-
-        let targetSpaceId = null;
-        let targetParentId = null;
-        let targetPosition = 0;
-
-        if (row && isValidDocumentTarget(targetItem)) {
-            const mode = getDropMode(row, e.clientY);
-            targetSpaceId = targetItem.dataset.spaceId;
-
-            if (mode === 'inside') {
-                targetParentId = targetItem.dataset.documentId;
-                targetPosition = directDocumentItems(childDocumentTree(targetItem))
-                    .filter(item => item !== sourceItem).length;
-            } else {
-                targetParentId = targetItem.dataset.parentId || null;
-                const siblings = directDocumentItems(targetItem.parentElement)
-                    .filter(item => item !== sourceItem);
-                const targetIndex = siblings.indexOf(targetItem);
-                targetPosition = Math.max(0, targetIndex + (mode === 'after' ? 1 : 0));
-            }
-        } else if (isValidTreeEndTarget(endDropZone)) {
-            const destination = treeEndDestination(endDropZone, sourceItem);
-            targetSpaceId = destination.spaceId;
-            targetParentId = destination.parentId;
-            targetPosition = destination.position;
-        } else if (spaceButton) {
-            targetSpaceId = spaceButton.dataset.spaceId;
-            targetParentId = null;
-            targetPosition = rootDocumentItems(targetSpaceId)
-                .filter(item => item !== sourceItem).length;
-        } else {
-            clearDropIndicators();
-            return;
-        }
-
-        e.preventDefault();
-        clearDropIndicators();
-
-        if (targetSpaceId) {
-            try {
-                showToast('Перемещение документа...');
-                await apiFetch(`/api/documents/${draggedId}/move`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        spaceId: Number(targetSpaceId),
-                        parentId: targetParentId ? Number(targetParentId) : null,
-                        position: targetPosition
-                    })
-                });
-                showToast('Документ успешно перемещен');
-                setTimeout(() => location.reload(), 800);
-            } catch (err) {
-                showToast(err.message || 'Ошибка при перемещении документа', 'error');
-            }
-        }
-    });
-}
-
-
-function initSpaceSidebarSearch() {
-    const sidebar = document.getElementById('spacesSidebar');
-    const form = document.getElementById('spaceSearchForm');
-    const input = document.getElementById('spaceSearchInput');
-    const treeContainer = document.getElementById('spaceTreeContainer');
-    const resultsContainer = document.getElementById('spaceSearchResults');
-    const statusElement = document.getElementById('spaceSearchStatus');
-
-    if (!sidebar || !form || !input || !treeContainer || !resultsContainer || !statusElement) {
-        return;
-    }
-
-    let requestCounter = 0;
-    let debounceTimer = null;
-
-    function showDefaultState() {
-        treeContainer.hidden = false;
-        resultsContainer.hidden = true;
-        resultsContainer.innerHTML = '';
-        statusElement.hidden = true;
-        statusElement.textContent = '';
-        sidebar.classList.remove('sidebar-search-active');
-    }
-
-    function showLoading() {
-        treeContainer.hidden = true;
-        resultsContainer.hidden = false;
-        resultsContainer.innerHTML = '';
-        statusElement.hidden = false;
-        statusElement.textContent = 'Поиск пространств...';
-        sidebar.classList.add('sidebar-search-active');
-    }
-
-    function showResults(spaces, query) {
-        treeContainer.hidden = true;
-        resultsContainer.hidden = false;
-        sidebar.classList.add('sidebar-search-active');
-
-        if (!spaces || spaces.length === 0) {
-            statusElement.hidden = false;
-            statusElement.textContent = 'Пространства не найдены';
-            resultsContainer.innerHTML = '';
-            return;
-        }
-
-        statusElement.hidden = false;
-        statusElement.textContent = `Найдено: ${spaces.length}`;
-        resultsContainer.innerHTML = spaces.map(space => `
-            <a class="space-search-result" href="/spaces/${space.id}">
-                <span class="space-search-result-name">${escapeHtml(space.name)}</span>
-                ${space.description ? `<span class="space-search-result-description">${escapeHtml(space.description)}</span>` : ''}
-            </a>
-        `).join('');
-    }
-
-    async function searchSpaces(query) {
-        const normalizedQuery = query.trim();
-        requestCounter += 1;
-        const currentRequest = requestCounter;
-
-        if (!normalizedQuery) {
-            showDefaultState();
-            return;
-        }
-
-        showLoading();
-        try {
-            const spaces = await apiFetch(`/api/spaces/search?q=${encodeURIComponent(normalizedQuery)}&size=100`);
-            if (currentRequest !== requestCounter) {
-                return;
-            }
-            showResults(Array.isArray(spaces) ? spaces : [], normalizedQuery);
-        } catch (error) {
-            if (currentRequest !== requestCounter) {
-                return;
-            }
-            statusElement.hidden = false;
-            statusElement.textContent = 'Ошибка поиска';
-            resultsContainer.hidden = true;
-            sidebar.classList.add('sidebar-search-active');
-        }
-    }
-
-    form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        searchSpaces(input.value);
-    });
-
-    input.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        const value = input.value;
-
-        if (!value.trim()) {
-            requestCounter += 1;
-            showDefaultState();
-            return;
-        }
-
-        debounceTimer = setTimeout(() => {
-            searchSpaces(value);
-        }, 250);
-    });
-
-    input.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            input.value = '';
-            requestCounter += 1;
-            showDefaultState();
-        }
-    });
-
-    if (!input.value.trim()) {
-        showDefaultState();
-    } else {
-        searchSpaces(input.value);
-    }
-}
-
 
 function getCsrfToken() {
     const name = 'XSRF-TOKEN=';
@@ -404,6 +93,7 @@ async function apiFetch(url, options = {}) {
         credentials: 'same-origin',
         ...options
     };
+
     try {
         const response = await fetch(url, defaultOptions);
         if (!response.ok) {
@@ -424,11 +114,7 @@ async function apiFetch(url, options = {}) {
                 } catch (e) {
                 }
             }
-
-            const error = new Error(errorMessage);
-            error.status = response.status;
-            throw error;
-
+            throw new Error(errorMessage);
         }
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -448,6 +134,7 @@ async function deleteDocument(id) {
     try {
         await apiFetch(`/api/documents/${id}`, { method: 'DELETE' });
         if (typeof showToast === 'function') showToast('Документ удален');
+        // Reload to update the tree sidebar
         setTimeout(() => location.reload(), 1000);
     } catch (e) {
         console.error('Delete failed:', e);
@@ -458,6 +145,7 @@ async function restoreDocument(id) {
     try {
         await apiFetch(`/api/documents/${id}/restore`, { method: 'POST' });
         if (typeof showToast === 'function') showToast('Документ восстановлен');
+        // Reload to update the tree sidebar
         setTimeout(() => location.reload(), 1000);
     } catch (e) {
         console.error('Restore failed:', e);
@@ -482,6 +170,7 @@ function showToast(message, type = 'success') {
     }, 5000);
 }
 
+// ── Export → attachment ───────────────────────────────────────────────────────
 
 async function exportAndAttach(docId, format) {
     try {
@@ -498,56 +187,10 @@ async function exportAndAttach(docId, format) {
 
         showToast(`«${filename}» добавлен как вложение`);
         if (typeof window.loadAttachments === 'function') window.loadAttachments();
-    } catch (_) {  }
-}
-
-
-// ── Экспорт — прямая загрузка ────────────────────────────────────────────
-
-async function triggerExportDownload(docId, format) {
-  try {
-    showToast(`Подготовка ${format.toUpperCase()}…`);
-    const response = await apiFetch(`/api/documents/${docId}/export/${format}`);
-    const blob = await response.blob();
-
-    // Парсим Content-Disposition: сначала filename*=UTF-8''..., затем filename="..."
-    const cd = response.headers.get('Content-Disposition') || '';
-    let filename = null;
-    const rfcMatch = cd.match(/filename\*=UTF-8''([^;\s]+)/i);
-    if (rfcMatch) {
-      try { filename = decodeURIComponent(rfcMatch[1]); } catch (_) {}
-    }
-    if (!filename) {
-      const plainMatch = cd.match(/filename="([^"]+)"/i);
-      if (plainMatch) filename = plainMatch[1];
-    }
-    // Если заголовок не доступен из JS — берём название документа из DOM
-    if (!filename) {
-      const titleEl = document.getElementById('docTitle');
-      const docTitle = titleEl ? titleEl.textContent.trim() : '';
-      filename = (docTitle || `document`) + '.' + format;
-    }
-
-    const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-
-    showToast(`«${filename}» загружен`);
-  } catch (err) {
-    console.error('Export download failed:', err);
-    if (typeof showToast === 'function') {
-      showToast('Ошибка при скачивании файла экспорта', 'error');
-    }
-  }
+    } catch (_) { /* apiFetch уже показывает toast */ }
 }
 
 // ── Shared floating export dropdown (position:fixed — не обрезается таблицей) ─
-
 
 let _exportMenuEl = null;
 
@@ -568,7 +211,7 @@ function _getExportMenuEl() {
             e.preventDefault();
             const id = _exportMenuEl.dataset.docId;
             _exportMenuEl.style.display = 'none';
-            if (id) triggerExportDownload(Number(id), fmt);
+            if (id) exportAndAttach(Number(id), fmt);
         });
         _exportMenuEl.appendChild(a);
     });
@@ -610,7 +253,7 @@ function escapeHtml(str) {
     });
 }
 
-
+// ── Universal Ellipsis Tooltip Mechanism ─────────────────────────────────────
 (function() {
     let tooltipEl = null;
 
@@ -784,3 +427,4 @@ function escapeHtml(str) {
         });
     }
 })();
+

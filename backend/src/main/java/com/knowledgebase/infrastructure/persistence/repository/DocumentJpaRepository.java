@@ -108,13 +108,13 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
     long countByTitleAndSpaceIdAndNoParent(String title, Long spaceId);
     
     @org.springframework.data.jpa.repository.Query(value = """
-        WITH RECURSIVE Ancestors AS (
+        WITH RECURSIVE document_ancestors(parent_document_id) AS (
             SELECT parent_document_id FROM documents WHERE id = :documentId
             UNION ALL
             SELECT d.parent_document_id FROM documents d
-            INNER JOIN Ancestors a ON d.id = a.parent_document_id
+            INNER JOIN document_ancestors a ON d.id = a.parent_document_id
         )
-        SELECT parent_document_id FROM Ancestors WHERE parent_document_id IS NOT NULL
+        SELECT parent_document_id FROM document_ancestors WHERE parent_document_id IS NOT NULL
         """, nativeQuery = true)
     List<Long> findAncestorIds(@org.springframework.data.repository.query.Param("documentId") Long documentId);
 
@@ -132,4 +132,3 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, 
 
     boolean existsByParentDocumentId(Long parentId);
 }
-

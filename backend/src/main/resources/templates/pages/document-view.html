@@ -10,13 +10,16 @@
                     <span>Статус:</span>
                     <span id="docStatus" class="badge">...</span>
                 </div>
-                <span>Автор ID: <span id="docAuthor">...</span></span>
+
+                <span>Автор: <span id="docAuthor">...</span></span>
                 <span>Обновлено: <span id="docDate">...</span></span>
             </div>
         </div>
         <div class="view-actions" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
             <a id="editLink" href="#" class="button-primary"
                 style="text-decoration:none; display:none;">Редактировать</a>
+            <a id="createChildLink" href="#" class="button-secondary"
+                style="text-decoration:none; display:none;">+ Дочерний документ</a>
             <a id="historyLink" th:href="@{/documents/{id}/history(id=${documentId})}" class="button-secondary"
                 style="text-decoration:none;">История и сравнение</a>
             <div style="position:relative; display:inline-block;" id="exportDropdownWrapper">
@@ -148,8 +151,22 @@
             try {
                 const doc = await apiFetch(`/api/documents/${docId}`);
                 document.getElementById('docTitle').textContent = doc.title;
-                document.getElementById('docAuthor').textContent = doc.authorId;
-                document.getElementById('docDate').textContent = doc.updatedAt || 'неизвестно';
+                function formatDate(dateStr) {
+                    if (!dateStr) return 'неизвестно';
+                    try {
+                        const d = new Date(dateStr);
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        const hours = String(d.getHours()).padStart(2, '0');
+                        const minutes = String(d.getMinutes()).padStart(2, '0');
+                        return `${day}.${month}.${year} ${hours}:${minutes}`;
+                    } catch (e) {
+                        return dateStr;
+                    }
+                }
+                document.getElementById('docAuthor').textContent = doc.authorLogin || 'Неизвестно';
+                document.getElementById('docDate').textContent = formatDate(doc.updatedAt);
 
                 const statusBadge = document.getElementById('docStatus');
                 statusBadge.textContent = doc.status;
@@ -162,6 +179,8 @@
                     const perms = await apiFetch(`/api/user/permissions?spaceId=${doc.spaceId}`);
                     if (perms.canEdit) {
                         document.getElementById('editLink').style.display = 'inline-block';
+                        document.getElementById('createChildLink').href = `/documents/new?spaceId=${doc.spaceId}&parentId=${docId}`;
+                        document.getElementById('createChildLink').style.display = 'inline-block';
                     }
                     canManageAttachments = !!perms.canEdit;
                 } catch (e) {
@@ -170,6 +189,8 @@
                 }
 
                 document.getElementById('documentContent').innerHTML = doc.contentHtml || '';
+                // Запоминаем spaceId для кнопки создания в хедере
+                document.querySelector('.document-view-page').dataset.spaceId = doc.spaceId;
                 await loadAttachments();
             } catch (e) {
                 document.getElementById('documentContent').innerHTML = '<p style="color:red;">Ошибка при загрузке документа.</p>';

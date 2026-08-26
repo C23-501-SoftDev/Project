@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle} ?: 'База знаний'">База знаний</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
     <link rel="stylesheet" th:href="@{/css/main.css}">
 </head>
 
@@ -12,8 +14,22 @@
     <!-- Навигационная панель -->
     <nav class="navbar" th:if="${currentUser != null}">
         <div class="navbar-brand">
-            <a th:href="@{/}">База знаний</a>
+            <a th:href="@{/}">
+                <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 8px;">
+                    <path d="M2 6C2 4.89543 2.89543 4 4 4H12V18H4C2.89543 18 2 17.1046 2 16V6Z" fill="var(--primary-light)" stroke="currentColor" stroke-width="2"/>
+                    <path d="M22 6C22 4.89543 21.1046 4 20 4H12V18H20C21.1046 18 22 17.1046 22 16V6Z" fill="var(--primary-light)" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 4V18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M5 8H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M5 11H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M5 14H7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M15 8H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M15 11H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                    <path d="M17 14H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                </svg>
+                База знаний
+            </a>
         </div>
+        <a th:href="@{/documents/new}" class="button-primary" style="display:none; text-decoration:none; white-space:nowrap;" id="headerCreateDocBtn">+ Создать документ</a>
         <div class="navbar-search">
             <form th:action="@{/search}" method="get">
                 <input type="text" name="q" class="search-query" placeholder="Поиск документов..."
@@ -51,10 +67,11 @@
             <div class="sidebar-search-status" id="spaceSearchStatus" hidden></div>
             <div class="space-tree" id="spaceTreeContainer" th:if="${spaces != null}">
                 <ul class="space-list">
-                    <li th:each="space : ${spaces}" class="space-item">
+                    <li th:each="space : ${spaces}" class="space-item" th:data-space-id="${space.id}">
                         <button type="button" class="space-button" th:onclick="'toggleSpaceTree(' + ${space.id} + ')'"
                             th:text="${space.name}"
-                            th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'">
+                            th:classappend="${currentSpace != null && currentSpace.id == space.id} ? 'active'"
+                            th:data-space-id="${space.id}">
                             Пространство
                         </button>
                         <!-- Дерево отображается, если оно было загружено, скрытие/раскрытие через JS -->
@@ -62,7 +79,7 @@
                             th:style="${currentSpace != null && currentSpace.id == space.id} ? 'display:block' : 'display:none'">
                             <div th:if="${spaceTrees != null && spaceTrees.get(space.id) != null}">
                                 <div
-                                    th:replace="~{fragments/document-tree :: documentTree(${spaceTrees.get(space.id)})}">
+                                    th:replace="~{fragments/document-tree :: documentTree(${spaceTrees.get(space.id)}, false)}">
                                 </div>
                             </div>
                         </div>
@@ -82,6 +99,55 @@
 
     <script th:src="@{/js/main.js}"></script>
     <script th:src="@{/js/custom-select.js}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const createBtn = document.getElementById('headerCreateDocBtn');
+            if (!createBtn) return;
+
+            // Пытаемся найти контекст: spaceId и documentId
+            let spaceId = null;
+            let documentId = null;
+
+            // 1. Ищем на корневом элементе страницы data-space-id (space-view или document-view)
+            const pageRoot = document.querySelector('[data-space-id]');
+            if (pageRoot) {
+                spaceId = pageRoot.dataset.spaceId;
+            }
+
+            // 2. Ищем скрытый input #documentId (document-view, document-edit)
+            const docInput = document.getElementById('documentId');
+            if (docInput) {
+                documentId = docInput.value;
+                // Если data-space-id не нашли, пробуем получить spaceId через API (если загружена страница с документом)
+                if (!spaceId && documentId) {
+                    try {
+                        const doc = await apiFetch(`/api/documents/${documentId}`);
+                        if (doc && doc.spaceId) {
+                            spaceId = doc.spaceId;
+                        }
+                    } catch (e) {
+                        // Не удалось — оставляем spaceId = null
+                    }
+                }
+            }
+
+            try {
+                const spaces = await apiFetch('/api/spaces?requiredAccess=WRITE&size=1');
+                if (spaces && spaces.length > 0) {
+                    createBtn.style.display = '';
+                    // Формируем ссылку с контекстом
+                    let url = '/documents/new';
+                    const params = [];
+                    if (spaceId) params.push('spaceId=' + encodeURIComponent(spaceId));
+                    if (documentId) params.push('parentId=' + encodeURIComponent(documentId));
+                    if (params.length > 0) url += '?' + params.join('&');
+                    createBtn.href = url;
+                }
+            } catch (e) {
+                console.error('Failed to check create permission:', e);
+            }
+        });
+    </script>
 </body>
 
 </html>

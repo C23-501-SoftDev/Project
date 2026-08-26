@@ -307,5 +307,34 @@ public class DocumentController {
                 .toList();
         return ResponseEntity.ok(responses);
     }
-}
 
+    /**
+     * POST /api/documents/{id}/move
+     * Переместить документ в другое пространство или сменить родителя.
+     */
+    @PostMapping("/{id}/move")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Переместить документ", description = "Переносит документ в другое пространство или меняет родителя")
+    public ResponseEntity<DocumentResponse> moveDocument(
+            @PathVariable Long id,
+            @Valid @RequestBody com.knowledgebase.interfaces.rest.dto.request.MoveDocumentRequest request,
+            @AuthenticationPrincipal User currentUser) {
+
+        Document document = documentService.getDocumentById(id);
+        Long sourceSpaceId = document.getSpaceId();
+        Long targetSpaceId = request.spaceId() != null ? request.spaceId() : sourceSpaceId;
+
+        // Проверяем права на запись в исходном и целевом пространствах
+        if (!permissionService.canWrite(currentUser.getId(), currentUser.isAdmin(), sourceSpaceId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (!permissionService.canWrite(currentUser.getId(), currentUser.isAdmin(), targetSpaceId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Document moved = documentService.moveDocument(
+                id, request.spaceId(), request.parentId(), request.position(), currentUser.getId());
+        String content = documentService.getDocumentContent(moved);
+        return ResponseEntity.ok(mapper.toDocumentResponse(moved, content));
+    }
+}

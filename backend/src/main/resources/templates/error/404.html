@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 — Страница не найдена</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <style>
+        .error-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .error-card {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 52px 48px;
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+            animation: fadeInUp 0.4s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-light);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 28px;
+        }
+
+        .error-code {
+            font-size: 72px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--primary-color);
+            line-height: 1;
+            margin: 0 0 12px;
+        }
+
+        .error-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0 0 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .error-description {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin: 0 0 36px;
+            line-height: 1.7;
+        }
+
+        .error-description code {
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #e11d48;
+            word-break: break-all;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .error-actions a {
+            text-decoration: none;
+        }
+
+        .error-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 32px 0;
+        }
+
+        .error-hint {
+            font-size: 13px;
+            color: var(--secondary-color);
+        }
+
+        .error-hint a {
+            color: var(--primary-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .error-hint a:hover {
+            text-decoration: underline;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 36px;
+        }
+
+        .search-form input[type="text"] {
+            flex: 1;
+            height: 42px;
+            padding: 9px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-family: inherit;
+            color: var(--text-color);
+            background: #f8fafc;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .search-form input[type="text"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px var(--primary-light);
+            background: #fff;
+        }
+
+        .search-form button {
+            height: 42px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="error-page">
+    <div class="error-card">
+
+        <div class="error-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 6C2 4.89543 2.89543 4 4 4H12V18H4C2.89543 18 2 17.1046 2 16V6Z" fill="var(--primary-light)" stroke="var(--primary-color)" stroke-width="2"/>
+                <path d="M22 6C22 4.89543 21.1046 4 20 4H12V18H20C21.1046 18 22 17.1046 22 16V6Z" fill="var(--primary-light)" stroke="var(--primary-color)" stroke-width="2"/>
+                <path d="M12 4V18" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="18" cy="18" r="5" fill="#fff" stroke="var(--primary-color)" stroke-width="1.5"/>
+                <path d="M16.5 18H19.5" stroke="var(--primary-color)" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M18 16.5V19.5" stroke="var(--primary-color)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+        </div>
+
+        <div class="error-code">404</div>
+        <h1 class="error-title">Страница не найдена</h1>
+        <p class="error-description">
+            Запрашиваемая страница
+            <th:block th:if="${path != null}">
+                <code th:text="${path}"></code>
+            </th:block>
+            не существует или была удалена.
+        </p>
+
+        <form class="search-form" th:action="@{/search}" method="get">
+            <input type="text" name="q" placeholder="Поиск по документам..." autofocus>
+            <button type="submit" class="button-primary">Найти</button>
+        </form>
+
+        <div class="error-actions">
+            <a th:href="@{/}" class="button-primary">На главную</a>
+            <a href="javascript:history.back()" class="button-secondary">Назад</a>
+        </div>
+
+        <div class="error-divider"></div>
+        <p class="error-hint">
+            Перейдите на <a th:href="@{/}">главную страницу</a> или воспользуйтесь поиском выше.
+        </p>
+
+    </div>
+</body>
+</html>

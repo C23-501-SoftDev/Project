@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 — Ошибка сервера</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <style>
+        .error-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .error-card {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 52px 48px;
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+            animation: fadeInUp 0.4s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            background: #fff7ed;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 28px;
+        }
+
+        .error-code {
+            font-size: 72px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: #f97316;
+            line-height: 1;
+            margin: 0 0 12px;
+        }
+
+        .error-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0 0 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .error-description {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin: 0 0 36px;
+            line-height: 1.7;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .error-actions a {
+            text-decoration: none;
+        }
+
+        .error-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 32px 0;
+        }
+
+        .error-hint {
+            font-size: 13px;
+            color: var(--secondary-color);
+        }
+
+        .error-hint a {
+            color: var(--primary-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .error-hint a:hover {
+            text-decoration: underline;
+        }
+
+        .error-details {
+            text-align: left;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 14px 18px;
+            margin-bottom: 28px;
+        }
+
+        .error-details summary {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--secondary-color);
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .error-details summary::-webkit-details-marker { display: none; }
+
+        .error-details summary::before {
+            content: '▶';
+            font-size: 10px;
+            transition: transform 0.2s ease;
+            color: var(--secondary-color);
+        }
+
+        .error-details[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        .error-details pre {
+            margin: 12px 0 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.6;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+    </style>
+</head>
+<body class="error-page">
+    <div class="error-card">
+
+        <div class="error-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3L2 19H22L12 3Z" fill="#fff7ed" stroke="#f97316" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M12 10V14" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="12" cy="17" r="1" fill="#f97316"/>
+            </svg>
+        </div>
+
+        <div class="error-code">500</div>
+        <h1 class="error-title">Внутренняя ошибка сервера</h1>
+        <p class="error-description">
+            Что-то пошло не так на нашей стороне.<br>
+            Мы уже работаем над исправлением. Попробуйте снова через несколько минут.
+        </p>
+
+        <th:block th:if="${errorMessage != null}">
+            <details class="error-details">
+                <summary>Подробности ошибки</summary>
+                <pre th:text="${errorMessage}"></pre>
+            </details>
+        </th:block>
+
+        <div class="error-actions">
+            <a th:href="@{/}" class="button-primary">На главную</a>
+            <a href="javascript:location.reload()" class="button-secondary">Повторить</a>
+        </div>
+
+        <div class="error-divider"></div>
+        <p class="error-hint">
+            Если ошибка повторяется, сообщите
+            <a th:href="@{/admin/settings}">администратору</a>.
+        </p>
+
+    </div>
+</body>
+</html>

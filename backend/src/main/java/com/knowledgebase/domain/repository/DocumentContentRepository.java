@@ -61,19 +61,6 @@ public interface DocumentContentRepository {
      */
     Optional<String> readDocumentVersion(String gitFilePath, String gitHash);
 
-    List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
-                                        int maxLines, int maxBytes);
-
-    default List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
-                                                int maxLines, int maxBytes, boolean includeAllContext) {
-        return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes);
-    }
-
-    default List<DiffLine> diffDocumentVersions(String fromPath, String toPath, String fromHash, String toHash,
-                                                int maxLines, int maxBytes, boolean includeAllContext,
-                                                DiffAlgorithmType algorithm) {
-        return diffDocumentVersions(fromPath, toPath, fromHash, toHash, maxLines, maxBytes, includeAllContext);
-    }
 
     /**
      * Перемещает файл в Git (используется при архивации).

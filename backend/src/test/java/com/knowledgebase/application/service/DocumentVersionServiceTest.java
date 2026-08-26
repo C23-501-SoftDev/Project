@@ -40,7 +40,7 @@ class DocumentVersionServiceTest {
         AuditService audit = mock(AuditService.class);
         ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
         Document document = Document.restore(7L, "Architecture", "spaces/current.md",
-                DocumentStatus.PUBLISHED, 3L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
+                DocumentStatus.PUBLISHED, null, 3L, 2L, null, null, null, LocalDateTime.now(), LocalDateTime.now());
         User editor = User.restore(9L, "editor", "hash", "editor@kb.local", GlobalRole.EDITOR,
                 false, false, null, LocalDateTime.now(), LocalDateTime.now());
         String selectedHash = "a".repeat(40);
@@ -87,7 +87,7 @@ class DocumentVersionServiceTest {
         DocumentContentRepository content = mock(DocumentContentRepository.class);
         String foreignHash = "c".repeat(40);
         Document document = Document.restore(7L, "Architecture", "spaces/current.md",
-                DocumentStatus.PUBLISHED, 3L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
+                DocumentStatus.PUBLISHED, null, 3L, 2L, null, null, null, LocalDateTime.now(), LocalDateTime.now());
         when(documents.findById(7L)).thenReturn(Optional.of(document));
         when(versions.findByDocumentIdAndGitHash(7L, foreignHash)).thenReturn(Optional.empty());
 
@@ -106,7 +106,7 @@ class DocumentVersionServiceTest {
         UserRepository users = mock(UserRepository.class);
         String selectedHash = "d".repeat(40);
         Document document = Document.restore(7L, "Architecture", "spaces/current.md",
-                DocumentStatus.PUBLISHED, 3L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
+                DocumentStatus.PUBLISHED, null, 3L, 2L, null, null, null, LocalDateTime.now(), LocalDateTime.now());
         when(documents.findById(7L)).thenReturn(Optional.of(document));
         when(versions.findByDocumentIdAndGitHash(7L, selectedHash)).thenReturn(Optional.of(
                 DocumentVersion.create(7L, selectedHash, "spaces/current.md", 2L, "Old version", LocalDateTime.now())));
@@ -131,7 +131,7 @@ class DocumentVersionServiceTest {
         String selectedHash = "e".repeat(40);
         String newHash = "f".repeat(40);
         Document document = Document.restore(7L, "Architecture", "spaces/current.md",
-                DocumentStatus.PUBLISHED, 3L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
+                DocumentStatus.PUBLISHED, null, 3L, 2L, null, null, null, LocalDateTime.now(), LocalDateTime.now());
         User editor = User.restore(9L, "editor", "hash", "editor@kb.local", GlobalRole.EDITOR,
                 false, false, null, LocalDateTime.now(), LocalDateTime.now());
         when(documents.findById(7L)).thenReturn(Optional.of(document));
@@ -159,7 +159,7 @@ class DocumentVersionServiceTest {
         DocumentVersionRepository versions = mock(DocumentVersionRepository.class);
         DocumentContentRepository content = mock(DocumentContentRepository.class);
         Document document = Document.restore(7L, "Architecture", "spaces/main/architecture.md",
-                DocumentStatus.PUBLISHED, 3L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
+                DocumentStatus.PUBLISHED, null, 3L, 2L, null, null, null, LocalDateTime.now(), LocalDateTime.now());
         String registeredHash = "a".repeat(40);
         String foreignHash = "b".repeat(40);
 
@@ -183,7 +183,7 @@ class DocumentVersionServiceTest {
         DocumentVersionRepository versions = mock(DocumentVersionRepository.class);
         DocumentContentRepository content = mock(DocumentContentRepository.class);
         Document document = Document.restore(7L, "Architecture", "spaces/current.md",
-                DocumentStatus.PUBLISHED, 3L, 2L, null, null, LocalDateTime.now(), LocalDateTime.now());
+                DocumentStatus.PUBLISHED, null, 3L, 2L, null, null, null, LocalDateTime.now(), LocalDateTime.now());
         String fromHash = "a".repeat(40);
         String toHash = "b".repeat(40);
 

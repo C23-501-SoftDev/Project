@@ -17,6 +17,7 @@ public class Document {
     private Long templateId;
     private Long parentDocumentId;
     private Long previousParentId;
+    private int sortOrder;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean deletedWithSpace = false;
@@ -34,6 +35,7 @@ public class Document {
         document.gitFilePath = gitFilePath;
         document.templateId = templateId;
         document.status = DocumentStatus.DRAFT;
+        document.sortOrder = 0;
         document.createdAt = LocalDateTime.now();
         document.updatedAt = LocalDateTime.now();
         return document;
@@ -47,6 +49,18 @@ public class Document {
                                    Long authorId, Long spaceId, Long templateId, Long parentDocumentId,
                                    Long previousParentId,
                                    LocalDateTime createdAt, LocalDateTime updatedAt) {
+        return restore(id, title, gitFilePath, status, previousStatus, authorId, spaceId, templateId,
+                parentDocumentId, previousParentId, 0, createdAt, updatedAt);
+    }
+
+    /**
+     * Фабричный метод для восстановления документа вместе с его позицией среди соседей.
+     */
+    public static Document restore(Long id, String title, String gitFilePath, DocumentStatus status,
+                                   DocumentStatus previousStatus,
+                                   Long authorId, Long spaceId, Long templateId, Long parentDocumentId,
+                                   Long previousParentId, int sortOrder,
+                                   LocalDateTime createdAt, LocalDateTime updatedAt) {
         Document document = new Document();
         document.id = id;
         document.title = title;
@@ -58,6 +72,7 @@ public class Document {
         document.templateId = templateId;
         document.parentDocumentId = parentDocumentId;
         document.previousParentId = previousParentId;
+        document.sortOrder = sortOrder;
         document.createdAt = createdAt;
         document.updatedAt = updatedAt;
         return document;
@@ -127,6 +142,11 @@ public class Document {
         restore(originalGitPath, this.previousParentId);
     }
 
+    public void moveToSpace(Long newSpaceId) {
+        this.spaceId = newSpaceId;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getters
     public Long getId() { return id; }
     public String getTitle() { return title; }
@@ -138,6 +158,7 @@ public class Document {
     public Long getTemplateId() { return templateId; }
     public Long getParentDocumentId() { return parentDocumentId; }
     public Long getPreviousParentId() { return previousParentId; }
+    public int getSortOrder() { return sortOrder; }
 
     public void setParentDocumentId(Long parentDocumentId) {
         this.parentDocumentId = parentDocumentId;
@@ -149,7 +170,14 @@ public class Document {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void setSortOrder(int sortOrder) {
+        if (sortOrder < 0) {
+            throw new IllegalArgumentException("Порядок документа не может быть отрицательным");
+        }
+        this.sortOrder = sortOrder;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }
-

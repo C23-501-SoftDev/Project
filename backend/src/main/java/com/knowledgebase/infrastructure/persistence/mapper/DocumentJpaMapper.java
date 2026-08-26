@@ -25,6 +25,7 @@ public class DocumentJpaMapper {
                 entity.getTemplateId(),
                 entity.getParentDocumentId(),
                 entity.getPreviousParentId(),
+                entity.getSortOrder(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -44,10 +45,10 @@ public class DocumentJpaMapper {
         entity.setTemplateId(domain.getTemplateId());
         entity.setParentDocumentId(domain.getParentDocumentId());
         entity.setPreviousParentId(domain.getPreviousParentId());
+        entity.setSortOrder(domain.getSortOrder());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
 
         return entity;
     }
 }
-

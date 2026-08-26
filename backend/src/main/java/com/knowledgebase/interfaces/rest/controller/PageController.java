@@ -65,7 +65,7 @@ public class PageController {
      */
     @GetMapping("/")
     public String index(@AuthenticationPrincipal User user, Model model) {
-        model.addAttribute("pageTitle", "Главная — База знаний");
+        model.addAttribute("pageTitle", "Последние документы");
         model.addAttribute("currentUser", user);
         addAllSpacesTrees(model, user);
         model.addAttribute("content", "pages/document-list");
@@ -89,7 +89,11 @@ public class PageController {
     }
 
     @GetMapping("/documents/new")
-    public String newDocument(@RequestParam(required = false) Long spaceId, @AuthenticationPrincipal User user, Model model) {
+    public String newDocument(
+            @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) Long parentId,
+            @AuthenticationPrincipal User user,
+            Model model) {
         var writableSpaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin(), com.knowledgebase.domain.model.PermissionType.WRITE);
 
         // Оставляем проверку на пустоту, но теперь список полный
@@ -101,6 +105,7 @@ public class PageController {
         if (spaceId != null && !permissionService.canWrite(user.getId(), user.isAdmin(), spaceId)) {
             return "redirect:/spaces/" + spaceId;
         }
+
         model.addAttribute("pageTitle", "Создание документа");
         model.addAttribute("currentUser", user);
         addAllSpacesTrees(model, user);
@@ -181,11 +186,14 @@ public class PageController {
 
     @GetMapping("/spaces/{id}")
     public String viewSpace(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
-        model.addAttribute("pageTitle", "Пространство");
+        var space = spaceRepository.findById(id).orElseThrow(() -> new com.knowledgebase.domain.exception.SpaceNotFoundException(id));
+        model.addAttribute("pageTitle", space.getName());
         model.addAttribute("currentUser", user);
         model.addAttribute("spaceId", id);
 
+
         addSidebarData(id, model, user);
+
         model.addAttribute("content", "pages/space-view");
         return "layout";
     }

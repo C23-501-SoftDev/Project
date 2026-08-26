@@ -1,15 +1,22 @@
-<!-- Фрагмент дерева документов -->
-<ul th:fragment="documentTree(nodes)" class="document-tree">
-    <li th:each="node : ${nodes}" class="document-item">
-        <a th:href="@{/spaces/{spaceId}/doc/{docTitle}(spaceId=${space.id}, docTitle=${node.document.title})}" 
-           th:text="${node.document.title}"
-           th:classappend="${documentId != null && documentId == node.document.id} ? 'active'">
-           Документ
-        </a>
-        <ul th:if="${!node.children.isEmpty()}" class="nested-document-list">
-            <li th:replace="~{::documentTree(${node.children})}"></li>
-        </ul>
+
+<ul th:fragment="documentTree(nodes, nested)" class="document-tree"
+    th:classappend="${nested} ? ' nested-document-list'">
+    <li th:each="node : ${nodes}" class="document-item"
+        th:data-document-id="${node.document.id}"
+        th:data-space-id="${space.id}"
+        th:data-parent-id="${node.document.parentDocumentId != null ? node.document.parentDocumentId : ''}"
+        th:data-sort-order="${node.document.sortOrder}">
+        <div class="document-row" draggable="true"
+             title="Перетащите выше, внутрь или ниже другого документа">
+            <a th:href="@{/spaces/{spaceId}/doc/{docTitle}(spaceId=${space.id}, docTitle=${node.document.title})}"
+               th:text="${node.document.title}"
+               th:classappend="${documentId != null && documentId == node.document.id} ? 'active'">
+               Документ
+            </a>
+        </div>
+        <th:block th:if="${!node.children.isEmpty()}">
+            <th:block th:replace="~{::documentTree(${node.children}, true)}"></th:block>
+        </th:block>
     </li>
-</ul>
-    </li>
+    <li class="document-tree-end-drop-zone" aria-hidden="true"></li>
 </ul>

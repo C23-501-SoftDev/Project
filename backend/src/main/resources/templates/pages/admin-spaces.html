@@ -44,14 +44,24 @@
         <div class="filter-group">
             <label>Статус:</label>
             <div class="custom-select" id="statusFilterWrapper" style="width: 180px;">
-                <div class="select-styled">Все</div>
+                <div class="select-styled">Активные</div>
                 <div class="select-options">
                     <div class="select-option" data-value="active">Активные</div>
                     <div class="select-option" data-value="deleted">Удалённые</div>
                     <div class="select-option" data-value="all">Все</div>
                 </div>
             </div>
-            <input type="hidden" id="statusFilter" value="all">
+            <input type="hidden" id="statusFilter" value="active">
+        </div>
+        <div class="filter-group">
+            <label>Владелец:</label>
+            <div class="custom-select" id="ownerFilterWrapper" style="width: 220px;" data-target="ownerFilter">
+                <div class="select-styled">Все</div>
+                <div class="select-options">
+                    <div class="select-option" data-value="">Все</div>
+                </div>
+            </div>
+            <input type="hidden" id="ownerFilter" value="">
         </div>
         <button class="button-primary" id="applyFiltersBtn">Применить</button>
         <button class="button-secondary" id="clearFiltersBtn">Сбросить</button>
@@ -89,7 +99,6 @@
     </div>
 </div>
 
-<!-- Modal to confirm restore -->
 <div class="modal" id="restoreConfirmModal">
     <div class="modal-content">
         <p>Вы уверены, что хотите восстановить это пространство?</p>
@@ -100,7 +109,6 @@
     </div>
 </div>
 
-<!-- Space Modal -->
 <div class="modal" id="spaceModal">
     <div class="modal-content">
         <h3 id="spaceModalTitle">Создать пространство</h3>
@@ -121,7 +129,6 @@
                     <div class="select-options"></div>
                 </div>
             </div>
-            <!-- Статус скрыт и жестко задан как Active -->
             <input type="hidden" id="spaceStatus" value="Active">
             <div style="display:flex; gap:12px; justify-content:flex-end;">
                 <button class="button-primary" id="saveSpaceBtn">Сохранить</button>
@@ -131,7 +138,6 @@
     </div>
 </div>
 
-<!-- Модальное окно подтверждения -->
 <div class="modal" id="confirmModal">
     <div class="modal-content">
         <p id="confirmMessage">Вы уверены?</p>
@@ -246,7 +252,8 @@
             }
         }
 
-        function populateLocalSelect(wrapperId, value, text, onSelect) {
+        // Функция для добавления опции в кастомный селект (используется и для fallback, и для глобального)
+        function populateCustomSelect(wrapperId, value, text, onSelect) {
             const wrapper = document.getElementById(wrapperId);
             if (!wrapper) return;
             const optionsDiv = wrapper.querySelector('.select-options');
@@ -278,6 +285,7 @@
             optionsDiv.appendChild(option);
         }
 
+        //  Состояние и переменные 
         let state = {
             page: 0,
             size: 20,
@@ -290,20 +298,7 @@
         let groupsList = [];
         let pendingAction = null;
 
-        async function restoreSpace(id) {
-            restoringSpaceId = id;
-            openModal('restoreConfirmModal');
-        }
-
-        async function confirmRestore() {
-            try {
-                await adminFetch(`/api/admin/spaces/${restoringSpaceId}/restore`, { method: 'POST' });
-                showToast('Восстановлено');
-                closeModal('restoreConfirmModal');
-                fetchSpaces();
-            } catch (e) { showToast('Ошибка восстановления', 'error'); }
-        }
-
+        //  Загрузка списков пользователей и групп 
         async function loadUsersList() {
             try {
                 if (typeof adminFetch !== 'function') return;
@@ -324,6 +319,28 @@
             }
         }
 
+        //  Загрузка владельцев для фильтра (из второго варианта) 
+        async function loadAdminSpaceOwners(status) {
+            try {
+                const data = await adminFetch('/api/admin/spaces/space-owners?status=' + status);
+                const ownerOptionsDiv = document.getElementById('ownerFilterWrapper').querySelector('.select-options');
+                if (ownerOptionsDiv) {
+                    const owners = data || [];
+                    ownerOptionsDiv.innerHTML = '<div class="select-option" data-value="">Все</div>';
+                    owners.forEach(function (u) {
+                        const option = document.createElement('div');
+                        option.className = 'select-option';
+                        option.dataset.value = u.id;
+                        option.textContent = u.login;
+                        ownerOptionsDiv.appendChild(option);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load admin space owners:', e);
+            }
+        }
+
+        //  Основная загрузка пространств 
         async function fetchSpaces() {
             const tbody = document.getElementById('spacesTbody');
             if (!tbody) return;
@@ -333,7 +350,9 @@
                 if (typeof adminFetch !== 'function') return;
 
                 const statusFilter = document.getElementById('statusFilter').value;
-                const url = `/api/admin/spaces?page=${state.page}&size=${state.size}&status=${statusFilter}`;
+                const ownerFilter = document.getElementById('ownerFilter').value;
+                const ownerParam = ownerFilter ? '&ownerId=' + ownerFilter : '';
+                const url = `/api/admin/spaces?page=${state.page}&size=${state.size}&status=${statusFilter}${ownerParam}`;
                 const data = await adminFetch(url);
                 const spaces = (data.content || data.spaces || []).map(s => ({
                     ...s,
@@ -357,10 +376,10 @@
                             <td class="actions">
                                 ${!s.isDeleted ? `<button class="button-secondary" onclick="window.managePermissions(${s.id})">Права</button>` : ''}
                                 ${s.isDeleted
-                            ? `<button class="button-primary" onclick="window.restoreSpace(${s.id})">Восстановить</button>`
-                            : `<button class="button-secondary" onclick="window.editSpace(${s.id})">Редактировать</button>
+                                    ? `<button class="button-primary" onclick="window.restoreSpace(${s.id})">Восстановить</button>`
+                                    : `<button class="button-secondary" onclick="window.editSpace(${s.id})">Редактировать</button>
                                        <button class="button-danger" onclick="window.deleteSpace(${s.id})">Удалить</button>`
-                        }
+                                }
                             </td>
                         </tr>
                     `).join('');
@@ -388,10 +407,13 @@
             if (state.page > 0) params.set('page', state.page);
             const statusFilter = document.getElementById('statusFilter').value;
             if (statusFilter !== 'all') params.set('status', statusFilter);
+            const ownerFilter = document.getElementById('ownerFilter').value;
+            if (ownerFilter) params.set('ownerId', ownerFilter);
             const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
             history.replaceState(null, '', newUrl);
         }
 
+        //  Управление правами (с поддержкой групп) 
         async function managePermissions(spaceId) {
             managingSpaceId = spaceId;
 
@@ -402,6 +424,7 @@
             document.getElementById('permUserGroup').style.display = '';
             document.getElementById('permGroupGroup').style.display = 'none';
 
+            // Заполняем список пользователей (только не EDITOR)
             const userWrapper = document.getElementById('permUserWrapper');
             if (userWrapper) {
                 userWrapper.querySelector('.select-styled').textContent = '-- Выберите пользователя --';
@@ -410,36 +433,39 @@
                     options.innerHTML = '';
                     usersList.forEach(u => {
                         if ((u.roleName || u.role) !== 'EDITOR') {
-                            window.populateCustomSelect('permUserWrapper', u.id, `${u.login} (${u.email})`);
+                            populateCustomSelect('permUserWrapper', u.id, `${u.login} (${u.email})`);
                         }
-
                     });
                 }
             }
             document.getElementById('permUser').value = '';
 
-            // Список групп (US4.2.2)
+            // Заполняем список групп
             const groupWrapper = document.getElementById('permGroupWrapper');
             if (groupWrapper) {
                 groupWrapper.querySelector('.select-styled').textContent = '-- Выберите группу --';
                 const groupOptions = groupWrapper.querySelector('.select-options');
                 if (groupOptions) {
                     groupOptions.innerHTML = '';
-                    groupsList.forEach(g => window.populateCustomSelect('permGroupWrapper', g.id, g.name));
+                    groupsList.forEach(g => populateCustomSelect('permGroupWrapper', g.id, g.name));
                 }
             }
             document.getElementById('permGroup').value = '';
 
             document.getElementById('permissionsList').innerHTML = '<p style="color:#6B7280;">Загрузка...</p>';
             openModal('permissionsModal');
-            window.initCustomSelects();
-            // focus editable select for quick typing
+            // Инициализация кастомных селектов (глобальная или fallback)
+            if (typeof initCustomSelects === 'function') {
+                initCustomSelects();
+            } else {
+                initLocalSelects();
+            }
+            // focus для поиска
             const permStyled = document.getElementById('permUserWrapper')?.querySelector('.select-styled');
             if (permStyled && permStyled.contentEditable === 'true') permStyled.focus();
             await loadPermissionsList();
         }
 
-        // Права пространства: и пользователей, и групп (US4.2.2)
         async function loadPermissionsList() {
             const list = document.getElementById('permissionsList');
             try {
@@ -448,7 +474,7 @@
                     adminFetch(`/api/admin/spaces/${managingSpaceId}/group-permissions`).catch(() => [])
                 ]);
                 const rows = [];
-                // Право OWNER владельца не показываем — оно назначается автоматически
+                // Исключаем OWNER (автоматическое право владельца)
                 (userPerms || [])
                     .filter(p => (p.permissionType || p.type) !== 'OWNER')
                     .forEach(p => rows.push(`
@@ -467,6 +493,7 @@
             }
         }
 
+        //  Модалки создания/редактирования 
         async function openCreateSpaceModal() {
             editingSpaceId = null;
             document.getElementById('spaceModalTitle').textContent = 'Создать пространство';
@@ -480,15 +507,19 @@
             styled.style.color = '';
             ownerWrapper.querySelector('.select-options').innerHTML = '';
 
-            // Для владельца показываем только АДМИНОВ
+            // Только администраторы
             usersList.forEach(u => {
                 if (u.admin === true || u.isAdmin === true) {
-                    window.populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
+                    populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
                 }
             });
 
             openModal('spaceModal');
-            window.initCustomSelects();
+            if (typeof initCustomSelects === 'function') {
+                initCustomSelects();
+            } else {
+                initLocalSelects();
+            }
             const ownerStyled = document.getElementById('spaceOwnerWrapper')?.querySelector('.select-styled');
             if (ownerStyled && ownerStyled.contentEditable === 'true') ownerStyled.focus();
         }
@@ -509,15 +540,18 @@
                 styled.style.color = user ? 'var(--text-color)' : '';
                 ownerWrapper.querySelector('.select-options').innerHTML = '';
 
-                // Для владельца показываем только АДМИНОВ
                 usersList.forEach(u => {
                     if (u.admin === true || u.isAdmin === true) {
-                        window.populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
+                        populateCustomSelect('spaceOwnerWrapper', u.id, `${u.login} (${u.email})`);
                     }
                 });
 
                 openModal('spaceModal');
-                window.initCustomSelects();
+                if (typeof initCustomSelects === 'function') {
+                    initCustomSelects();
+                } else {
+                    initLocalSelects();
+                }
             } catch (e) { showToast('Ошибка загрузки', 'error'); }
         }
 
@@ -537,6 +571,7 @@
             } catch (e) { showToast('Ошибка сохранения', 'error'); }
         }
 
+        //  Действия с пространствами 
         async function deleteSpace(id) {
             try {
                 await adminFetch(`/api/admin/spaces/${id}`, { method: 'DELETE' });
@@ -545,6 +580,21 @@
             } catch (e) { showToast('Ошибка удаления', 'error'); }
         }
 
+        async function restoreSpace(id) {
+            restoringSpaceId = id;
+            openModal('restoreConfirmModal');
+        }
+
+        async function confirmRestore() {
+            try {
+                await adminFetch(`/api/admin/spaces/${restoringSpaceId}/restore`, { method: 'POST' });
+                showToast('Восстановлено');
+                closeModal('restoreConfirmModal');
+                fetchSpaces();
+            } catch (e) { showToast('Ошибка восстановления', 'error'); }
+        }
+
+        //  Отзыв прав 
         async function revokePermission(id) {
             try {
                 await adminFetch(`/api/admin/permissions/${id}`, { method: 'DELETE' });
@@ -581,7 +631,7 @@
             } catch (e) { showToast('Ошибка', 'error'); }
         }
 
-        // Экспорт функций в global scope
+        //  Экспорт в глобальную область 
         window.fetchSpaces = fetchSpaces;
         window.managePermissions = managePermissions;
         window.editSpace = editSpace;
@@ -593,10 +643,12 @@
         window.revokePermission = revokePermission;
         window.revokeGroupPermission = revokeGroupPermission;
         window.grantPermission = grantPermission;
+        // для совместимости с populateCustomSelect извне
+        window.populateCustomSelect = populateCustomSelect;
 
-        // Используем глобальный инициализатор из custom-select.js
+        //  Инициализация при загрузке страницы 
         document.addEventListener('DOMContentLoaded', async () => {
-            // Читаем состояние из URL
+            // Читаем параметры из URL
             const urlParams = new URLSearchParams(window.location.search);
             state.page = parseInt(urlParams.get('page')) || 0;
             const statusParam = urlParams.get('status');
@@ -606,25 +658,38 @@
                 const opt = statusWrapper.querySelector(`.select-option[data-value="${statusParam}"]`);
                 if (opt) statusWrapper.querySelector('.select-styled').textContent = opt.textContent;
             }
+            const ownerParam = urlParams.get('ownerId');
+            if (ownerParam) {
+                document.getElementById('ownerFilter').value = ownerParam;
+                // подгрузим список владельцев, чтобы текст отобразился корректно
+                await loadAdminSpaceOwners(document.getElementById('statusFilter').value);
+                const ownerWrapper = document.getElementById('ownerFilterWrapper');
+                const opt = ownerWrapper.querySelector(`.select-option[data-value="${ownerParam}"]`);
+                if (opt) ownerWrapper.querySelector('.select-styled').textContent = opt.textContent;
+            } else {
+                await loadAdminSpaceOwners('active');
+            }
 
             await loadUsersList();
             await loadGroupsList();
 
-            // Переключатель "Пользователю / Группе" в модалке прав (US4.2.2)
+            // Переключатель "Пользователю / Группе" в модалке прав
             document.getElementById('permSubjectType').addEventListener('change', (e) => {
                 const isGroup = e.target.value === 'group';
                 document.getElementById('permUserGroup').style.display = isGroup ? 'none' : '';
                 document.getElementById('permGroupGroup').style.display = isGroup ? '' : 'none';
             });
-            await fetchSpaces();
 
+            // Инициализация кастомных селектов: сначала глобальная, потом fallback
             if (typeof initCustomSelects === 'function') {
                 initCustomSelects();
             } else {
-                // Fallback если глобальный скрипт не загрузился
                 initLocalSelects();
             }
 
+            await fetchSpaces();
+
+            // Пагинация
             document.getElementById('spacesPrevBtn').addEventListener('click', () => {
                 if (state.page > 0) { state.page--; fetchSpaces(); }
             });
@@ -632,21 +697,36 @@
                 if (state.page < state.totalPages - 1) { state.page++; fetchSpaces(); }
             });
 
+            // Обработчики модалок
             document.getElementById('closeSpaceModalBtn')?.addEventListener('click', () => closeModal('spaceModal'));
             document.getElementById('saveSpaceBtn')?.addEventListener('click', saveSpace);
             document.getElementById('closePermModalBtn')?.addEventListener('click', () => closeModal('permissionsModal'));
             document.getElementById('grantPermBtn')?.addEventListener('click', grantPermission);
             document.getElementById('cancelRestoreBtn')?.addEventListener('click', () => closeModal('restoreConfirmModal'));
             document.getElementById('confirmRestoreBtn')?.addEventListener('click', confirmRestore);
+
+            // Фильтры
             document.getElementById('applyFiltersBtn')?.addEventListener('click', () => {
                 state.page = 0;
                 fetchSpaces();
             });
-            document.getElementById('clearFiltersBtn')?.addEventListener('click', () => {
-                document.getElementById('statusFilter').value = 'all';
-                document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Все';
+            document.getElementById('clearFiltersBtn')?.addEventListener('click', async () => {
+                document.getElementById('statusFilter').value = 'active';
+                document.getElementById('statusFilterWrapper').querySelector('.select-styled').textContent = 'Активные';
+                document.getElementById('ownerFilter').value = '';
+                document.getElementById('ownerFilterWrapper').querySelector('.select-styled').textContent = 'Все';
                 state.page = 0;
+                await loadAdminSpaceOwners('active');
                 fetchSpaces();
+            });
+
+            // При смене статуса обновляем список владельцев
+            document.getElementById('statusFilterWrapper')?.addEventListener('change', async (e) => {
+                const status = document.getElementById('statusFilter').value;
+                await loadAdminSpaceOwners(status);
+                // сбросить выбранного владельца
+                document.getElementById('ownerFilter').value = '';
+                document.getElementById('ownerFilterWrapper').querySelector('.select-styled').textContent = 'Все';
             });
         });
     })();

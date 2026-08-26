@@ -9,8 +9,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,7 +35,7 @@ import java.util.stream.Collectors;
  * - 409 Conflict     → ConflictException
  * - 500 Internal     → Exception (все необработанные ошибки)
  */
-@RestControllerAdvice
+@ControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -44,6 +47,7 @@ public class GlobalExceptionHandler {
      * Возвращает список всех ошибочных полей.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseBody
     public ResponseEntity<ErrorResponse> handleValidationErrors(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
 
@@ -66,14 +70,18 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(
+    public Object handleIllegalArgument(
             IllegalArgumentException ex, HttpServletRequest request) {
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+        }
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), request);
     }
 
     // ── 401 Unauthorized: ошибки аутентификации ───────────────────────────────
 
     @ExceptionHandler(InvalidCredentialsException.class)
+    @ResponseBody
     public ResponseEntity<ErrorResponse> handleInvalidCredentials(
             InvalidCredentialsException ex, HttpServletRequest request) {
         log.warn("Ошибка аутентификации: {}", ex.getMessage());
@@ -81,6 +89,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(com.knowledgebase.domain.exception.DocumentValidationException.class)
+    @ResponseBody
     public ResponseEntity<ErrorResponse> handleDocumentValidation(
             com.knowledgebase.domain.exception.DocumentValidationException ex,
             HttpServletRequest request) {
@@ -97,6 +106,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(com.knowledgebase.domain.exception.AttachmentValidationException.class)
+    @ResponseBody
     public ResponseEntity<ErrorResponse> handleAttachmentValidation(
             com.knowledgebase.domain.exception.AttachmentValidationException ex,
             HttpServletRequest request) {
@@ -116,10 +126,13 @@ public class GlobalExceptionHandler {
      * Обрабатывает доменное исключение AccessDeniedException.
      */
     @ExceptionHandler(com.knowledgebase.domain.exception.AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleDomainAccessDenied(
+    public Object handleDomainAccessDenied(
             com.knowledgebase.domain.exception.AccessDeniedException ex,
             HttpServletRequest request) {
         log.warn("Доступ запрещён: {}", ex.getMessage());
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+        }
         return buildResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), request);
     }
 
@@ -128,30 +141,51 @@ public class GlobalExceptionHandler {
      * Возникает при нарушении @PreAuthorize условий.
      */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleSpringAccessDenied(
+    public Object handleSpringAccessDenied(
             AccessDeniedException ex, HttpServletRequest request) {
         log.warn("Spring Security: доступ запрещён к {}", request.getRequestURI());
-        return buildResponse(HttpStatus.FORBIDDEN, "Forbidden",
-                "Недостаточно прав для выполнения данной операции", request);
+        String msg = "Недостаточно прав для выполнения данной операции";
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.FORBIDDEN, msg, request);
+        }
+        return buildResponse(HttpStatus.FORBIDDEN, "Forbidden", msg, request);
     }
 
     // ── 404 Not Found ─────────────────────────────────────────────────────────
 
     @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUserNotFound(
+    public Object handleUserNotFound(
             UserNotFoundException ex, HttpServletRequest request) {
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+        }
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
     }
 
     @ExceptionHandler(AttachmentNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleAttachmentNotFound(
+    public Object handleAttachmentNotFound(
             AttachmentNotFoundException ex, HttpServletRequest request) {
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+        }
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
     }
 
     @ExceptionHandler(SpaceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleSpaceNotFound(
+    public Object handleSpaceNotFound(
             SpaceNotFoundException ex, HttpServletRequest request) {
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+        }
+        return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Object handleNoResourceFound(
+            NoResourceFoundException ex, HttpServletRequest request) {
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.NOT_FOUND, "Ресурс не найден: " + ex.getMessage(), request);
+        }
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), request);
     }
 
@@ -171,9 +205,12 @@ public class GlobalExceptionHandler {
     // ── 409 Conflict ──────────────────────────────────────────────────────────
 
     @ExceptionHandler(ConflictException.class)
-    public ResponseEntity<ErrorResponse> handleConflict(
+    public Object handleConflict(
             ConflictException ex, HttpServletRequest request) {
         log.warn("Конфликт данных: {}", ex.getMessage());
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.CONFLICT, ex.getMessage(), request);
+        }
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), request);
     }
 
@@ -184,15 +221,40 @@ public class GlobalExceptionHandler {
      * Логирует полный стектрейс, клиенту возвращает детальное сообщение об ошибке.
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(
+    public Object handleGenericException(
             Exception ex, HttpServletRequest request) {
         log.error("Полный стектрейс ошибки для {}: ", request.getRequestURI(), ex);
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",
-                "Внутренняя ошибка сервера: " + ex.getMessage(), request);
+        String msg = "Внутренняя ошибка сервера: " + ex.getMessage();
+        if (isHtmlRequest(request)) {
+            return buildHtmlErrorView(HttpStatus.INTERNAL_SERVER_ERROR, msg, request);
+        }
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", msg, request);
     }
 
-    // ── Вспомогательный метод ─────────────────────────────────────────────────
+    // ── Вспомогательные методы ───────────────────────────────────────────────
 
+    private boolean isHtmlRequest(HttpServletRequest request) {
+        String acceptHeader = request.getHeader("Accept");
+        String uri = request.getRequestURI();
+        // Если это запрос к API, всегда возвращаем JSON
+        if (uri != null && uri.startsWith("/api/")) {
+            return false;
+        }
+        // В противном случае проверяем, запрашивает ли клиент HTML
+        return acceptHeader != null && acceptHeader.contains("text/html");
+    }
+
+    private ModelAndView buildHtmlErrorView(HttpStatus status, String message, HttpServletRequest request) {
+        ModelAndView mav = new ModelAndView("error/error");
+        mav.setStatus(status);
+        mav.addObject("status", status.value());
+        mav.addObject("error", status.getReasonPhrase());
+        mav.addObject("message", message);
+        mav.addObject("path", request.getRequestURI());
+        return mav;
+    }
+
+    @ResponseBody
     private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String error,
                                                          String message, HttpServletRequest request) {
         ErrorResponse response = ErrorResponse.of(

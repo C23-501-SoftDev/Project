@@ -19,8 +19,9 @@ import java.util.Map;
 /**
  * Обработчик ошибок 403 Forbidden.
  *
- * Для REST API запросов — возвращает JSON.
- * Для обычных браузерных запросов — редирект на страницу 403 или отображение ошибки.
+ * Для REST API / AJAX запросов — возвращает JSON.
+ * Для обычных браузерных запросов — вызывает sendError(403), что
+ * перенаправляет запрос на /error → ErrorPageController → error/error.html.
  */
 @Component
 public class JwtAccessDeniedHandler implements AccessDeniedHandler {
@@ -43,6 +44,7 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
         if (isAjaxRequest(request) || isApiRequest(request)) {
             sendJsonResponse(response, request);
         } else {
+            // sendError → /error → ErrorPageController → error/error.html (403)
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Доступ запрещён");
         }
     }

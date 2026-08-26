@@ -86,11 +86,11 @@ public class SecurityConfig {
 
             // ── Правила авторизации ─────────────────────────────────────────────
             .authorizeHttpRequests(auth -> auth
-                    // Страницы логина и ресурсы — публичные
-                    .requestMatchers("/login", "/error").permitAll()
-                    
-                    // Статические ресурсы (CSS, JS, изображения)
-                    .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+                    // Страницы логина, ошибок и ресурсы — публичные
+                    .requestMatchers("/login", "/error", "/error/**").permitAll()
+
+                    // Статические ресурсы (CSS, JS, изображения, иконки)
+                    .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico", "/favicon.svg").permitAll()
                     
                     // Публичные API эндпоинты
                     .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
