@@ -17,8 +17,8 @@ import java.util.Map;
  * Сервис нейроассистента для редактирования текста (Application Layer).
  *
  * Отправляет фрагмент документа в OpenAI-совместимый API routerai.ru и возвращает
- * переписанный по выбранному «типу текста» результат. Набор допустимых действий
- * фиксирован — фронтенд присылает только ключ действия, сам промпт формируется здесь.
+ * переписанный результат. Фронтенд присылает ключ фиксированного действия или
+ * пользовательскую инструкцию, итоговый промпт формируется здесь.
  */
 @Service
 public class AiTextService {
@@ -30,6 +30,10 @@ public class AiTextService {
             + "документа в формате Markdown. %s "
             + "Сохраняй Markdown-разметку и язык оригинала. "
             + "Верни ТОЛЬКО итоговый текст без пояснений, без обрамляющих кавычек и без блока ```.";
+
+    private static final String CUSTOM_PROMPT_INSTRUCTION =
+            "Выполни пользовательскую инструкцию над текстом. Инструкция автора: \"%s\". "
+            + "Если инструкция просит изменить структуру, сохрани корректный Markdown.";
 
     /** Ключ действия -> инструкция для модели. Порядок сохраняется для UI. */
     private static final Map<String, String> ACTIONS = new LinkedHashMap<>();
@@ -62,23 +66,26 @@ public class AiTextService {
     }
 
     /**
-     * Преобразует текст согласно выбранному действию.
+     * Преобразует текст согласно выбранному действию или пользовательскому промпту.
      *
      * @param text   исходный Markdown-фрагмент
      * @param action ключ действия из {@link #ACTIONS}
+     * @param prompt пользовательская инструкция
      * @return переписанный текст
      * @throws IllegalArgumentException если действие неизвестно или текст пуст
      * @throws AiServiceException       при ошибке обращения к нейросети
      */
-    public String transform(String text, String action) {
+    public String transform(String text, String action, String prompt) {
         if (text == null || text.isBlank()) {
             throw new IllegalArgumentException("Пустой текст для обработки");
         }
-        String instruction = ACTIONS.get(action);
-        if (instruction == null) {
-            throw new IllegalArgumentException("Неизвестное действие: " + action);
+        boolean hasAction = action != null && !action.isBlank();
+        boolean hasPrompt = prompt != null && !prompt.isBlank();
+        if (hasAction == hasPrompt) {
+            throw new IllegalArgumentException("Укажите либо тип преобразования, либо пользовательский промпт");
         }
 
+        String instruction = hasAction ? instructionForAction(action) : instructionForPrompt(prompt);
         String systemPrompt = String.format(BASE_INSTRUCTION, instruction);
 
         Map<String, Object> body = new LinkedHashMap<>();
@@ -106,9 +113,28 @@ public class AiTextService {
         } catch (AiServiceException ex) {
             throw ex;
         } catch (RuntimeException ex) {
-            log.error("Ошибка запроса к нейросети (action={}): {}", action, ex.getMessage());
+            log.error("Ошибка запроса к нейросети (mode={}): {}", hasAction ? action : "custom-prompt", ex.getMessage());
             throw new AiServiceException(ex.getMessage());
         }
+    }
+
+    private String instructionForAction(String action) {
+        String instruction = ACTIONS.get(action);
+        if (instruction == null) {
+            throw new IllegalArgumentException("Неизвестное действие: " + action);
+        }
+        return instruction;
+    }
+
+    private String instructionForPrompt(String prompt) {
+        String normalizedPrompt = prompt == null ? "" : prompt.trim();
+        if (normalizedPrompt.isBlank()) {
+            throw new IllegalArgumentException("Пользовательский промпт не может быть пустым");
+        }
+        if (normalizedPrompt.length() > 1000) {
+            throw new IllegalArgumentException("Слишком длинный промпт (макс. 1000 символов)");
+        }
+        return String.format(CUSTOM_PROMPT_INSTRUCTION, normalizedPrompt.replace("\"", "\\\""));
     }
 
     private String extractContent(JsonNode response) {

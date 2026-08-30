@@ -53,6 +53,9 @@
                             <button type="button" class="ai-action-btn" data-action="shorter">Короче</button>
                             <button type="button" class="ai-action-btn" data-action="longer">Подробнее</button>
                             <button type="button" class="ai-action-btn" data-action="grammar">Исправить ошибки</button>
+                            <div style="height:1px; background:#E5E7EB; margin:6px 2px;"></div>
+                            <textarea id="aiCustomPrompt" class="ai-prompt-field" maxlength="1000" rows="3" placeholder="Своя инструкция..."></textarea>
+                            <button type="button" class="ai-custom-btn" id="aiCustomPromptBtn">Применить промпт</button>
                         </div>
                     </div>
                 </div>
@@ -67,6 +70,20 @@
                 }
                 .ai-action-btn:hover { background: #F3F4F6; }
                 .ai-action-btn:disabled { opacity: .6; cursor: default; }
+                .ai-prompt-field {
+                    width: 100%; box-sizing: border-box; resize: vertical;
+                    min-height: 72px; max-height: 140px; margin: 4px 0 6px;
+                    padding: 8px 10px; border: 1px solid #D1D5DB; border-radius: 6px;
+                    font-size: 13px; color: var(--text-color); font-family: inherit;
+                }
+                .ai-custom-btn {
+                    display: block; width: 100%; text-align: center;
+                    padding: 8px 10px; border: 1px solid var(--primary-color);
+                    background: var(--primary-color); color: #fff; border-radius: 6px;
+                    cursor: pointer; font-size: 14px;
+                }
+                .ai-custom-btn:hover { filter: brightness(0.96); }
+                .ai-custom-btn:disabled { opacity: .6; cursor: default; }
             </style>
             <div style="display:flex; gap:12px; justify-content:flex-end; margin-top: 24px;">
                 <button type="button" class="button-secondary" onclick="location.href='/'">Отмена</button>
@@ -221,6 +238,8 @@
         const btn = document.getElementById('aiAssistBtn');
         const panel = document.getElementById('aiAssistPanel');
         const textarea = document.getElementById('docContent');
+        const promptField = document.getElementById('aiCustomPrompt');
+        const promptBtn = document.getElementById('aiCustomPromptBtn');
         if (!wrapper || !btn || !panel || !textarea) return;
 
         fetch('/api/ai/status', { credentials: 'same-origin' })
@@ -236,10 +255,17 @@
             if (!wrapper.contains(e.target)) panel.style.display = 'none';
         });
         panel.querySelectorAll('.ai-action-btn').forEach(actionBtn => {
-            actionBtn.addEventListener('click', () => aiTransform(actionBtn.dataset.action));
+            actionBtn.addEventListener('click', () => aiTransform({ action: actionBtn.dataset.action }));
         });
+        if (promptBtn && promptField) {
+            promptBtn.addEventListener('click', () => {
+                const prompt = promptField.value.trim();
+                if (!prompt) { showToast('Введите промпт для обработки', 'error'); return; }
+                aiTransform({ prompt });
+            });
+        }
 
-        async function aiTransform(action) {
+        async function aiTransform({ action, prompt }) {
             const hasSelection = textarea.selectionStart !== textarea.selectionEnd;
             const start = textarea.selectionStart, end = textarea.selectionEnd;
             const text = hasSelection ? textarea.value.substring(start, end) : textarea.value;
@@ -249,11 +275,12 @@
             const prev = btn.textContent;
             btn.disabled = true; btn.textContent = '✨ Обработка...';
             try {
+                const body = prompt ? { text, prompt } : { text, action };
                 const resp = await fetch('/api/ai/transform', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
-                    body: JSON.stringify({ text, action })
+                    body: JSON.stringify(body)
                 });
                 const data = await resp.json().catch(() => ({}));
                 if (!resp.ok) { showToast(data.error || 'Ошибка нейроассистента', 'error'); return; }

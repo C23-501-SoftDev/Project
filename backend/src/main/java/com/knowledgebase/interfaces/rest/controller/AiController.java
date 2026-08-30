@@ -25,7 +25,7 @@ import java.util.Map;
  * на страницах создания/редактирования документа).
  *
  * - GET  /api/ai/status    — включён ли ассистент и список доступных действий
- * - POST /api/ai/transform — преобразовать текст по выбранному типу
+ * - POST /api/ai/transform — преобразовать текст по выбранному типу или промпту
  */
 @RestController
 @RequestMapping("/api/ai")
@@ -53,24 +53,28 @@ public class AiController {
 
     /**
      * POST /api/ai/transform
-     * Преобразует текст по выбранному типу.
+     * Преобразует текст по выбранному типу или пользовательскому промпту.
      */
     @PostMapping("/transform")
     @Operation(summary = "Преобразовать текст",
-               description = "Принимает { text, action } и возвращает { result } — переписанный текст.")
+               description = "Принимает { text, action } или { text, prompt } и возвращает { result } — переписанный текст.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Текст преобразован"),
-        @ApiResponse(responseCode = "400", description = "Пустой текст или неизвестное действие"),
+        @ApiResponse(responseCode = "400", description = "Пустой текст, неизвестное действие или некорректный промпт"),
         @ApiResponse(responseCode = "503", description = "Нейроассистент не настроен"),
         @ApiResponse(responseCode = "502", description = "Ошибка обращения к нейросети")
     })
     public ResponseEntity<?> transform(@Valid @RequestBody AiTransformRequest request) {
+        if (request.hasAction() == request.hasPrompt()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Укажите либо тип преобразования, либо пользовательский промпт"));
+        }
         if (!aiTextService.isConfigured()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(Map.of("error", "Нейроассистент не настроен: задайте AI_ENABLED=true и AI_API_KEY"));
         }
         try {
-            String result = aiTextService.transform(request.text(), request.action());
+            String result = aiTextService.transform(request.text(), request.action(), request.prompt());
             return ResponseEntity.ok(Map.of("result", result));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
