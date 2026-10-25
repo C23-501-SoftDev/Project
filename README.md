@@ -4,6 +4,8 @@
 
 [Команды полной проверки](openspec/quality-gates.md) · [Контракты API](BACKTRACKER.md) · [Локальный RAG: запуск и API](docs/RAG_LOCAL.md)
 
+[Нагрузочная приёмка: 25 пользователей и отдельный стресс на 50](tests/performance/results/README.md).
+
 ## Table of Contents
 
 1. [First-Time Setup](#first-time-setup)

@@ -1,3 +1,9 @@
+# Verification: Document-view load acceptance and efficient tree renderer (2026-10-26)
+
+Maven clean verify: 251 tests, 0 failures/errors/skips, including 14 real PostgreSQL/pgvector tests. Node: 12 passed (3 application + 9 performance harness). Playwright: 154 passed, 0 failed/flaky/skipped, workers=1, retries=0, fresh isolated PostgreSQL schema, about one minute. Strict OpenSpec: 35/35.
+
+Both 25-reader acceptance profiles and separate 50-reader stress passed after replacing per-node Thymeleaf processing; all original failed measurements remain in [performance evidence](../performance/results/README.md).
+
 # Verification: Local authorized RAG through Ollama and pgvector (2026-10-26)
 
 Maven clean verify: 246 tests, 0 failures/errors/skips, including 14 real PostgreSQL/pgvector tests and 6 Spring/MockMvc RAG authorization tests. Node: 3 passed. Playwright: 154 passed, 0 failed/flaky/skipped, workers=1, retries=0, PostgreSQL 18.6 fresh isolated schema, 68.5 seconds. Final JAR used by both local test applications.

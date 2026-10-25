@@ -106,3 +106,17 @@ The test administrator defaults to `admin/admin123` (`PERF_LOGIN` / `PERF_PASSWO
 Exit code 0 means both normal profiles completed and passed their unchanged gates. The JSON contains raw HTTP/browser samples, summaries, status counts, achieved throughput, requested/actual durations, fixture identifiers, CPU/RAM host information, browser/Node/PostgreSQL versions, source commit and runner SHA-256. `workingTreeChanged` indicates whether the measurement included uncommitted changes.
 
 Even a passing result applies only to the recorded machine, data shape, closed-loop load and network emulation. It does not prove a production SLA, large-scale ACL performance, simultaneous editing, export throughput or performance during RAG inference. The 2026-10-25 single-user before/after numbers above remain historical measurements, not evidence of concurrent acceptance.
+
+## Final acceptance results — 2026-10-26
+
+Run3 passed both required 25-reader profiles with the original latency/error/sample gates and the complete six-endpoint workload. All normal browser content-ready observations were below two seconds; the worst was **591.94 ms**. The separate 50-reader stress profile also had zero errors. The full 5001-row tree remained present in the browser.
+
+| Profile | HTTP samples (all 200) | Browser cold / repeat | Content p95 / max | Tree HTTP p95 | Result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `normal-distributed` | 8208 | 41 / 41 | 583.33 / 591.94 ms | 23.85 ms | PASS |
+| `normal-large-space` | 8352 | 26 / 26 | 572.00 / 580.46 ms | 37.47 ms | PASS |
+| `stress-large-space` | 16980 | 26 / 26 | 567.33 / 690.89 ms | 42.88 ms | Observational pass |
+
+The earlier five-endpoint baseline failed on the large tree (HTTP tree p95 7055.93 ms). A six-endpoint diagnostic with template caching/SpEL compilation still failed (7148.96 ms). The final run used `DocumentTreeRenderer` and restored the original application settings, including `spring.thymeleaf.cache=false`; changing gates or reducing the tree was not part of the fix.
+
+[Full results in Russian, all endpoint distributions, environment, run history and lossless raw reports](results/README.md). The report identifies clean source commit `f9a7b12`, the runner hash and the measured JAR hash. These are local acceptance results for the declared corpus and network model, not a production SLA. The 2026-10-25 historical single-user measurements above remain unchanged.

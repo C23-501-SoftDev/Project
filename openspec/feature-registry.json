@@ -532,6 +532,19 @@
             "docs": [
                 "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
             ]
+        },
+        {
+            "featureId": "document-view-load-acceptance",
+            "title": "25-user document-view acceptance and efficient authorized tree rendering",
+            "status": "done",
+            "area": "backend+tests",
+            "repo": "Project",
+            "docs": [
+                "tests/performance/results/README.md",
+                "openspec/specs/document-view-load-acceptance/spec.md"
+            ],
+            "verifiedAt": "2026-10-26",
+            "evidence": "251 Java, 12 Node, 154 Playwright tests; both 25-user profiles and separate 50-user stress pass. Failed baseline and diagnostics retained. Local declared workload only."
         }
     ]
 }
