@@ -1,3 +1,9 @@
+# Verification: Portable attachments and images in exports (2026-10-26)
+
+Maven clean verify: 272 tests, 0 failures/errors/skips, including 14 real PostgreSQL/pgvector tests. Node: 12 passed. Playwright: 158 passed, 0 failed/flaky/skipped, workers=1, retries=0, fresh isolated PostgreSQL schema, 1.1 minutes. Strict OpenSpec: 36/36. Branch includes the previously merged tree optimization.
+
+Four new browser scenarios verify UI downloads, offline ZIP images/file links, actual standalone HTML attachment download, PDF/DOCX output, foreign-attachment isolation and controlled errors. Java checks cover actual PDF image pixels, DOCX drawing relationships/positions/aspect ratio, filesystem confinement, limits and access revocation during rendering. Rendered PDF visually inspected. [Export contract](../../docs/EXPORTS.md).
+
 # Verification: Document-view load acceptance and efficient tree renderer (2026-10-26)
 
 Maven clean verify: 251 tests, 0 failures/errors/skips, including 14 real PostgreSQL/pgvector tests. Node: 12 passed (3 application + 9 performance harness). Playwright: 154 passed, 0 failed/flaky/skipped, workers=1, retries=0, fresh isolated PostgreSQL schema, about one minute. Strict OpenSpec: 35/35.

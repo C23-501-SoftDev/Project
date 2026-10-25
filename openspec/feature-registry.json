@@ -545,6 +545,25 @@
             ],
             "verifiedAt": "2026-10-26",
             "evidence": "251 Java, 12 Node, 154 Playwright tests; both 25-user profiles and separate 50-user stress pass. Failed baseline and diagnostics retained. Local declared workload only."
+        },
+        {
+            "featureId": "portable-attachment-image-export",
+            "title": "Portable local images and attachment exports in HTML, PDF, DOCX and ZIP",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "docs/EXPORTS.md",
+                "openspec/specs/portable-attachment-image-export/spec.md"
+            ],
+            "endpoints": [
+                "GET /api/documents/{id}/export/html",
+                "GET /api/documents/{id}/export/pdf",
+                "GET /api/documents/{id}/export/docx",
+                "GET /api/documents/{id}/export/zip"
+            ],
+            "verifiedAt": "2026-10-26",
+            "evidence": "272 Java, 12 Node, 158 Playwright tests. Offline ZIP/HTML downloads, rendered PDF pixels, native DOCX pictures, ACL revocation and bounded local storage verified."
         }
     ]
 }
