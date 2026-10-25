@@ -4,7 +4,7 @@ RAG answers individual facts but does not reliably combine related facts from se
 Feature ID: `rag-question-answering`.
 
 ## Inputs
-User clarification; [existing project backlog](https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json); implemented [RAG specification](../../specs/rag-question-answering/spec.md). Cross-article synthesis is an extension of the user-approved RAG feature, not a claim that the original backlog specified it.
+User clarification; [existing project backlog](https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json); implemented [RAG specification](../../../specs/rag-question-answering/spec.md). Cross-article synthesis is an extension of the user-approved RAG feature, not a claim that the original backlog specified it.
 
 ## What Changes
 - Enable grounded synthesis and comparison across retrieved articles, citing every source used.

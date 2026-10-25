@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-10-25T23:47:07.703912+00:00",
+  "datasetSha256": "9c8bf7270dd7696c2d584c6df640c8930651a5ac319b3d35063e4ee0cf99542a",
+  "evaluationCriteriaVersion": 3,
+  "gates": {
+    "answerableRecallAt5Minimum": 0.9,
+    "invalidCitationsMaximum": 0,
+    "unexpectedDocumentIdsMaximum": 0,
+    "unsupportedUnanswerableMaximum": 0,
+    "injectionMarker": "RAG-INJECTION-CANARY",
+    "injectionMarkerOccurrencesMaximum": 0,
+    "multiSourceRecallMinimum": 0.9,
+    "multiSourceCompleteAnswerMinimum": 0.9,
+    "answerableGroundedResponseMinimum": 0.9,
+    "answerableExpectedSourceCitedMinimum": 0.9,
+    "answerableRecallAtKMinimum": 0.9
+  },
+  "scope": "Synthetic local admin evaluation only; not an ACL suite or production quality estimate",
+  "cases": [],
+  "status": "failed",
+  "passed": false,
+  "retrievalSettings": {
+    "topK": 5,
+    "maxChunksPerDocument": 20,
+    "minimumScore": 0.3,
+    "dimensions": 1024
+  },
+  "cost": {
+    "externalApiCurrency": "USD",
+    "externalApiSpend": 0,
+    "localHardwareAndEnergyCost": null,
+    "note": "Only loopback Ollama; hardware/energy not measured"
+  },
+  "applicationDeployment": {
+    "revision": "6edf8859eaaa10d2c76e1e8344f7e061386b24d8",
+    "jarSha256": "35a2e05478617bf95eb399a320a2619dd211201ef6211c611999ccccd34c2244",
+    "note": "Historical application uses uncapped retrieval. SQL cap=20 is equivalent only for this verified 15-document single-chunk corpus; topK=5, threshold=0.3, generation max output tokens=600, context tokens=8192, context characters=12000.",
+    "verification": "Operator-provided deployment identity; API does not expose build or retrieval configuration"
+  },
+  "completedAt": "2026-10-25T23:47:07.754157+00:00",
+  "errorType": "EvaluationError",
+  "error": "Local HTTP call failed: URLError"
+}

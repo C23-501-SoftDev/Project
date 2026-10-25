@@ -1,3 +1,11 @@
+## MODIFIED Requirements
+
+### Requirement: Measurable acceptance
+Before enabling RAG, the implementation SHALL pass an ACL/leakage suite and a labelled retrieval/answer evaluation set with documented thresholds and model versions. The local release evaluation SHALL retain at least 90% expected-source recall@5 on the original single-source questions. At least 90% substantive answers with sources and at least 90% expected-source citations SHALL be required both for the original single-source subset and for all answerable questions, so new cases cannot conceal regression on the original set. All entirely unsupported questions SHALL refuse, with zero invalid citations or detected injection markers. Multi-article questions SHALL additionally satisfy the separate cross-article acceptance requirement.
+#### Scenario: Release evaluation
+- **WHEN** a candidate RAG version is evaluated
+- **THEN** source retrieval quality, citation validity, denied-access cases, unanswerable cases, latency and cost measurements are recorded
+
 ## ADDED Requirements
 
 ### Requirement: Bounded cross-article evidence selection

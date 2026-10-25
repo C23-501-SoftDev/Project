@@ -27,6 +27,14 @@ def timestamp():
     return datetime.now(timezone.utc).isoformat()
 
 
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with path.open('rb') as source:
+        for block in iter(lambda: source.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def write_json(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + '.tmp')
@@ -145,6 +153,38 @@ def eligible_sql(document_ids, model, dimensions):
     """
 
 
+def expected_documents(question):
+    """The legacy singular label and the new set label both mean ALL required articles."""
+    if 'expectedDocuments' in question:
+        return question['expectedDocuments']
+    return [question['expectedDocument']] if question.get('expectedDocument') else []
+
+
+def keyword_groups_pass(text, groups):
+    folded = text.casefold()
+    return all(any(keyword.casefold() in folded for keyword in group.split('|')) for group in groups)
+
+
+def answer_coverage(question, expected_ids, source_ids, text, insufficient):
+    evidence = {key: keyword_groups_pass(text, groups)
+                for key, groups in question.get('evidenceKeywordGroups', {}).items()}
+    all_cited = set(expected_ids).issubset(source_ids) if expected_ids else None
+    gaps = keyword_groups_pass(text, question.get('expectedGapKeywordGroups', []))
+    result = {'expectedSourceCited': all_cited,
+              'missingExpectedSourceIds': sorted(set(expected_ids) - source_ids),
+              'keywordGroupsPassed': keyword_groups_pass(text, question.get('expectedAllKeywordGroups', [])) if question['answerable'] else None,
+              'evidenceKeywordGroupsPassed': evidence, 'evidenceGapGroupsPassed': gaps}
+    if len(expected_ids) > 1:
+        result['multiSourceCompleteAnswer'] = (insufficient is False and bool(text.strip())
+                                               and all_cited and all(evidence.values()) and gaps)
+    return result
+
+
+def validate_keyword_groups(groups):
+    return isinstance(groups, list) and all(isinstance(group, str) and group.strip()
+                                           and all(part.strip() for part in group.split('|')) for group in groups)
+
+
 def validate_dataset(dataset):
     documents = dataset['documents']
     questions = dataset['questions']
@@ -158,10 +198,24 @@ def validate_dataset(dataset):
         if document['space'] not in spaces or not document['content'].strip():
             raise EvaluationError('Invalid dataset document')
     for question in questions:
-        if question['answerable'] and question['expectedDocument'] not in keys:
-            raise EvaluationError('Answerable question needs a known expected document')
+        expected = expected_documents(question)
+        if (not isinstance(expected, list) or any(not isinstance(key, str) for key in expected)
+                or len(set(expected)) != len(expected) or any(key not in keys for key in expected)
+                or bool(expected) != bool(question['answerable'])):
+            raise EvaluationError('Question needs a unique, known expected-document set matching answerability')
+        if 'expectedDocuments' in question and question.get('expectedDocument'):
+            raise EvaluationError('Use either expectedDocument or expectedDocuments, not both')
         if not question['question'].strip() or len(question['question']) > 2000:
             raise EvaluationError('Question has invalid length')
+        if not validate_keyword_groups(question.get('expectedAllKeywordGroups', [])):
+            raise EvaluationError('Invalid answer keyword groups')
+        if not validate_keyword_groups(question.get('expectedGapKeywordGroups', [])):
+            raise EvaluationError('Invalid evidence-gap keyword groups')
+        if len(expected) > 1:
+            evidence = question.get('evidenceKeywordGroups', {})
+            if (not isinstance(evidence, dict) or set(evidence) != set(expected)
+                    or any(not groups or not validate_keyword_groups(groups) for groups in evidence.values())):
+                raise EvaluationError('Multi-source question needs nonempty evidence groups for every expected document')
 
 
 def seed(app, dataset, dataset_hash, state_path, resume):
@@ -231,22 +285,40 @@ def percentile(values, fraction):
 def evaluation_gates(dataset_gates):
     # Useful answers are a separate gate: perfect retrieval with universal abstention must fail.
     return {**dataset_gates, 'answerableGroundedResponseMinimum': .9,
-            'answerableExpectedSourceCitedMinimum': .9}
+            'answerableExpectedSourceCitedMinimum': .9,
+            'answerableRecallAtKMinimum': dataset_gates.get('answerableRecallAtKMinimum', dataset_gates['answerableRecallAt5Minimum']),
+            'singleSourceGroundedResponseMinimum': .9, 'singleSourceExpectedSourceCitedMinimum': .9,
+            'multiSourceRecallMinimum': .9, 'multiSourceCompleteAnswerMinimum': .9}
 
 
 def summarize(cases, gates):
     gates = evaluation_gates(gates)
     answerable = [case for case in cases if case['answerable']]
     unanswerable = [case for case in cases if not case['answerable']]
-    recall = sum(case.get('expectedInTop5', False) for case in answerable) / len(answerable) if answerable else 0
+    recall = sum(case.get('expectedInTopK', case.get('expectedInTop5', False)) for case in answerable) / len(answerable) if answerable else 0
     grounded_count = sum(case.get('insufficientEvidence') is False and case.get('sourceCount', 0) > 0 for case in answerable)
     expected_cited_count = sum(case.get('expectedSourceCited', False) for case in answerable)
     grounded_rate = grounded_count / len(answerable) if answerable else 0
     expected_cited_rate = expected_cited_count / len(answerable) if answerable else 0
     unsupported = sum(case.get('insufficientEvidence') is not True for case in unanswerable)
+    multi = [case for case in answerable if len(case.get('expectedDocumentIds', [])) > 1]
+    single = [case for case in answerable if len(case.get('expectedDocumentIds', [case.get('expectedDocumentId')])) == 1]
+    single_recalled = sum(case.get('expectedInTop5', False) for case in single)
+    single_recall = single_recalled / len(single) if single else None
+    single_grounded_count = sum(case.get('insufficientEvidence') is False and case.get('sourceCount', 0) > 0 for case in single)
+    single_cited_count = sum(case.get('expectedSourceCited', False) for case in single)
+    single_grounded_rate = single_grounded_count / len(single) if single else None
+    single_cited_rate = single_cited_count / len(single) if single else None
+    multi_recalled = sum(case.get('expectedInTopK', case.get('expectedInTop5', False)) for case in multi)
+    multi_complete = sum(case.get('multiSourceCompleteAnswer', False) for case in multi)
+    multi_recall = multi_recalled / len(multi) if multi else None
+    multi_completeness = multi_complete / len(multi) if multi else None
     latencies = [case['answerLatencyMs'] for case in cases if 'answerLatencyMs' in case]
     checks = {
-        'answerableRecallAt5': recall >= gates['answerableRecallAt5Minimum'],
+        'answerableRecallAtK': recall >= gates['answerableRecallAtKMinimum'],
+        'legacySingleSourceRecallAt5': single_recall is None or single_recall >= gates['answerableRecallAt5Minimum'],
+        'singleSourceGroundedResponse': single_grounded_rate is None or single_grounded_rate >= gates['singleSourceGroundedResponseMinimum'],
+        'singleSourceExpectedSourceCited': single_cited_rate is None or single_cited_rate >= gates['singleSourceExpectedSourceCitedMinimum'],
         'answerableGroundedResponse': grounded_rate >= gates['answerableGroundedResponseMinimum'],
         'answerableExpectedSourceCited': expected_cited_rate >= gates['answerableExpectedSourceCitedMinimum'],
         'allHttpRequestsSuccessful': all(case.get('httpStatus') == 200 for case in cases),
@@ -254,14 +326,25 @@ def summarize(cases, gates):
         'noUnexpectedDocumentIds': all(not case.get('unexpectedDocumentIds') for case in cases),
         'unanswerableAbstention': unsupported <= gates['unsupportedUnanswerableMaximum'],
         'noInjectionMarker': all(not case.get('injectionMarkerFound') for case in cases),
+        'multiSourceRecall': multi_recall is None or multi_recall >= gates['multiSourceRecallMinimum'],
+        'multiSourceCompleteAnswer': multi_completeness is None or multi_completeness >= gates['multiSourceCompleteAnswerMinimum'],
     }
     return {'questionCount': len(cases), 'answerableCount': len(answerable), 'unanswerableCount': len(unanswerable),
-            'answerableRecallAt5': recall,
+            'answerableRecallAtK': recall,
+            'singleSourceCount': len(single), 'singleSourceRecallAt5Count': single_recalled,
+            'singleSourceRecallAt5': single_recall,
+            'singleSourceGroundedResponseCount': single_grounded_count,
+            'singleSourceGroundedResponseRate': single_grounded_rate,
+            'singleSourceExpectedSourceCitedCount': single_cited_count,
+            'singleSourceExpectedSourceCitedRate': single_cited_rate,
             'answerableGroundedResponseCount': grounded_count,
             'answerableGroundedResponseRate': grounded_rate,
             'answerableExpectedSourceCitedCount': expected_cited_count,
             'answerableExpectedSourceCitedRate': expected_cited_rate,
             'answerableKeywordGroupsPassedCount': sum(case.get('keywordGroupsPassed', False) for case in answerable),
+            'multiSourceCount': len(multi), 'multiSourceRecallCount': multi_recalled,
+            'multiSourceRecallRate': multi_recall, 'multiSourceCompleteAnswerCount': multi_complete,
+            'multiSourceCompleteAnswerRate': multi_completeness,
             'unsupportedUnanswerableCount': unsupported,
             'invalidCitationCount': sum(len(case.get('citationProblems', [])) for case in cases),
             'unexpectedDocumentIdCount': sum(len(case.get('unexpectedDocumentIds', [])) for case in cases),
@@ -284,16 +367,22 @@ def run(args):
         raise EvaluationError('--report is required for a real evaluation')
     if args.report.exists():
         raise EvaluationError('Report already exists; choose a new path to preserve earlier evidence')
-    if not math.isfinite(args.minimum_score) or not -1 <= args.minimum_score <= 1 or not 1 <= args.dimensions <= 16000:
+    if (not math.isfinite(args.minimum_score) or not -1 <= args.minimum_score <= 1 or not 1 <= args.dimensions <= 16000
+            or not 1 <= args.top_k <= 20 or not 1 <= args.max_chunks_per_document <= 20):
         raise EvaluationError('Invalid retrieval parameters')
     state_path = args.state or args.report.with_suffix('.state.json')
     report = {'schemaVersion': 1, 'startedAt': timestamp(), 'datasetSha256': dataset_hash,
-              'evaluationCriteriaVersion': 2, 'gates': evaluation_gates(dataset['gates']),
+              'evaluationCriteriaVersion': 4, 'gates': evaluation_gates(dataset['gates']),
               'scope': 'Synthetic local admin evaluation only; not an ACL suite or production quality estimate',
               'cases': [], 'status': 'running', 'passed': False,
-              'retrievalSettings': {'topK': 5, 'minimumScore': args.minimum_score, 'dimensions': args.dimensions},
+              'retrievalSettings': {'topK': args.top_k, 'maxChunksPerDocument': args.max_chunks_per_document,
+                                    'minimumScore': args.minimum_score, 'dimensions': args.dimensions},
               'cost': {'externalApiCurrency': 'USD', 'externalApiSpend': 0,
                        'localHardwareAndEnergyCost': None, 'note': 'Only loopback Ollama; hardware/energy not measured'}}
+    report['applicationDeployment'] = {'revision': args.application_revision,
+        'jarSha256': file_sha256(args.application_jar) if args.application_jar else None,
+        'note': args.deployment_note,
+        'verification': 'Operator-provided deployment identity; API does not expose build or retrieval configuration'}
     write_json(args.report, report)
     try:
         app = JsonClient(args.base_url, args.http_timeout)
@@ -330,7 +419,7 @@ def run(args):
         previous_start = None
         for question in dataset['questions']:
             case = {'id': question['id'], 'question': question['question'], 'answerable': question['answerable']}
-            expected_id = state['documents'][question['expectedDocument']]['id'] if question['answerable'] else None
+            expected_ids = [state['documents'][key]['id'] for key in expected_documents(question)]
             start = time.perf_counter()
             embedding = ollama.require('/api/embed', {'model': args.embedding_model, 'input': [question['question']], 'truncate': False})
             vector = embedding['embeddings'][0]
@@ -341,13 +430,19 @@ def run(args):
             candidates = database.rows(f"""
                 WITH eligible AS MATERIALIZED ({eligible_sql(document_ids, args.embedding_model, args.dimensions)}),
                 scored AS (SELECT document_id, version_sha, chunk_index,
-                            1 - (embedding <=> {quote(vector_literal)}::vector) AS score FROM eligible)
-                SELECT document_id, version_sha, chunk_index, score FROM scored
-                WHERE score >= {args.minimum_score} ORDER BY score DESC, document_id, chunk_index LIMIT 5
+                            1 - (embedding <=> {quote(vector_literal)}::vector) AS score FROM eligible),
+                ranked AS (SELECT *, row_number() OVER (PARTITION BY document_id ORDER BY score DESC, chunk_index) AS document_rank
+                           FROM scored WHERE score >= {args.minimum_score})
+                SELECT document_id, version_sha, chunk_index, score FROM ranked
+                WHERE document_rank <= {args.max_chunks_per_document}
+                ORDER BY score DESC, document_id, chunk_index LIMIT {args.top_k}
             """)
-            case['retrievedTop5'] = candidates
-            case['expectedDocumentId'] = expected_id
-            case['expectedInTop5'] = expected_id in {row['document_id'] for row in candidates} if expected_id else None
+            case['retrievedTopK'] = candidates
+            case['expectedDocumentIds'] = expected_ids
+            case['expectedDocumentId'] = expected_ids[0] if len(expected_ids) == 1 else None
+            case['expectedInTopK'] = set(expected_ids).issubset({row['document_id'] for row in candidates}) if expected_ids else None
+            case['retrievedTop5'] = candidates[:5]
+            case['expectedInTop5'] = set(expected_ids).issubset({row['document_id'] for row in candidates[:5]}) if expected_ids else None
             if previous_start is not None:
                 time.sleep(max(0, args.minimum_interval_seconds - (time.monotonic() - previous_start)))
             previous_start = time.monotonic()
@@ -363,11 +458,9 @@ def run(args):
                 case['sourceCount'] = len(sources)
                 case['insufficientEvidence'] = answer.get('insufficientEvidence')
                 case['unexpectedDocumentIds'] = sorted(source_ids - known_ids)
-                case['expectedSourceCited'] = expected_id in source_ids if expected_id else None
                 text = answer.get('answer', '')
                 case['injectionMarkerFound'] = dataset['gates']['injectionMarker'].casefold() in text.casefold()
-                case['keywordGroupsPassed'] = all(any(keyword.casefold() in text.casefold() for keyword in group.split('|'))
-                                                 for group in question['expectedAllKeywordGroups']) if question['answerable'] else None
+                case.update(answer_coverage(question, expected_ids, source_ids, text, answer.get('insufficientEvidence')))
                 if answer.get('insufficientEvidence') is True and sources:
                     case['citationProblems'].append('Insufficient-evidence response includes citations')
                 if answer.get('insufficientEvidence') is False and (not sources or not text.strip()):
@@ -382,11 +475,14 @@ def run(args):
                         case['citationProblems'].append('Citation title mismatch')
                     if source.get('documentId') not in {row['document_id'] for row in candidates}:
                         case['citationProblems'].append('Citation not present in replicated retrieval candidates')
+            if len(expected_ids) > 1:
+                case['multiSourceCompleteAnswer'] = (case.get('multiSourceCompleteAnswer') is True and status == 200
+                    and not case['citationProblems'] and not case.get('unexpectedDocumentIds'))
             report['cases'].append(case)
             report['summary'] = summarize(report['cases'], dataset['gates'])
             write_json(args.report, report)
             print(f"{len(report['cases']):02}/{len(dataset['questions'])} {question['id']} HTTP {status} "
-                  f"recall={case.get('expectedInTop5')} abstained={case.get('insufficientEvidence')} "
+                  f"recall={case.get('expectedInTopK')} abstained={case.get('insufficientEvidence')} "
                   f"latency={case['answerLatencyMs']}ms", flush=True)
         report['status'] = 'completed'
         report['completedAt'] = timestamp()
@@ -417,6 +513,11 @@ def main():
     parser.add_argument('--generation-model', default='qwen3:4b')
     parser.add_argument('--dimensions', type=int, default=1024)
     parser.add_argument('--minimum-score', type=float, default=.3, help='Must match app.rag.minimum-score')
+    parser.add_argument('--top-k', type=int, default=8, help='Must match app.rag.top-k; use 5 for the historical baseline')
+    parser.add_argument('--max-chunks-per-document', type=int, default=2, help='Must match app.rag.max-chunks-per-document')
+    parser.add_argument('--application-revision', help='Operator-provided revision deployed on the evaluation app')
+    parser.add_argument('--application-jar', type=Path, help='Exact deployed JAR to hash for reproducibility')
+    parser.add_argument('--deployment-note', help='Explicit deployment differences, e.g. historical uncapped SQL on single-chunk fixtures')
     parser.add_argument('--minimum-interval-seconds', type=float, default=11, help='Between ask starts; default respects six requests/minute')
     parser.add_argument('--http-timeout', type=int, default=180)
     parser.add_argument('--index-timeout', type=int, default=600)

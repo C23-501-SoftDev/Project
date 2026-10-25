@@ -1,3 +1,11 @@
+# Verification: Cross-article RAG synthesis (2026-10-26)
+
+Maven clean verify: 281 tests, 0 failures/errors/skips, including 17 real PostgreSQL/pgvector tests. Node: 12 passed. Python evaluation-runner checks: 7 passed. Playwright: 158 passed, 0 failed/flaky/skipped, workers=1, retries=0, fresh isolated PostgreSQL schema, 1.1 minutes. Tested application source: `b9d97fad352fe069bf2b4d377771c23d94fc50d0`. Strict OpenSpec after archive: 36/36.
+
+New Java checks exercise the per-document cap before the global limit, deterministic ties, eight article sources, character budgets and provider contracts. Browser coverage verifies multiple source links with version/chunk provenance and rejection of external citation URLs. Real-model quality is measured separately in the [RAG reports](../rag/results/README.md).
+
+Real Ollama acceptance: 40/40 HTTP 200; all 10 cross-article cases pass required facts and citations (baseline 7/10 due to missing secondary citations), original 24/24 answers and 6/6 refusals retained. No invalid citations or injection marker; manual review completed. Full ask p50=2458ms, p95=4146ms; synthetic local scope only. Candidate criteria v4 additionally enforce original single-source answer/citation rates separately, preventing new cases from hiding old regressions; baseline raw v3 evidence remains unchanged.
+
 # Verification: Portable attachments and images in exports (2026-10-26)
 
 Maven clean verify: 272 tests, 0 failures/errors/skips, including 14 real PostgreSQL/pgvector tests. Node: 12 passed. Playwright: 158 passed, 0 failed/flaky/skipped, workers=1, retries=0, fresh isolated PostgreSQL schema, 1.1 minutes. Strict OpenSpec: 36/36. Branch includes the previously merged tree optimization.
