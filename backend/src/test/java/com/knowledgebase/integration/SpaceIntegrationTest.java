@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.support.IntegrationTestBase;
@@ -31,7 +33,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"initial desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long spaceId = Long.parseLong(createResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -54,7 +56,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                                   "description": "updated desc",
                                   "ownerId": %d
                                 }
-                                """.formatted(updatedName, newOwner.getId())))
+                                """.formatted(updatedName, newOwner.getId())).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name", is(updatedName)))
                 .andExpect(jsonPath("$.description", is("updated desc")))
@@ -76,12 +78,12 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                                   "description": "updated desc",
                                   "ownerId": %d
                                 }
-                                """.formatted(updatedName, nonAdmin.getId())))
+                                """.formatted(updatedName, nonAdmin.getId())).with(csrf()))
                 .andExpect(status().isUnprocessableEntity());
 
         // 4. Delete
         mockMvc.perform(delete("/api/admin/spaces/" + spaceId)
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isNoContent());
 
         // Verify 404 after delete
@@ -103,7 +105,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id", notNullValue()))
                 .andExpect(jsonPath("$.name", is(spaceName)))
@@ -115,7 +117,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isConflict());
     }
 
@@ -136,7 +138,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc","ownerId":null}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id", notNullValue()))
                 .andReturn()
@@ -157,7 +159,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":%d,"permissionType":"READ"}
-                                """.formatted(guest.getId())))
+                                """.formatted(guest.getId())).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.spaceId", is((int) spaceId)))
                 .andExpect(jsonPath("$.userId", is(guest.getId().intValue())))
@@ -186,7 +188,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(alphaName)))
+                                """.formatted(alphaName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
@@ -195,7 +197,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(betaName)))
+                                """.formatted(betaName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
@@ -218,7 +220,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/spaces/999999/permissions")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1,\"permissionType\":\"READ\"}"))
+                        .content("{\"userId\":1,\"permissionType\":\"READ\"}").with(csrf()))
                 .andExpect(status().isNotFound());
 
         // create space
@@ -228,7 +230,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long spaceId = Long.parseLong(createResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -237,7 +239,7 @@ class SpaceIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/spaces/" + spaceId + "/permissions")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":999999,\"permissionType\":\"READ\"}"))
+                        .content("{\"userId\":999999,\"permissionType\":\"READ\"}").with(csrf()))
                 .andExpect(status().isNotFound());
     }
 }

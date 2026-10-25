@@ -1,3 +1,7 @@
+# Verification: Enforced CSRF for stateless cookie authentication and frontend mutations (2026-10-25)
+
+Maven clean verify: 127 tests, 0 failures/errors/skips. Node tests passed. Playwright: 149 passed, 0 failed/flaky/skipped, workers=1, retries=0, PostgreSQL 18.6 fresh test schema.
+
 # Verification: Authorized asynchronous document trees and measured page performance (issue #23, US4.4.1) (2026-10-25)
 
 Maven clean verify: 124 tests, 0 failures/errors/skips. Node tests passed. Playwright: 148 passed, 0 failed/flaky/skipped, workers=1, retries=0, PostgreSQL 18.6 fresh test schema.

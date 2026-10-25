@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.support.IntegrationTestBase;
@@ -24,7 +26,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
 
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content(body))
+                        .content(body).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token", not(emptyOrNullString())))
                 .andExpect(jsonPath("$.tokenType", is("Bearer")))
@@ -48,7 +50,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"login\":\"admin\",\"password\":\"wrong12\"}"))
+                        .content("{\"login\":\"admin\",\"password\":\"wrong12\"}").with(csrf()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status", is(401)))
                 .andExpect(jsonPath("$.error", is("Unauthorized")))
@@ -68,7 +70,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"login\":\"" + login + "\",\"password\":\"pass123\"}"))
+                        .content("{\"login\":\"" + login + "\",\"password\":\"pass123\"}").with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 

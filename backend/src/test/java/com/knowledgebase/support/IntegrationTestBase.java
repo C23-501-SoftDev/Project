@@ -1,5 +1,7 @@
 package com.knowledgebase.support;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.repository.UserRepository;
@@ -133,7 +135,7 @@ public abstract class IntegrationTestBase {
 
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content(body))
+                        .content(body).with(csrf()))
                 .andExpect(status().isOk())
                 .andReturn();
 

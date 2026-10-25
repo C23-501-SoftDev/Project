@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
@@ -263,7 +265,7 @@ class DocumentVersionDiffIntegrationTest extends IntegrationTestBase {
 
     private long createSpace(String jwt) throws Exception {
         String response = mockMvc.perform(post("/api/admin/spaces").cookie(jwtCookie(jwt))
-                        .contentType(APPLICATION_JSON).content("{\"name\":\"Diff Space\"}"))
+                        .contentType(APPLICATION_JSON).content("{\"name\":\"Diff Space\"}").with(csrf()))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return Long.parseLong(response.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
     }
@@ -271,27 +273,27 @@ class DocumentVersionDiffIntegrationTest extends IntegrationTestBase {
     private long createDocument(String jwt, long spaceId, String title) throws Exception {
         String response = mockMvc.perform(post("/api/documents").cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"" + title + "\",\"content\":\"Initial\",\"spaceId\":" + spaceId + "}"))
+                        .content("{\"title\":\"" + title + "\",\"content\":\"Initial\",\"spaceId\":" + spaceId + "}").with(csrf()))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return Long.parseLong(response.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
     }
 
     private void updatePublished(String jwt, long documentId, String content) throws Exception {
-        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)))
+        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)).with(csrf()))
                 .andExpect(status().isOk());
         mockMvc.perform(put("/api/documents/" + documentId).cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"content\":\"" + content.replace("\n", "\\n") + "\"}"))
+                        .content("{\"content\":\"" + content.replace("\n", "\\n") + "\"}").with(csrf()))
                 .andExpect(status().isOk());
     }
 
     private void updatePublished(String jwt, long documentId, String title, String content) throws Exception {
-        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)))
+        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)).with(csrf()))
                 .andExpect(status().isOk());
         mockMvc.perform(put("/api/documents/" + documentId).cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
                         .content("{\"title\":\"" + title + "\",\"content\":\""
-                                + content.replace("\n", "\\n") + "\"}"))
+                                + content.replace("\n", "\\n") + "\"}").with(csrf()))
                 .andExpect(status().isOk());
     }
 

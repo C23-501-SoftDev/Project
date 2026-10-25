@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.domain.notification.EmailMessage;
@@ -58,7 +60,7 @@ class NotificationIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","password":"secret123","role":"READER","isAdmin":false}
-                                """.formatted(login, email)))
+                                """.formatted(login, email)).with(csrf()))
                 .andExpect(status().isCreated());
 
         EmailMessage welcome = recordingEmailSender.findByRecipient(email);
@@ -80,7 +82,7 @@ class NotificationIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long spaceId = Long.parseLong(spaceResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -90,7 +92,7 @@ class NotificationIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":%d,"permissionType":"WRITE"}
-                                """.formatted(user.getId())))
+                                """.formatted(user.getId())).with(csrf()))
                 .andExpect(status().isCreated());
 
         EmailMessage notice = recordingEmailSender.findByRecipient("reader@knowledgebase.local");
@@ -110,7 +112,7 @@ class NotificationIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"recipient":"qa@example.com"}
-                                """))
+                                """).with(csrf()))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.recipient", is("qa@example.com")))
                 .andExpect(jsonPath("$.queued", is(true)))
@@ -129,7 +131,7 @@ class NotificationIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/notifications/test")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{}"))
+                        .content("{}").with(csrf()))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.recipient", is("admin@knowledgebase.local")))
                 .andExpect(jsonPath("$.queued", is(true)));
@@ -145,7 +147,7 @@ class NotificationIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"recipient":"qa@example.com"}
-                                """))
+                                """).with(csrf()))
                 .andExpect(status().isForbidden());
 
         assertThat(recordingEmailSender.messages(), is(empty()));
@@ -161,7 +163,7 @@ class NotificationIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"recipient":"not-an-email"}
-                                """))
+                                """).with(csrf()))
                 .andExpect(status().isBadRequest());
     }
 

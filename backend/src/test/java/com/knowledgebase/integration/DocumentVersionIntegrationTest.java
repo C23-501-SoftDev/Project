@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
@@ -19,17 +21,17 @@ class DocumentVersionIntegrationTest extends IntegrationTestBase {
         long spaceId = createSpace();
         String createResponse = mockMvc.perform(post("/api/documents")
                         .cookie(jwtCookie(editorJwt)).contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"Versioned\",\"content\":\"# First\",\"spaceId\":" + spaceId + "}"))
+                        .content("{\"title\":\"Versioned\",\"content\":\"# First\",\"spaceId\":" + spaceId + "}").with(csrf()))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         long documentId = Long.parseLong(createResponse.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
         mockMvc.perform(post("/api/documents/" + documentId + "/publish")
-                        .cookie(jwtCookie(editorJwt)))
+                        .cookie(jwtCookie(editorJwt)).with(csrf()))
                 .andExpect(status().isOk());
 
         mockMvc.perform(put("/api/documents/" + documentId)
                         .cookie(jwtCookie(editorJwt)).contentType(APPLICATION_JSON)
-                        .content("{\"content\":\"# Second\"}"))
+                        .content("{\"content\":\"# Second\"}").with(csrf()))
                 .andExpect(status().isOk());
 
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM versions WHERE document_id = ?", Integer.class, documentId);
@@ -42,7 +44,7 @@ class DocumentVersionIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(put("/api/documents/" + documentId)
                         .cookie(jwtCookie(editorJwt)).contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"Versioned renamed\"}"))
+                        .content("{\"title\":\"Versioned renamed\"}").with(csrf()))
                 .andExpect(status().isOk());
         assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM versions WHERE document_id = ?",
                 Integer.class, documentId));
@@ -53,7 +55,7 @@ class DocumentVersionIntegrationTest extends IntegrationTestBase {
         String adminJwt = loginAndGetJwt("admin", "admin123");
         String response = mockMvc.perform(post("/api/admin/spaces")
                         .cookie(jwtCookie(adminJwt)).contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"Version Space\",\"description\":\"test\"}"))
+                        .content("{\"name\":\"Version Space\",\"description\":\"test\"}").with(csrf()))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return Long.parseLong(response.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
     }

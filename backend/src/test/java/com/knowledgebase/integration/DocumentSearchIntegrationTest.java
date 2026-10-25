@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
@@ -145,7 +147,7 @@ class DocumentSearchIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(name)))
+                                """.formatted(name)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
@@ -178,7 +180,7 @@ class DocumentSearchIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":%d,"permissionType":"READ"}
-                                """.formatted(userId)))
+                                """.formatted(userId)).with(csrf()))
                 .andExpect(status().isCreated());
     }
 
@@ -188,14 +190,14 @@ class DocumentSearchIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":"%s","content":"# test","spaceId":%d}
-                                """.formatted(title, spaceId)))
+                                """.formatted(title, spaceId)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
         long id = Long.parseLong(response.replaceAll("(?s).*\\\"id\\\"\\s*:\\s*(\\d+).*", "$1"));
-        mockMvc.perform(post("/api/documents/" + id + "/publish").cookie(jwtCookie(jwt)))
+        mockMvc.perform(post("/api/documents/" + id + "/publish").cookie(jwtCookie(jwt)).with(csrf()))
                 .andExpect(status().isOk());
         return id;
     }

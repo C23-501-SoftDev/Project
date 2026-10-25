@@ -1,4 +1,4 @@
-const { request: playwrightRequest } = require("@playwright/test");
+const { request: playwrightRequest } = require("./test");
 
 async function apiLogin(api, baseURL, login, password) {
   const response = await api.post(`${baseURL}/api/auth/login`, {

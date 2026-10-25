@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
@@ -21,7 +23,7 @@ class ValidationErrorIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"","email":"not-email","password":"1","role":null}
-                                """))
+                                """).with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status", is(400)))
                 .andExpect(jsonPath("$.error", is("Bad Request")))
@@ -34,7 +36,7 @@ class ValidationErrorIntegrationTest extends IntegrationTestBase {
     void login_invalidPayload_returns400_withFieldErrors() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"login\":\"\",\"password\":\"\"}"))
+                        .content("{\"login\":\"\",\"password\":\"\"}").with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors", is(not(empty()))));
     }
@@ -51,7 +53,7 @@ class ValidationErrorIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long spaceId = Long.parseLong(spaceResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -59,7 +61,7 @@ class ValidationErrorIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/spaces/" + spaceId + "/permissions")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":null,\"permissionType\":null}"))
+                        .content("{\"userId\":null,\"permissionType\":null}").with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors[*].field",
                         containsInAnyOrder("userId", "permissionType")));

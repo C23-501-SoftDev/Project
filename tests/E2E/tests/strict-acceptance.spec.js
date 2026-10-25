@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./helpers/test");
 const { createContentFixture, createTestSpaceId } = require("./helpers/documents");
 const { createAuthenticatedPage } = require("./helpers/session");
 
