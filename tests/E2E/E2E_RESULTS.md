@@ -1,3 +1,7 @@
+# Verification: Portable Cyrillic PDF fonts (US5.1.2) (2026-10-25)
+
+Maven clean verify: 118 tests, 0 failures/errors/skips. Node tests passed. Playwright: 144 passed, 0 failed/flaky/skipped, workers=1, retries=0, PostgreSQL 18.6 fresh test schema.
+
 # Regression results — 2026-10-25
 
 Environment: macOS arm64, Java 21.0.7, Maven 3.9.9, PostgreSQL 18.6, Chromium (Playwright 1.59.1). AI and email delivery disabled. The test database is isolated from application data.

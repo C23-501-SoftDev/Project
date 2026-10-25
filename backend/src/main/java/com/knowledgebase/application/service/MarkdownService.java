@@ -16,7 +16,7 @@ import org.jsoup.safety.Safelist;
 import com.openhtmltopdf.outputdevice.helper.ExternalResourceControlPriority;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
+import java.util.Objects;
 import java.io.IOException;
 import java.util.List;
 
@@ -71,34 +71,27 @@ public class MarkdownService {
                 ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
         builder.useExternalResourceAccessControl((uri, type) -> false,
                 ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
-        registerDejaVuFonts(builder);
+        registerPdfFonts(builder);
         builder.withHtmlContent(fullHtml, null);
         builder.toStream(out);
         builder.run();
         return out.toByteArray();
     }
 
-    private void registerDejaVuFonts(PdfRendererBuilder builder) {
-        String[] searchDirs = {
-            "/usr/share/fonts/truetype/dejavu/",
-            "/usr/share/fonts/dejavu/",
-            "/usr/share/fonts/truetype/DejaVu/"
-        };
-        for (String dir : searchDirs) {
-            File regular = new File(dir + "DejaVuSans.ttf");
-            if (!regular.exists()) continue;
-            try {
-                builder.useFont(regular, "DejaVu Sans", 400,
-                        BaseRendererBuilder.FontStyle.NORMAL, true);
-                File bold = new File(dir + "DejaVuSans-Bold.ttf");
-                if (bold.exists()) builder.useFont(bold, "DejaVu Sans", 700,
-                        BaseRendererBuilder.FontStyle.NORMAL, false);
-                File oblique = new File(dir + "DejaVuSans-Oblique.ttf");
-                if (oblique.exists()) builder.useFont(oblique, "DejaVu Sans", 400,
-                        BaseRendererBuilder.FontStyle.ITALIC, false);
-            } catch (Exception ignored) {}
-            return;
-        }
+    private void registerPdfFonts(PdfRendererBuilder builder) {
+        registerFont(builder, "NotoSans-Regular.ttf", "Noto Sans", 400, BaseRendererBuilder.FontStyle.NORMAL);
+        registerFont(builder, "NotoSans-Bold.ttf", "Noto Sans", 700, BaseRendererBuilder.FontStyle.NORMAL);
+        registerFont(builder, "NotoSans-Italic.ttf", "Noto Sans", 400, BaseRendererBuilder.FontStyle.ITALIC);
+        registerFont(builder, "NotoSans-BoldItalic.ttf", "Noto Sans", 700, BaseRendererBuilder.FontStyle.ITALIC);
+        registerFont(builder, "NotoSansMono-Regular.ttf", "Noto Sans Mono", 400, BaseRendererBuilder.FontStyle.NORMAL);
+        registerFont(builder, "NotoSansMono-Bold.ttf", "Noto Sans Mono", 700, BaseRendererBuilder.FontStyle.NORMAL);
+    }
+
+    private void registerFont(PdfRendererBuilder builder, String file, String family, int weight,
+                              BaseRendererBuilder.FontStyle style) {
+        builder.useFont(() -> Objects.requireNonNull(
+                MarkdownService.class.getResourceAsStream("/fonts/" + file), "Missing PDF font: " + file),
+                family, weight, style, true);
     }
 
     public byte[] toDocx(String title, String markdown) throws IOException {
@@ -255,11 +248,11 @@ public class MarkdownService {
 
     private String pdfCss() {
         return "@page { margin: 2cm; }" +
-               "body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #333; }" +
+               "body { font-family: 'Noto Sans', sans-serif; font-size: 11pt; line-height: 1.6; color: #333; }" +
                ".doc-title { font-size: 22pt; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 24px; }" +
                "h1 { font-size: 18pt; } h2 { font-size: 15pt; } h3 { font-size: 13pt; }" +
                "pre { background: #f4f4f4; border: 1px solid #ddd; padding: 12px; font-size: 9pt; word-wrap: break-word; }" +
-               "code { font-family: \"Courier New\", monospace; background: #f4f4f4; padding: 1px 4px; font-size: 9pt; }" +
+               "code { font-family: 'Noto Sans Mono', monospace; background: #f4f4f4; padding: 1px 4px; font-size: 9pt; }" +
                "table { border-collapse: collapse; width: 100%; }" +
                "th, td { border: 1px solid #ccc; padding: 6px 10px; }" +
                "th { background: #f4f4f4; font-weight: bold; }" +
