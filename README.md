@@ -6,6 +6,8 @@
 
 [Нагрузочная приёмка: 25 пользователей и отдельный стресс на 50](tests/performance/results/README.md).
 
+[Экспорт изображений и вложений: HTML, PDF, DOCX и автономный ZIP](docs/EXPORTS.md).
+
 ## Table of Contents
 
 1. [First-Time Setup](#first-time-setup)
@@ -598,10 +600,12 @@ Project/
 
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/{id}/export?format=pdf` | Экспорт в PDF (возвращает файл) | ❌ |
-| GET | `/api/documents/{id}/export?format=docx` | Экспорт в DOCX (возвращает файл) | ❌ |
-| GET | `/api/documents/{id}/export?format=html` | Экспорт в HTML (возвращает файл) | ❌ |
-| GET | `/api/documents/{id}/export?format=html&includeAttachments=true` | Экспорт с вложениями (архив) | ❌ |
+| GET | `/api/documents/{id}/export/pdf` | PDF со встроенными локальными PNG/JPEG | ✅ |
+| GET | `/api/documents/{id}/export/docx` | DOCX с редактируемой структурой и рисунками | ✅ |
+| GET | `/api/documents/{id}/export/html` | Автономный HTML со встроенными изображениями и ссылками на вложенные файлы | ✅ |
+| GET | `/api/documents/{id}/export/zip` | HTML и все текущие вложения в автономном архиве | ✅ |
+
+Права проверяются до и после формирования файла. Поддержка форматов, ограничения, `no-store` и ошибки 409/413 описаны в [контракте экспорта](docs/EXPORTS.md) и [BACKTRACKER](BACKTRACKER.md).
 
 ---
 

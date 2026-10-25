@@ -12,8 +12,8 @@ context: |
   - Контроль версий документов: JGit
   - API документация: SpringDoc OpenAPI (Swagger UI)
   - HTML: Flexmark + jsoup; preview: Marked + DOMPurify (локальные pinned bundles)
-  - Экспорт: OpenHTMLtoPDF/PDFBox с Noto fonts; DOCX через Apache POI
-  - Дерево документов: GET /spaces/{id}/tree, загрузка по запросу и фильтр Draft
+  - Экспорт: DocumentExportService с локальными вложениями; автономные HTML/ZIP, PNG/JPEG в PDF (OpenHTMLtoPDF/PDFBox + Noto) и DOCX (Apache POI)
+  - Дерево документов: GET /spaces/{id}/tree, загрузка по запросу, фильтр Draft и итеративный экранирующий HTML-рендерер
   - AI: внешний провайдер только для переписывания; RAG — локальный Ollama + pgvector, opt-in RAG_ENABLED и Liquibase context rag
   - Утилиты: Lombok (boilerplate reduction)
 
