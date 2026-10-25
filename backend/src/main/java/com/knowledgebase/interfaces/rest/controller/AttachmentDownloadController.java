@@ -35,7 +35,7 @@ public class AttachmentDownloadController {
 
     @GetMapping("/{attachmentId}/download")
     @PreAuthorize("@attachmentService.canDownload(principal.id, principal.isAdmin, #attachmentId)")
-    @Operation(summary = "Скачать вложение", description = "Возвращает файл вложения с проверкой прав чтения пространства")
+    @Operation(summary = "Скачать вложение", description = "Возвращает файл вложения с проверкой прав пространства и видимости документа")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Файл найден"),
             @ApiResponse(responseCode = "403", description = "Недостаточно прав"),

@@ -10,7 +10,7 @@
 > ⚠️ **Правило поддержки:**
 > Если разработчик добавляет, изменяет или удаляет API-эндпоинты, то он обязан обновить этот файл: изменить статусы (❌→✅), добавить/убрать строки, обновить «Дату обновления» в шапке.
 
-**Дата обновления:** 2026-08-19
+**Дата обновления:** 2026-10-25
 
 ---
 
@@ -71,7 +71,7 @@
 |-------|----------|----------|--------|
 | GET | `/api/documents/{id}` | Полные данные документа (title, content, author, status, updatedAt, spaceId, templateId) | ✅ |
 | GET | `/api/documents/{id}/attachments` | Список вложений документа | ✅ |
-| GET | `/api/attachments/{attachmentId}/download` | Скачивание вложения по ID с проверкой прав чтения пространства | ✅ |
+| GET | `/api/attachments/{attachmentId}/download` | Скачивание вложения по ID с проверкой прав пространства и видимости документа (чужой Draft → 403) | ✅ |
 | POST | `/api/documents/{id}/attachments` | Загрузка вложений (multipart/form-data) | ✅ |
 | DELETE | `/api/documents/{id}/attachments/{attachmentId}` | Удаление вложения | ✅ |
 | GET | `/api/documents/{id}/permissions` | Права доступа к документу (поверх прав пространства) | ❌ |
@@ -117,7 +117,7 @@
 | GET | `/api/documents/{id}` | Текущее содержимое документа для редактора | ✅ |
 | PUT | `/api/documents/{id}` | Обновление документа (создаёт новую версию в Git) | ✅ |
 | GET | `/api/documents/{id}/attachments` | Список текущих вложений | ✅ |
-| GET | `/api/attachments/{attachmentId}/download` | Скачивание вложения по ID с проверкой прав чтения пространства | ✅ |
+| GET | `/api/attachments/{attachmentId}/download` | Скачивание вложения по ID с проверкой прав пространства и видимости документа (чужой Draft → 403) | ✅ |
 | POST | `/api/documents/{id}/attachments` | Загрузка вложений (multipart/form-data) | ✅ |
 | DELETE | `/api/documents/{id}/attachments/{attachmentId}` | Удаление вложения | ✅ |
 | PUT | `/api/documents/{id}/permissions` | Настройка прав доступа к документу (поверх пространственных) | ❌ |
@@ -192,11 +192,13 @@
 
 ## Экспорт (не отдельная страница, действие на странице документа)
 
+Экспорт, список/сравнение версий и чтение вложений требуют права READ на пространство и права видеть сам документ. Черновик доступен только автору и администратору; чужой черновик возвращает 403. Опубликованный документ доступен читателю пространства.
+
 | Метод | Эндпоинт | Описание | Статус |
 |-------|----------|----------|--------|
-| GET | `/api/documents/{id}/export?format=pdf` | Экспорт в PDF (возвращает файл) | ❌ |
-| GET | `/api/documents/{id}/export?format=docx` | Экспорт в DOCX (возвращает файл) | ❌ |
-| GET | `/api/documents/{id}/export?format=html` | Экспорт в HTML (возвращает файл) | ❌ |
+| GET | `/api/documents/{id}/export/pdf` | Экспорт в PDF; права пространства + видимость документа, чужой Draft → 403 | ✅ |
+| GET | `/api/documents/{id}/export/docx` | Экспорт в DOCX; права пространства + видимость документа, чужой Draft → 403 | ✅ |
+| GET | `/api/documents/{id}/export/html` | Экспорт в HTML; права пространства + видимость документа, чужой Draft → 403 | ✅ |
 | GET | `/api/documents/{id}/export?format=html&includeAttachments=true` | Экспорт с вложениями (архив) | ❌ |
 
 ---
@@ -299,7 +301,7 @@
 | **Откат версии** | POST `/api/documents/{id}/versions/{gitHash}/restore` | ✅ |
 | **Поиск** | GET `/api/documents/search` | ❌ |
 | **Вложения** | GET/POST/DELETE `/api/documents/{id}/attachments` | ✅ |
-| **Экспорт** | GET `/api/documents/{id}/export` | ❌ |
+| **Экспорт** | GET `/api/documents/{id}/export/{html,pdf,docx}` | ✅ |
 | **Шаблоны** | GET `/api/templates` | ❌ |
 
 ### Важные (дополнительный функционал)

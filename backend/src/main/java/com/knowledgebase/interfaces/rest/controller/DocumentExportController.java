@@ -34,7 +34,7 @@ public class DocumentExportController {
     }
 
     @GetMapping("/html")
-    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @PreAuthorize("@documentService.canReadDocument(principal.id, principal.isAdmin, #id)")
     @Operation(summary = "Экспорт в HTML", description = "Возвращает документ в виде HTML-страницы")
     public ResponseEntity<byte[]> exportHtml(@PathVariable Long id) {
         Document doc = documentService.getDocumentById(id);
@@ -51,7 +51,7 @@ public class DocumentExportController {
     }
 
     @GetMapping("/pdf")
-    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @PreAuthorize("@documentService.canReadDocument(principal.id, principal.isAdmin, #id)")
     @Operation(summary = "Экспорт в PDF", description = "Конвертирует Markdown в PDF через HTML-рендеринг")
     public ResponseEntity<byte[]> exportPdf(@PathVariable Long id) throws IOException {
         Document doc = documentService.getDocumentById(id);
@@ -64,7 +64,7 @@ public class DocumentExportController {
     }
 
     @GetMapping("/docx")
-    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @PreAuthorize("@documentService.canReadDocument(principal.id, principal.isAdmin, #id)")
     @Operation(summary = "Экспорт в DOCX", description = "Конвертирует Markdown в документ Word (.docx)")
     public ResponseEntity<byte[]> exportDocx(@PathVariable Long id) throws IOException {
         Document doc = documentService.getDocumentById(id);

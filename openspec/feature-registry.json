@@ -435,6 +435,23 @@
             "docs": [
                 "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
             ]
+        },
+        {
+            "featureId": "document-draft-read-permissions",
+            "title": "Consistent draft visibility in exports, versions and attachments",
+            "status": "done",
+            "area": "backend",
+            "repo": "Project",
+            "endpoints": [
+                "GET /api/documents/{id}/export/{format}",
+                "GET /api/documents/{id}/versions",
+                "GET /api/documents/{id}/diff",
+                "GET /api/documents/{id}/attachments",
+                "GET /api/attachments/{id}/download"
+            ],
+            "docs": [
+                "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
+            ]
         }
     ]
 }

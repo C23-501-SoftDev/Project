@@ -46,7 +46,7 @@ public class AttachmentController {
     }
 
     @GetMapping
-    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#documentId).spaceId)")
+    @PreAuthorize("@documentService.canReadDocument(principal.id, principal.isAdmin, #documentId)")
     @Operation(summary = "Список вложений", description = "Возвращает список файлов, прикреплённых к документу")
     public ResponseEntity<List<AttachmentResponse>> getAttachments(@PathVariable Long documentId) {
         List<AttachmentResponse> responses = attachmentService.getAttachmentsForDocument(documentId)

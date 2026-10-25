@@ -62,8 +62,7 @@ public class AttachmentService {
         }
 
         Attachment attachment = getAttachmentById(attachmentId);
-        Document document = documentService.getDocumentById(attachment.getDocumentId());
-        return permissionService.canRead(userId, isAdmin, document.getSpaceId());
+        return documentService.canReadDocument(userId, isAdmin, attachment.getDocumentId());
     }
 
     public List<Attachment> getAttachmentsForDocument(Long documentId) {

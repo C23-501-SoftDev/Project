@@ -33,7 +33,7 @@ public class DocumentVersionController {
     }
 
     @GetMapping("/api/documents/{id}/versions")
-    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @PreAuthorize("@documentService.canReadDocument(principal.id, principal.isAdmin, #id)")
     @Operation(summary = "Получить историю версий документа")
     public ResponseEntity<List<DocumentVersionResponse>> listVersions(@PathVariable Long id) {
         var versions = documentVersionService.listVersions(id).stream()
@@ -43,7 +43,7 @@ public class DocumentVersionController {
     }
 
     @GetMapping("/api/documents/{id}/diff")
-    @PreAuthorize("@permissionService.canRead(principal.id, principal.isAdmin, @documentService.getDocumentById(#id).spaceId)")
+    @PreAuthorize("@documentService.canReadDocument(principal.id, principal.isAdmin, #id)")
     @Operation(summary = "Сравнить две версии документа", description = "Возвращает diff от from к to с выбранной детализацией")
     public ResponseEntity<DocumentDiffResponse> compareVersions(@PathVariable Long id,
                                                                  @RequestParam String from,

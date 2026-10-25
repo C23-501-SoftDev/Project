@@ -133,7 +133,7 @@ public class PageController {
     @GetMapping("/documents/{id}/history")
     public String documentHistory(@PathVariable Long id, @AuthenticationPrincipal User user, Model model) {
         var document = documentService.getDocumentById(id);
-        if (!permissionService.canRead(user.getId(), user.isAdmin(), document.getSpaceId())) {
+        if (!documentService.canReadDocument(user.getId(), user.isAdmin(), id)) {
             return "redirect:/documents/" + id;
         }
         model.addAttribute("pageTitle", "История версий");
