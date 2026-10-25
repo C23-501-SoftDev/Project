@@ -482,6 +482,16 @@
             "docs": [
                 "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
             ]
+        },
+        {
+            "featureId": "sidebar-independent-scroll",
+            "title": "Independent sidebar tree and search result scrolling (issue #20)",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
+            ]
         }
     ]
 }
