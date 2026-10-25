@@ -472,6 +472,16 @@
             "docs": [
                 "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
             ]
+        },
+        {
+            "featureId": "docx-document-structure",
+            "title": "Editable DOCX tables, headings and nested lists (US5.1.3)",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
+            ]
         }
     ]
 }
