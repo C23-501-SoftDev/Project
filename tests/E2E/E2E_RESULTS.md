@@ -8,6 +8,13 @@ From `backend`: `mvn clean verify`.
 From repository root: `node --test backend/src/test/javascript/*.test.js`.
 From `tests/E2E`: `npm ci`, `npx playwright install chromium`, then `E2E_BASE_URL=http://127.0.0.1:18080 npm test` against a running application with migrations applied.
 
+## Latest: repair-admin-space-filters
+
+- Java: **110 passed**, no failures/errors/skips; executable JAR built.
+- JavaScript: **1 test file passed**.
+- Full Playwright: **144 passed, 0 failed, 0 skipped, 0 retries**, 60.7 seconds, fresh PostgreSQL test schema.
+- The seven admin-filter regressions from the test-repair branch are fixed.
+
 ## repair-test-suite
 
 - Java: **110 passed, 0 failed, 0 skipped**; executable JAR built.
@@ -16,4 +23,4 @@ From `tests/E2E`: `npm ci`, `npx playwright install chromium`, then `E2E_BASE_UR
 - The C4 failure was an obsolete confirmation expectation; the action deletes the test's own space immediately. Final focused verification: **3 passed** (C4 and independently seeded create/cancel pages).
 - Seven remaining browser failures expose existing admin-space filter defects: the status select has no hidden-input target, and dynamically replaced owner options lose click handlers. They are retained as failing regression coverage for the next, separate application fix.
 
-These results do not claim that all browser tests pass. See `E2E_FAILURE_ANALYSIS.md` for the remaining defect and its scope.
+The test-repair results above are historical. The latest complete suite passes after the separate admin-filter fix.

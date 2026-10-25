@@ -107,30 +107,22 @@ window.initCustomSelects = () => {
             });
 
             // Toggle current
-            const isVisible = optionsDiv.style.display === 'block';
+            const isVisible = !isSearchable && optionsDiv.style.display === 'block';
             optionsDiv.style.display = isVisible ? 'none' : 'block';
             styled.classList.toggle('active', !isVisible);
         });
 
-        // Initialize existing options click (for static ones)
-        optionsDiv.querySelectorAll('.select-option').forEach(option => {
-            // store searchable text
-            if (!option.dataset.search) option.dataset.search = option.textContent || '';
-            option.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const text = option.textContent;
-                const value = option.dataset.value;
-                styled.textContent = text;
-                styled.style.color = 'var(--text-color)';
-                if (hiddenInput) hiddenInput.value = value;
-                optionsDiv.style.display = 'none';
-                styled.classList.remove('active');
-
-                // Trigger change event if needed
-                if (hiddenInput) {
-                    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            });
+        // Delegate selection: option lists can be replaced after initialization.
+        optionsDiv.addEventListener('click', (e) => {
+            const option = e.target.closest('.select-option');
+            if (!option || !optionsDiv.contains(option)) return;
+            e.stopPropagation();
+            styled.textContent = option.textContent;
+            styled.style.color = 'var(--text-color)';
+            if (hiddenInput) hiddenInput.value = option.dataset.value;
+            optionsDiv.style.display = 'none';
+            styled.classList.remove('active');
+            if (hiddenInput) hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
         });
     });
 
