@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.infrastructure.repository.git.JGitDocumentContentRepository;
 import com.knowledgebase.support.IntegrationTestBase;
@@ -35,7 +37,7 @@ class DocumentVersionRollbackIntegrationTest extends IntegrationTestBase {
         String selectedHash = hashes.get(0);
 
         String response = mockMvc.perform(post("/api/documents/" + documentId + "/versions/" + selectedHash + "/restore")
-                        .cookie(jwtCookie(jwt)))
+                        .cookie(jwtCookie(jwt)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.comment").value("Restore document version: " + selectedHash))
                 .andReturn().getResponse().getContentAsString();
@@ -72,7 +74,7 @@ class DocumentVersionRollbackIntegrationTest extends IntegrationTestBase {
         String hash = jdbcTemplate.queryForObject("SELECT git_hash FROM versions WHERE document_id = ?", String.class, documentId);
 
         mockMvc.perform(post("/api/documents/" + documentId + "/versions/" + hash + "/restore")
-                        .cookie(jwtCookie(readerJwt)))
+                        .cookie(jwtCookie(readerJwt)).with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
@@ -89,16 +91,16 @@ class DocumentVersionRollbackIntegrationTest extends IntegrationTestBase {
                 "SELECT git_hash FROM versions WHERE document_id = ?", String.class, secondDocumentId);
 
         mockMvc.perform(post("/api/documents/" + firstDocumentId + "/versions/not-a-hash/restore")
-                        .cookie(jwtCookie(jwt)))
+                        .cookie(jwtCookie(jwt)).with(csrf()))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(post("/api/documents/" + firstDocumentId + "/versions/" + foreignHash + "/restore")
-                        .cookie(jwtCookie(jwt)))
+                        .cookie(jwtCookie(jwt)).with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
     private long createSpace(String jwt) throws Exception {
         String response = mockMvc.perform(post("/api/admin/spaces").cookie(jwtCookie(jwt))
-                        .contentType(APPLICATION_JSON).content("{\"name\":\"Rollback Space\"}"))
+                        .contentType(APPLICATION_JSON).content("{\"name\":\"Rollback Space\"}").with(csrf()))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return Long.parseLong(response.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
     }
@@ -106,17 +108,17 @@ class DocumentVersionRollbackIntegrationTest extends IntegrationTestBase {
     private long createDocument(String jwt, long spaceId, String title) throws Exception {
         String response = mockMvc.perform(post("/api/documents").cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"" + title + "\",\"content\":\"Initial\",\"spaceId\":" + spaceId + "}"))
+                        .content("{\"title\":\"" + title + "\",\"content\":\"Initial\",\"spaceId\":" + spaceId + "}").with(csrf()))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return Long.parseLong(response.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
     }
 
     private void updatePublished(String jwt, long documentId, String content) throws Exception {
-        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)))
+        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)).with(csrf()))
                 .andExpect(status().isOk());
         mockMvc.perform(put("/api/documents/" + documentId).cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"content\":\"" + content + "\"}"))
+                        .content("{\"content\":\"" + content + "\"}").with(csrf()))
                 .andExpect(status().isOk());
     }
 }

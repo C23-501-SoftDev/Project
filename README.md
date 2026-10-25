@@ -99,10 +99,13 @@ Environment variables:
 
 Verify SMTP configuration with the admin-only test endpoint:
 
+All unsafe API requests require CSRF as well as authentication. First open `GET /login` and retain its `XSRF-TOKEN` cookie. Mirror that cookie value in `X-XSRF-TOKEN` for login and later POST/PUT/PATCH/DELETE calls; keep both cookies in the same client. Missing or mismatched CSRF returns 403. Swagger UI is configured to send this header after the cookie has been initialized.
+
 ```bash
 curl -X POST http://localhost:8080/api/admin/notifications/test \
   -H "Content-Type: application/json" \
-  --cookie "JWT=<admin-jwt>" \
+  -H "X-XSRF-TOKEN: <csrf-token-from-login-page>" \
+  --cookie "JWT=<admin-jwt>; XSRF-TOKEN=<csrf-token-from-login-page>" \
   -d '{"recipient":"you@example.com"}'
 ```
 

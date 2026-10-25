@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.infrastructure.persistence.entity.SpaceJpaEntity;
@@ -28,7 +30,7 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","password":"secret123","role":"READER","isAdmin":false}
-                                """.formatted(login, email)))
+                                """.formatted(login, email)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id", notNullValue()))
                 .andExpect(jsonPath("$.login", is(login)))
@@ -50,7 +52,7 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"other_%s","password":"secret123","role":"READER","isAdmin":false}
-                                """.formatted(login, email)))
+                                """.formatted(login, email)).with(csrf()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status", is(409)))
                 .andExpect(jsonPath("$.error", is("Conflict")));
@@ -76,7 +78,7 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","password":"secret123","role":"READER","isAdmin":false}
-                                """.formatted(login, email)))
+                                """.formatted(login, email)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.login", is(login)))
                 .andReturn().getResponse().getContentAsString();
@@ -84,26 +86,26 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
 
         // soft-delete (200 with user data)
         mockMvc.perform(delete("/api/admin/users/" + userId)
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isDeleted", is(true)));
 
         // authenticate deleted user - should fail (401)
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"login\":\"" + login + "\",\"password\":\"secret123\"}"))
+                        .content("{\"login\":\"" + login + "\",\"password\":\"secret123\"}").with(csrf()))
                 .andExpect(status().isUnauthorized());
 
         // restore user (200)
         mockMvc.perform(post("/api/admin/users/" + userId + "/restore")
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isDeleted", is(false)));
 
         // authenticate restored user - should succeed (200)
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"login\":\"" + login + "\",\"password\":\"secret123\"}"))
+                        .content("{\"login\":\"" + login + "\",\"password\":\"secret123\"}").with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -121,7 +123,7 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","password":"secret123","role":"EDITOR","isAdmin":true}
-                                """.formatted(login, email)))
+                                """.formatted(login, email)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.isAdmin", is(true)));
 
@@ -146,7 +148,7 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","role":"READER"}
-                                """.formatted(target.getLogin(), target.getEmail())))
+                                """.formatted(target.getLogin(), target.getEmail())).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role", is("READER")));
 
@@ -171,19 +173,19 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(put("/api/admin/users/" + user.getId() + "/password")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"newPassword\":\"newpass123\"}"))
+                        .content("{\"newPassword\":\"newpass123\"}").with(csrf()))
                 .andExpect(status().isNoContent());
 
         // старый пароль больше не подходит (401)
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"login\":\"user1\",\"password\":\"oldpass123\"}"))
+                        .content("{\"login\":\"user1\",\"password\":\"oldpass123\"}").with(csrf()))
                 .andExpect(status().isUnauthorized());
 
         // новый подходит (200)
         mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"login\":\"user1\",\"password\":\"newpass123\"}"))
+                        .content("{\"login\":\"user1\",\"password\":\"newpass123\"}").with(csrf()))
                 .andExpect(status().isOk());
     }
 
@@ -203,7 +205,7 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
 
         // Soft-delete теперь работает (200), даже если есть spaces
         mockMvc.perform(delete("/api/admin/users/" + victim.getId())
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isDeleted", is(true)));
     }
@@ -216,7 +218,7 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
         String adminJwt = loginAndGetJwt("admin", "admin123");
 
         mockMvc.perform(delete("/api/admin/users/" + victim.getId())
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isDeleted", is(true)));
     }
@@ -235,14 +237,14 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","password":"secret123","role":"READER","isAdmin":false}
-                                """.formatted(login, email)))
+                                """.formatted(login, email)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long userId = Long.parseLong(createResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
         // soft-delete user
         mockMvc.perform(delete("/api/admin/users/" + userId)
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isOk());
 
         // без status - только активные (default status=active)

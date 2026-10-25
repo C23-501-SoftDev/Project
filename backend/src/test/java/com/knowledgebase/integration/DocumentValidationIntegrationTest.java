@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.DocumentStatus;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.support.IntegrationTestBase;
@@ -21,20 +23,20 @@ class DocumentValidationIntegrationTest extends IntegrationTestBase {
         String docResp = mockMvc.perform(post("/api/documents")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"Doc1\",\"spaceId\":" + spaceId + "}"))
+                        .content("{\"title\":\"Doc1\",\"spaceId\":" + spaceId + "}").with(csrf()))
                 .andReturn().getResponse().getContentAsString();
         long docId = Long.parseLong(docResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
         mockMvc.perform(post("/api/documents")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"Doc2\",\"spaceId\":" + spaceId + ",\"parentId\":" + docId + "}"))
+                        .content("{\"title\":\"Doc2\",\"spaceId\":" + spaceId + ",\"parentId\":" + docId + "}").with(csrf()))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(put("/api/documents/" + docId)
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"parentId\":" + docId + "}"))
+                        .content("{\"parentId\":" + docId + "}").with(csrf()))
                 .andExpect(status().isUnprocessableEntity());
     }
 
@@ -47,13 +49,13 @@ class DocumentValidationIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/documents")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"Doc1\",\"spaceId\":" + spaceId + "}"))
+                        .content("{\"title\":\"Doc1\",\"spaceId\":" + spaceId + "}").with(csrf()))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(post("/api/documents")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"Doc1\",\"spaceId\":" + spaceId + "}"))
+                        .content("{\"title\":\"Doc1\",\"spaceId\":" + spaceId + "}").with(csrf()))
                 .andExpect(status().isUnprocessableEntity());
     }
 
@@ -67,7 +69,7 @@ class DocumentValidationIntegrationTest extends IntegrationTestBase {
         String doc1Resp = mockMvc.perform(post("/api/documents")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"Doc1\",\"spaceId\":" + space1Id + "}"))
+                        .content("{\"title\":\"Doc1\",\"spaceId\":" + space1Id + "}").with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long doc1Id = Long.parseLong(doc1Resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -75,7 +77,7 @@ class DocumentValidationIntegrationTest extends IntegrationTestBase {
         String doc2Resp = mockMvc.perform(post("/api/documents")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"title\":\"Doc2\",\"spaceId\":" + space2Id + "}"))
+                        .content("{\"title\":\"Doc2\",\"spaceId\":" + space2Id + "}").with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long doc2Id = Long.parseLong(doc2Resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -84,14 +86,14 @@ class DocumentValidationIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/documents/" + doc1Id + "/move")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"spaceId\":" + space2Id + ",\"parentId\":" + doc2Id + "}"))
+                        .content("{\"spaceId\":" + space2Id + ",\"parentId\":" + doc2Id + "}").with(csrf()))
                 .andExpect(status().isOk());
 
         // Verify circular dependency is validated on move
         mockMvc.perform(post("/api/documents/" + doc2Id + "/move")
                         .cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"spaceId\":" + space2Id + ",\"parentId\":" + doc1Id + "}"))
+                        .content("{\"spaceId\":" + space2Id + ",\"parentId\":" + doc1Id + "}").with(csrf()))
                 .andExpect(status().isUnprocessableEntity());
     }
 
@@ -103,7 +105,7 @@ class DocumentValidationIntegrationTest extends IntegrationTestBase {
         String spaceResp = mockMvc.perform(post("/api/admin/spaces")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"" + name + "\",\"description\":\"" + desc + "\"}"))
+                        .content("{\"name\":\"" + name + "\",\"description\":\"" + desc + "\"}").with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return Long.parseLong(spaceResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));

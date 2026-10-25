@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.Space;
@@ -38,7 +40,7 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(multipart("/api/documents/" + context.document.getId() + "/attachments")
                         .file(file)
-                        .cookie(jwtCookie(context.jwt)))
+                        .cookie(jwtCookie(context.jwt)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$[0].filename", is("specification.txt")))
                 .andExpect(jsonPath("$[0].documentId", is(context.document.getId().intValue())));
@@ -66,7 +68,7 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(multipart("/api/documents/" + context.document.getId() + "/attachments")
                         .file(file)
-                        .cookie(jwtCookie(context.jwt)))
+                        .cookie(jwtCookie(context.jwt)).with(csrf()))
                 .andExpect(status().isCreated());
 
         var attachments = attachmentRepository.findByDocumentId(context.document.getId(), false);
@@ -74,7 +76,7 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
         String storagePath = attachments.get(0).getStoragePath();
 
         mockMvc.perform(delete("/api/documents/" + context.document.getId() + "/attachments/" + attachmentId)
-                        .cookie(jwtCookie(context.jwt)))
+                        .cookie(jwtCookie(context.jwt)).with(csrf()))
                 .andExpect(status().isNoContent());
 
         assertTrue(attachmentRepository.findByDocumentId(context.document.getId(), false).isEmpty());
@@ -93,7 +95,7 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(multipart("/api/documents/" + context.document.getId() + "/attachments")
                         .file(file)
-                        .cookie(jwtCookie(context.jwt)))
+                        .cookie(jwtCookie(context.jwt)).with(csrf()))
                 .andExpect(status().isCreated());
 
         long attachmentId = attachmentRepository.findByDocumentId(context.document.getId(), false).get(0).getId();
@@ -117,7 +119,7 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(multipart("/api/documents/" + context.document.getId() + "/attachments")
                         .file(file)
-                        .cookie(jwtCookie(context.jwt)))
+                        .cookie(jwtCookie(context.jwt)).with(csrf()))
                 .andExpect(status().isCreated());
 
         long attachmentId = attachmentRepository.findByDocumentId(context.document.getId(), false).get(0).getId();
@@ -142,7 +144,7 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(multipart("/api/documents/" + context.document.getId() + "/attachments")
                         .file(file)
-                        .cookie(jwtCookie(context.jwt)))
+                        .cookie(jwtCookie(context.jwt)).with(csrf()))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message", containsString("Максимум")));
     }
@@ -159,7 +161,7 @@ class AttachmentIntegrationTest extends IntegrationTestBase {
 
         mockMvc.perform(multipart("/api/documents/" + context.document.getId() + "/attachments")
                         .file(file)
-                        .cookie(jwtCookie(context.jwt)))
+                        .cookie(jwtCookie(context.jwt)).with(csrf()))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message", containsString("Допустимые типы")));
     }

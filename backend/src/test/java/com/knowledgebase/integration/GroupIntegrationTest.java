@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.support.IntegrationTestBase;
@@ -26,7 +28,7 @@ class GroupIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(name)))
+                                """.formatted(name)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return Long.parseLong(resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -48,7 +50,7 @@ class GroupIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"another"}
-                                """.formatted(name)))
+                                """.formatted(name)).with(csrf()))
                 .andExpect(status().isConflict());
 
         // Get by id (200)
@@ -73,7 +75,7 @@ class GroupIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"new desc"}
-                                """.formatted(newName)))
+                                """.formatted(newName)).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name", is(newName)))
                 .andExpect(jsonPath("$.description", is("new desc")));
@@ -85,12 +87,12 @@ class GroupIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"x"}
-                                """.formatted(newName)))
+                                """.formatted(newName)).with(csrf()))
                 .andExpect(status().isConflict());
 
         // Delete (204) — US4.1.8, сценарий 2
         mockMvc.perform(delete("/api/admin/groups/" + groupId)
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isNoContent());
 
         // Get after delete (404)
@@ -111,7 +113,7 @@ class GroupIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/groups/" + groupId + "/members")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":%d}".formatted(user.getId())))
+                        .content("{\"userId\":%d}".formatted(user.getId())).with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.userId", is(user.getId().intValue())))
                 .andExpect(jsonPath("$.login", is("member")));
@@ -120,21 +122,21 @@ class GroupIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/groups/" + groupId + "/members")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":%d}".formatted(user.getId())))
+                        .content("{\"userId\":%d}".formatted(user.getId())).with(csrf()))
                 .andExpect(status().isConflict());
 
         // Add to non-existing group (404)
         mockMvc.perform(post("/api/admin/groups/999999/members")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":%d}".formatted(user.getId())))
+                        .content("{\"userId\":%d}".formatted(user.getId())).with(csrf()))
                 .andExpect(status().isNotFound());
 
         // Add non-existing user (404)
         mockMvc.perform(post("/api/admin/groups/" + groupId + "/members")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":999999}"))
+                        .content("{\"userId\":999999}").with(csrf()))
                 .andExpect(status().isNotFound());
 
         // List members (200)
@@ -153,12 +155,12 @@ class GroupIntegrationTest extends IntegrationTestBase {
 
         // Remove member (204) — US4.1.9, сценарий 2
         mockMvc.perform(delete("/api/admin/groups/" + groupId + "/members/" + user.getId())
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isNoContent());
 
         // Remove again (409 — не состоит в группе)
         mockMvc.perform(delete("/api/admin/groups/" + groupId + "/members/" + user.getId())
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isConflict());
 
         mockMvc.perform(get("/api/admin/groups/" + groupId + "/members")
@@ -178,7 +180,7 @@ class GroupIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/groups")
                         .cookie(jwtCookie(readerJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"x\",\"description\":\"y\"}"))
+                        .content("{\"name\":\"x\",\"description\":\"y\"}").with(csrf()))
                 .andExpect(status().isForbidden());
     }
 }

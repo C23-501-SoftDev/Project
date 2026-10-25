@@ -270,7 +270,7 @@
 
             const document = await apiFetch('/api/documents', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
                 body: JSON.stringify(body)
             });
             showToast('Документ успешно создан');
@@ -317,7 +317,7 @@
             try {
                 const resp = await fetch('/api/ai/transform', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
                     credentials: 'same-origin',
                     body: JSON.stringify({ text, action })
                 });

@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.support.IntegrationTestBase;
@@ -31,7 +33,7 @@ class AuditLogIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return Long.parseLong(resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -49,7 +51,7 @@ class AuditLogIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":"audit-doc","content":"# Test","spaceId":%d}
-                                """.formatted(spaceId)))
+                                """.formatted(spaceId)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long docId = Long.parseLong(docResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -60,12 +62,12 @@ class AuditLogIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"content":"# Updated"}
-                                """))
+                                """).with(csrf()))
                 .andExpect(status().isOk());
 
         // Удаление документа
         mockMvc.perform(delete("/api/documents/" + docId)
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isNoContent());
 
         // Все три действия зафиксированы в журнале с автором и временем
@@ -103,7 +105,7 @@ class AuditLogIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":%d,"permissionType":"WRITE"}
-                                """.formatted(guest.getId())))
+                                """.formatted(guest.getId())).with(csrf()))
                 .andExpect(status().isCreated());
 
         // Запись в журнале содержит детали: пространство, пользователь, тип права
@@ -122,7 +124,7 @@ class AuditLogIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"login":"%s","email":"%s","role":"READER"}
-                                """.formatted(guest.getLogin(), guest.getEmail())))
+                                """.formatted(guest.getLogin(), guest.getEmail())).with(csrf()))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/admin/audit?actionType=USER_UPDATED")

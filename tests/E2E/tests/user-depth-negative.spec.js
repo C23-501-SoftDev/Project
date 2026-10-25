@@ -1,4 +1,4 @@
-const { test, expect, request: playwrightRequest } = require("@playwright/test");
+const { test, expect, request: playwrightRequest } = require("./helpers/test");
 
 async function loginAsAdmin(baseURL) {
   const api = await playwrightRequest.newContext({ baseURL });

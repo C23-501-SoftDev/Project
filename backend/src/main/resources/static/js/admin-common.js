@@ -30,9 +30,9 @@ async function adminFetch(url, options = {}) {
     };
 
     const defaultOptions = {
+        ...options,
         headers,
-        credentials: 'same-origin',
-        ...options
+        credentials: 'same-origin'
     };
 
     try {

@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./helpers/test");
 const { createAdminApi, createSpace, newBrowserPageFromApi } = require("./helpers/documents");
 
 test("SIDEBAR-01: long tree scrolls independently and stays visible beside long content", async ({ browser, baseURL }) => {

@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.GlobalRole;
@@ -143,7 +145,7 @@ class RequirementNumberGenerationIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(put("/api/documents/" + document.getId())
                         .contentType(APPLICATION_JSON)
                         .content(body)
-                        .cookie(jwtCookie(jwt)))
+                        .cookie(jwtCookie(jwt)).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", containsString("| REQ-003 | C |")));
 

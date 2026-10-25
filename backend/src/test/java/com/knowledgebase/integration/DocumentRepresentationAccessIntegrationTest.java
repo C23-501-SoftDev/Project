@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.Space;
@@ -45,7 +47,7 @@ class DocumentRepresentationAccessIntegrationTest extends IntegrationTestBase {
         byte[] bytes = "private attachment".getBytes(StandardCharsets.UTF_8);
         mockMvc.perform(multipart(base + "/attachments")
                         .file(new MockMultipartFile("files", "private.txt", "text/plain", bytes))
-                        .cookie(jwtCookie(f.authorJwt)))
+                        .cookie(jwtCookie(f.authorJwt)).with(csrf()))
                 .andExpect(status().isCreated());
         long attachmentId = attachmentRepository.findByDocumentId(id, false).get(0).getId();
         String download = "/api/attachments/" + attachmentId + "/download";

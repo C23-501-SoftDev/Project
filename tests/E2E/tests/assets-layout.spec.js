@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./helpers/test");
 
 test("E1: main layout assets are available", async ({ request, baseURL }) => {
   const cssResponse = await request.get(`${baseURL}/css/main.css`);

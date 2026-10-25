@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.support.IntegrationTestBase;
@@ -28,7 +30,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(name)))
+                                """.formatted(name)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return Long.parseLong(resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -40,7 +42,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(name)))
+                                """.formatted(name)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return Long.parseLong(resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -50,7 +52,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/groups/" + groupId + "/members")
                         .cookie(jwtCookie(adminJwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":%d}".formatted(userId)))
+                        .content("{\"userId\":%d}".formatted(userId)).with(csrf()))
                 .andExpect(status().isCreated());
     }
 
@@ -60,7 +62,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"groupId":%d,"permissionType":"%s"}
-                                """.formatted(groupId, type)))
+                                """.formatted(groupId, type)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return Long.parseLong(resp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -104,7 +106,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"groupId":%d,"permissionType":"READ"}
-                                """.formatted(groupId)))
+                                """.formatted(groupId)).with(csrf()))
                 .andExpect(status().isConflict());
 
         // Выдаём WRITE (поглощает READ) — участник может редактировать (US4.2.2, сценарий 2)
@@ -127,7 +129,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
 
         // Отзываем право — доступ пропадает (US4.2.2, сценарий 4)
         mockMvc.perform(delete("/api/admin/group-permissions/" + writePermId)
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/spaces").cookie(jwtCookie(guestJwt)))
@@ -156,7 +158,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
 
         // Исключаем из группы — права, полученные через группу, пропадают (US4.1.9, сценарий 2)
         mockMvc.perform(delete("/api/admin/groups/" + groupId + "/members/" + guest.getId())
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/user/permissions?spaceId=" + spaceId).cookie(jwtCookie(guestJwt)))
@@ -185,7 +187,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
 
         // Удаляем группу — права группы отзываются (US4.1.8, сценарий 2)
         mockMvc.perform(delete("/api/admin/groups/" + groupId)
-                        .cookie(jwtCookie(adminJwt)))
+                        .cookie(jwtCookie(adminJwt)).with(csrf()))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/user/permissions?spaceId=" + spaceId).cookie(jwtCookie(guestJwt)))
@@ -213,7 +215,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"groupId":%d,"permissionType":"READ"}
-                                """.formatted(groupId)))
+                                """.formatted(groupId)).with(csrf()))
                 .andExpect(status().isNotFound());
 
         // Несуществующая группа
@@ -222,7 +224,7 @@ class GroupPermissionIntegrationTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"groupId":999999,"permissionType":"READ"}
-                                """))
+                                """).with(csrf()))
                 .andExpect(status().isNotFound());
     }
 }

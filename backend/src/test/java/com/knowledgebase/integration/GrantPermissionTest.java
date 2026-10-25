@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.domain.model.GlobalRole;
 import com.knowledgebase.domain.model.User;
 import com.knowledgebase.support.IntegrationTestBase;
@@ -22,7 +24,7 @@ class GrantPermissionTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long spaceId = Long.parseLong(spaceResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -32,7 +34,7 @@ class GrantPermissionTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":999999,"permissionType":"READ"}
-                                """))
+                                """).with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
@@ -50,7 +52,7 @@ class GrantPermissionTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","description":"desc"}
-                                """.formatted(spaceName)))
+                                """.formatted(spaceName)).with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long spaceId = Long.parseLong(spaceResp.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
@@ -60,7 +62,7 @@ class GrantPermissionTest extends IntegrationTestBase {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"userId":%d,"permissionType":"READ"}
-                                """.formatted(user.getId())))
+                                """.formatted(user.getId())).with(csrf()))
                 .andExpect(status().isCreated());
     }
 }

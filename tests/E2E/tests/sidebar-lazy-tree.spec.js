@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./helpers/test");
 const { createAdminApi, createSpace, createDocument, newBrowserPageFromApi } = require("./helpers/documents");
 
 async function fixture(browser, baseURL) {

@@ -16,6 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
@@ -24,7 +25,7 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
  *
  * Настройки:
  * - Stateless сессии (JWT в HttpOnly Cookie)
- * - CSRF защита с Cookie-based токеном (для AJAX запросов от Tiptap Editor)
+ * - CSRF защита с Cookie-based токеном для API и HTML-форм
  * - Публичные эндпоинты: /login, /api/auth/**, /swagger-ui/**, /api-docs/**
  * - Административные эндпоинты: /admin/**, /api/admin/** — только ADMIN
  * - Остальные эндпоинты — требуют аутентификации
@@ -68,8 +69,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(requestHandler)
-                // Исключаем API эндпоинты и SSR форму логина (CSRF на /login не критичен для безопасности)
-                .ignoringRequestMatchers("/api/**", "/login", "/logout")
+                // Per-request JWT authentication is not a new interactive login.
+                .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
             )
 
             // ── Сессии: Stateless (JWT хранится в HttpOnly Cookie) ────────────────────

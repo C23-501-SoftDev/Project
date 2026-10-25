@@ -452,9 +452,9 @@ async function apiFetch(url, options = {}) {
     }
 
     const defaultOptions = {
+        ...options,
         headers,
-        credentials: 'same-origin',
-        ...options
+        credentials: 'same-origin'
     };
     try {
         const response = await fetch(url, defaultOptions);

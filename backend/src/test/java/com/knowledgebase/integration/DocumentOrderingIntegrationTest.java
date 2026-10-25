@@ -1,5 +1,7 @@
 package com.knowledgebase.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 import com.knowledgebase.application.service.DocumentService.DocumentTreeNode;
 import com.knowledgebase.domain.model.Document;
 import com.knowledgebase.domain.model.GlobalRole;
@@ -112,7 +114,7 @@ class DocumentOrderingIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/documents/" + parent.getId() + "/move")
                         .cookie(jwtCookie(context.jwt()))
                         .contentType(APPLICATION_JSON)
-                        .content(body))
+                        .content(body).with(csrf()))
                 .andExpect(status().isUnprocessableEntity());
     }
 
@@ -140,7 +142,7 @@ class DocumentOrderingIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/documents/" + documentId + "/move")
                         .cookie(jwtCookie(context.jwt()))
                         .contentType(APPLICATION_JSON)
-                        .content(body))
+                        .content(body).with(csrf()))
                 .andExpect(status().isOk());
     }
 
