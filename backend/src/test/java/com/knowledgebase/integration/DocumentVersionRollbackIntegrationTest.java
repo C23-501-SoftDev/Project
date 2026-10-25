@@ -112,9 +112,11 @@ class DocumentVersionRollbackIntegrationTest extends IntegrationTestBase {
     }
 
     private void updatePublished(String jwt, long documentId, String content) throws Exception {
+        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)))
+                .andExpect(status().isOk());
         mockMvc.perform(put("/api/documents/" + documentId).cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"content\":\"" + content + "\",\"status\":\"PUBLISHED\"}"))
+                        .content("{\"content\":\"" + content + "\"}"))
                 .andExpect(status().isOk());
     }
 }

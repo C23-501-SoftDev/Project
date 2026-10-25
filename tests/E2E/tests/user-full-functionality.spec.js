@@ -1,5 +1,7 @@
 const { test, expect, request: playwrightRequest } = require("@playwright/test");
 
+const { createContentFixture, createTestSpaceId } = require("./helpers/documents");
+
 async function apiLogin(api, baseURL, login, password) {
   const response = await api.post(`${baseURL}/api/auth/login`, {
     data: { login, password },
@@ -60,16 +62,17 @@ test("@userfull U5: admin can open all main user SSR routes", async ({
 }) => {
   const api = await playwrightRequest.newContext({ baseURL });
   await apiLogin(api, baseURL, "admin", "admin123");
+  const { space, document } = await createContentFixture(api, baseURL);
   const { context, page } = await newBrowserPageFromApiState(browser, api);
 
   const routes = [
     "/",
     "/documents/new",
-    "/documents/1",
-    "/documents/1/edit",
-    "/documents/1/history",
+    `/documents/${document.id}`,
+    `/documents/${document.id}/edit`,
+    `/documents/${document.id}/history`,
     "/search?q=test",
-    "/spaces/1",
+    `/spaces/${space.id}`,
   ];
 
   for (const route of routes) {
@@ -181,7 +184,8 @@ test("@userfull U10: permissions API returns access flags for a space", async ({
 }) => {
   const api = await playwrightRequest.newContext({ baseURL });
   await apiLogin(api, baseURL, "admin", "admin123");
-  const response = await api.get(`${baseURL}/api/user/permissions?spaceId=1`);
+  const spaceId = await createTestSpaceId(api, baseURL);
+  const response = await api.get(`${baseURL}/api/user/permissions?spaceId=${spaceId}`);
   expect(response.ok()).toBeTruthy();
   const payload = await response.json();
   expect(payload).toHaveProperty("canRead");
@@ -205,18 +209,16 @@ test("@userfull U11: home page must show implemented list, not placeholder", asy
   await api.dispose();
 });
 
-test("@userfull U12: search results page loads with query (WIP: results list)", async ({
+test("@userfull U12: search returns a published matching document", async ({
   browser,
   baseURL,
 }) => {
   const api = await playwrightRequest.newContext({ baseURL });
   await apiLogin(api, baseURL, "admin", "admin123");
+  const { space, document } = await createContentFixture(api, baseURL);
   const { context, page } = await newBrowserPageFromApiState(browser, api);
-  await page.goto("/search?q=test");
-  await expect(page.locator("main")).toContainText("Результаты поиска: test");
-  await expect(page.locator("main")).toContainText(
-    "Результаты поиска будут отображены здесь."
-  );
+  await page.goto(`/search?q=${encodeURIComponent(document.title)}`);
+  await expect(page.locator(".search-result-item")).toContainText(document.title);
   await context.close();
   await api.dispose();
 });
@@ -227,39 +229,43 @@ test("@userfull U13: document view page must render document body, not placehold
 }) => {
   const api = await playwrightRequest.newContext({ baseURL });
   await apiLogin(api, baseURL, "admin", "admin123");
+  const { space, document } = await createContentFixture(api, baseURL);
   const { context, page } = await newBrowserPageFromApiState(browser, api);
-  await page.goto("/documents/1");
+  await page.goto(`/documents/${document.id}`);
   await expect(page.locator("main")).not.toContainText(
     "Содержимое документа будет отображаться здесь."
   );
+  await expect(page.locator("#documentContent")).toContainText("Second saved version");
   await context.close();
   await api.dispose();
 });
 
-test("@userfull U14: document history page loads (WIP: version list)", async ({
+test("@userfull U14: document history lists saved versions", async ({
   browser,
   baseURL,
 }) => {
   const api = await playwrightRequest.newContext({ baseURL });
   await apiLogin(api, baseURL, "admin", "admin123");
+  const { space, document } = await createContentFixture(api, baseURL);
   const { context, page } = await newBrowserPageFromApiState(browser, api);
-  await page.goto("/documents/1/history");
-  await expect(page.locator("main")).toContainText("История версий документа");
-  await expect(page.locator("main")).toContainText(
-    "История изменений будет отображаться здесь."
-  );
+  await page.goto(`/documents/${document.id}/history`);
+  await expect(page.locator("#documentHistory")).toBeVisible();
+  await expect(page.locator("#diffFrom option:not([value=\"\"])")).toHaveCount(2);
+  await page.locator("#diffSelector button[type=submit]").click();
+  await expect(page.locator("#diffResult")).toContainText("version");
   await context.close();
   await api.dispose();
 });
 
-test("@userfull U15: space page loads (WIP: documents tree/list)", async ({
+test("@userfull U15: space page displays its document", async ({
   browser,
   baseURL,
 }) => {
   const api = await playwrightRequest.newContext({ baseURL });
   await apiLogin(api, baseURL, "admin", "admin123");
+  const { space, document } = await createContentFixture(api, baseURL);
   const { context, page } = await newBrowserPageFromApiState(browser, api);
-  await page.goto("/spaces/1");
+  await page.goto(`/spaces/${space.id}`);
   await expect(page.locator("main")).toContainText("Документы");
   await expect(page.locator("main")).toContainText("Создать документ");
   await context.close();

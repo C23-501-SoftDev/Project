@@ -23,9 +23,13 @@ class DocumentVersionIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         long documentId = Long.parseLong(createResponse.replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
 
+        mockMvc.perform(post("/api/documents/" + documentId + "/publish")
+                        .cookie(jwtCookie(editorJwt)))
+                .andExpect(status().isOk());
+
         mockMvc.perform(put("/api/documents/" + documentId)
                         .cookie(jwtCookie(editorJwt)).contentType(APPLICATION_JSON)
-                        .content("{\"content\":\"# Second\",\"status\":\"PUBLISHED\"}"))
+                        .content("{\"content\":\"# Second\"}"))
                 .andExpect(status().isOk());
 
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM versions WHERE document_id = ?", Integer.class, documentId);

@@ -36,7 +36,7 @@ async function clearUserFiltersUi(page) {
 async function clearSpacesFiltersUi(page) {
   const reload = page.waitForResponse(
     (r) =>
-      r.url().includes("/api/admin/spaces") &&
+      new URL(r.url()).pathname === "/api/admin/spaces" &&
       r.request().method() === "GET" &&
       r.ok()
   );
@@ -314,9 +314,7 @@ async function seedDocumentsFilterDataset(adminApi, baseURL, tag) {
   });
   expect(pubCreate.status()).toBe(201);
   const pubDoc = await pubCreate.json();
-  const publishRes = await adminApi.put(`${baseURL}/api/documents/${pubDoc.id}`, {
-    data: { title: publishedTitle, content: "pub", status: "PUBLISHED" },
-  });
+  const publishRes = await adminApi.post(`${baseURL}/api/documents/${pubDoc.id}/publish`);
   expect(publishRes.ok()).toBeTruthy();
 
   const otherRes = await createDocument(adminApi, baseURL, {

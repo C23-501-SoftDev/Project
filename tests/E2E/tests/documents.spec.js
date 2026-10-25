@@ -7,7 +7,7 @@ const {
   createSpace,
   createUser,
   createDocument,
-  getFirstSpaceId,
+  createTestSpaceId,
   uniqueSuffix,
 } = require("./helpers/documents");
 const {
@@ -55,7 +55,7 @@ test("@documents DOC02: list shows created document after load", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(adminApi, baseURL);
+  const spaceId = await createTestSpaceId(adminApi, baseURL);
   const title = `E2E List ${uniqueSuffix()}`;
   const createRes = await createDocument(adminApi, baseURL, {
     title,
@@ -121,7 +121,7 @@ test("@documents DOC04: clear filters restores full list for space", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(adminApi, baseURL);
+  const spaceId = await createTestSpaceId(adminApi, baseURL);
   const title = `E2Eclr_${uniqueSuffix()}`;
   expect(
     (await createDocument(adminApi, baseURL, { title, spaceId })).ok()
@@ -191,7 +191,7 @@ test("@documents DOC06: view page renders title and markdown body", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(adminApi, baseURL);
+  const spaceId = await createTestSpaceId(adminApi, baseURL);
   const title = `E2E View ${uniqueSuffix()}`;
   const content = "# Heading\n\n**bold** text";
   const createRes = await createDocument(adminApi, baseURL, {
@@ -222,7 +222,7 @@ test("@documents DOC07: edit page save persists title and content", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(adminApi, baseURL);
+  const spaceId = await createTestSpaceId(adminApi, baseURL);
   const createRes = await createDocument(adminApi, baseURL, {
     title: `E2E Edit ${uniqueSuffix()}`,
     spaceId,
@@ -240,10 +240,9 @@ test("@documents DOC07: edit page save persists title and content", async ({
 
   await page.locator("#docTitleField").fill(newTitle);
   await page.locator("#editorTextarea").fill(newContent);
-  // UI select uses "Draft" but API expects enum DRAFT — подставляем значение API
   await setDocStatusDraft(page);
   await page.locator("#saveBtn").click();
-  await expect(page.locator("#toast")).toContainText("Сохранено", {
+  await expect(page.locator("#toast")).toContainText("Документ сохранён", {
     timeout: 5_000,
   });
 
@@ -260,7 +259,7 @@ test("@documents DOC07: edit page save persists title and content", async ({
 
 test("@documents DOC08: Ctrl+S saves from editor", async ({ browser, baseURL }) => {
   const adminApi = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(adminApi, baseURL);
+  const spaceId = await createTestSpaceId(adminApi, baseURL);
   const createRes = await createDocument(adminApi, baseURL, {
     title: `E2E CtrlS ${uniqueSuffix()}`,
     spaceId,
@@ -274,7 +273,7 @@ test("@documents DOC08: Ctrl+S saves from editor", async ({ browser, baseURL }) 
   await page.locator("#editorTextarea").fill("after ctrl+s");
   await setDocStatusDraft(page);
   await page.keyboard.press("Control+s");
-  await expect(page.locator("#toast")).toContainText("Сохранено", {
+  await expect(page.locator("#toast")).toContainText("Документ сохранён", {
     timeout: 5_000,
   });
 
@@ -287,6 +286,7 @@ test("@documents DOC10: create form rejects whitespace-only title", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
+  await createTestSpaceId(adminApi, baseURL);
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
 
   await page.goto("/documents/new");
@@ -325,6 +325,7 @@ test("@documents DOC12: cancel on new form returns to list", async ({
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
+  await createTestSpaceId(adminApi, baseURL);
   const { context, page } = await newBrowserPageFromApi(browser, adminApi);
 
   await page.goto("/documents/new");
@@ -340,7 +341,7 @@ test("@documents DOC13: markdown with raw HTML is rendered as-is (marked.js)", a
   baseURL,
 }) => {
   const adminApi = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(adminApi, baseURL);
+  const spaceId = await createTestSpaceId(adminApi, baseURL);
   const payload = '<script>alert("xss")</script>';
   const createRes = await createDocument(adminApi, baseURL, {
     title: `E2E HTML ${uniqueSuffix()}`,
@@ -399,9 +400,7 @@ test("@documents DOC32: draft-only status filter excludes published documents", 
   const publishedDoc = await publishedRes.json();
   expect(
     (
-      await adminApi.put(`${baseURL}/api/documents/${publishedDoc.id}`, {
-        data: { title: publishedTitle, content: "x", status: "PUBLISHED" },
-      })
+      await adminApi.post(`${baseURL}/api/documents/${publishedDoc.id}/publish`)
     ).ok()
   ).toBeTruthy();
 
@@ -488,7 +487,7 @@ test("@documents DOC15: list without spaceId returns accessible documents", asyn
 
 test("@documents DOC16: create without title returns 400", async ({ baseURL }) => {
   const api = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(api, baseURL);
+  const spaceId = await createTestSpaceId(api, baseURL);
   const response = await api.post(`${baseURL}/api/documents`, {
     data: { title: "", spaceId, content: "x" },
   });
@@ -513,7 +512,7 @@ test("@documents DOC18: title longer than 500 chars is rejected", async ({
   baseURL,
 }) => {
   const api = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(api, baseURL);
+  const spaceId = await createTestSpaceId(api, baseURL);
   const response = await api.post(`${baseURL}/api/documents`, {
     data: { title: "A".repeat(501), spaceId, content: "" },
   });
@@ -547,7 +546,7 @@ test("@documents DOC21: full API lifecycle create-read-update-delete", async ({
   baseURL,
 }) => {
   const api = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(api, baseURL);
+  const spaceId = await createTestSpaceId(api, baseURL);
   const title = `E2E CRUD ${uniqueSuffix()}`;
 
   const createRes = await createDocument(api, baseURL, {
@@ -569,12 +568,14 @@ test("@documents DOC21: full API lifecycle create-read-update-delete", async ({
     data: {
       title: title + " updated",
       content: "v2",
-      status: "PUBLISHED",
     },
   });
   expect(updateRes.ok()).toBeTruthy();
   const updated = await updateRes.json();
-  expect(updated.status).toBe("PUBLISHED");
+  expect(updated.status).toBe("DRAFT");
+  const published = await api.post(`${baseURL}/api/documents/${created.id}/publish`);
+  expect(published.ok()).toBeTruthy();
+  expect((await published.json()).status).toBe("PUBLISHED");
   expect(updated.content).toBe("v2");
 
   const deleteRes = await api.delete(`${baseURL}/api/documents/${created.id}`);
@@ -646,6 +647,8 @@ test("@documents DOC26: READER with READ can get but not update or delete", asyn
     content: "readable",
   });
   const doc = await createRes.json();
+
+  expect((await adminApi.post(`${baseURL}/api/documents/${doc.id}/publish`)).ok()).toBeTruthy();
 
   const readerApi = await createUserApi(
     baseURL,
@@ -772,7 +775,7 @@ test("@documents DOC30: PUT with whitespace-only title keeps previous title", as
   baseURL,
 }) => {
   const api = await createAdminApi(baseURL);
-  const spaceId = await getFirstSpaceId(api, baseURL);
+  const spaceId = await createTestSpaceId(api, baseURL);
   const originalTitle = `E2E blank ${uniqueSuffix()}`;
   const createRes = await createDocument(api, baseURL, {
     title: originalTitle,

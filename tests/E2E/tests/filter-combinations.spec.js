@@ -158,13 +158,13 @@ const SPACES_FILTER_MATRIX = [
     hidden: (d) => [d.deletedSpaceName],
   },
   {
-    name: "status inactive",
-    apply: (page) => applySpacesFiltersUi(page, { status: "inactive" }),
+    name: "status deleted",
+    apply: (page) => applySpacesFiltersUi(page, { status: "deleted" }),
     visible: (d) => [d.deletedSpaceName],
     hidden: (d) => [d.ownedSpaceName],
   },
   {
-    name: "status all with search",
+    name: "status all",
     apply: (page, data) => applySpacesFiltersUi(page, { status: "all" }),
     visible: (d) => [d.ownedSpaceName, d.foreignSpaceName, d.deletedSpaceName],
     hidden: () => [],
@@ -183,9 +183,9 @@ const SPACES_FILTER_MATRIX = [
     hidden: (d) => [d.foreignSpaceName, d.deletedSpaceName],
   },
   {
-    name: "status inactive + owner",
+    name: "status deleted + owner",
     apply: (page, data) =>
-      applySpacesFiltersUi(page, { status: "inactive", ownerId: data.adminOwnerId }),
+      applySpacesFiltersUi(page, { status: "deleted", ownerId: data.adminOwnerId }),
     visible: (d) => [d.deletedSpaceName],
     hidden: (d) => [d.ownedSpaceName],
   },

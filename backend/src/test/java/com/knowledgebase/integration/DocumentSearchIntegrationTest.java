@@ -194,7 +194,10 @@ class DocumentSearchIntegrationTest extends IntegrationTestBase {
                 .getResponse()
                 .getContentAsString();
 
-        return Long.parseLong(response.replaceAll("(?s).*\\\"id\\\"\\s*:\\s*(\\d+).*", "$1"));
+        long id = Long.parseLong(response.replaceAll("(?s).*\\\"id\\\"\\s*:\\s*(\\d+).*", "$1"));
+        mockMvc.perform(post("/api/documents/" + id + "/publish").cookie(jwtCookie(jwt)))
+                .andExpect(status().isOk());
+        return id;
     }
 
     private void updateDocumentDates(long documentId, LocalDateTime createdAt, LocalDateTime updatedAt) {

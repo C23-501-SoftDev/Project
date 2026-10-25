@@ -141,10 +141,8 @@ test.describe("DOCS UI", () => {
     });
     expect(publishedRes.ok()).toBeTruthy();
     const publishedDoc = await publishedRes.json();
-    const publishRes = await adminApi.put(
-      `${baseURL}/api/documents/${publishedDoc.id}`,
-      { data: { title: publishedTitle, content: "published", status: "PUBLISHED" } }
-    );
+    const publishRes = await adminApi.post(
+      `${baseURL}/api/documents/${publishedDoc.id}/publish`);
     expect(publishRes.ok()).toBeTruthy();
 
     const { context, page } = await newBrowserPageFromApi(browser, adminApi);
@@ -521,7 +519,7 @@ test.describe("SPACES UI", () => {
     await waitForSpacesLoaded(page);
     await expect(page.locator("#spacesTbody")).not.toContainText(space.name);
 
-    await setSpacesStatusFilter(page, "inactive");
+    await setSpacesStatusFilter(page, "deleted");
     await applySpacesFilters(page);
     await expect(page.locator("#spacesTbody")).toContainText(space.name);
 

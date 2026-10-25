@@ -5,6 +5,9 @@ import com.knowledgebase.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.test.web.servlet.ResultMatcher;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -38,8 +41,7 @@ class DocumentVersionDiffIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.algorithm").value("HYBRID"))
                 .andExpect(content().string(containsString("MODIFIED")))
-                .andExpect(content().string(containsString("Removed")))
-                .andExpect(content().string(containsString("Added")));
+                .andExpect(reconstructsLine(1, "Removed", "Added"));
     }
 
     @Test
@@ -153,7 +155,10 @@ class DocumentVersionDiffIntegrationTest extends IntegrationTestBase {
                         .param("from", hashes.get(0)).param("to", hashes.get(1))
                         .param("context", "all").cookie(jwtCookie(jwt)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.lines.length()").value(9));
+                .andExpect(jsonPath("$.lines.length()").value(8))
+                .andExpect(jsonPath("$.lines[0].content").value("line-0"))
+                .andExpect(jsonPath("$.lines[7].content").value("line-7"))
+                .andExpect(reconstructsLine(4, "line-4", "changed-4"));
     }
 
     @Test
@@ -186,8 +191,7 @@ class DocumentVersionDiffIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/documents/" + documentId + "/diff")
                         .param("from", hashes.get(0)).param("to", hashes.get(1)).cookie(jwtCookie(jwt)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Before rename")))
-                .andExpect(content().string(containsString("Changed after rename")));
+                .andExpect(reconstructsLine(0, "Before rename", "Changed after rename"));
     }
 
     @Test
@@ -240,6 +244,23 @@ class DocumentVersionDiffIntegrationTest extends IntegrationTestBase {
                 .andExpect(status().isUnprocessableEntity());
     }
 
+    private ResultMatcher reconstructsLine(int index, String before, String after) {
+        return result -> {
+            var line = new ObjectMapper().readTree(result.getResponse().getContentAsString())
+                    .path("lines").get(index);
+            StringBuilder oldText = new StringBuilder();
+            StringBuilder newText = new StringBuilder();
+            for (var segment : line.path("segments")) {
+                String type = segment.path("type").asText();
+                String text = segment.path("content").asText();
+                if (!"ADDED".equals(type)) oldText.append(text);
+                if (!"REMOVED".equals(type)) newText.append(text);
+            }
+            assertEquals(before, oldText.toString());
+            assertEquals(after, newText.toString());
+        };
+    }
+
     private long createSpace(String jwt) throws Exception {
         String response = mockMvc.perform(post("/api/admin/spaces").cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON).content("{\"name\":\"Diff Space\"}"))
@@ -256,17 +277,21 @@ class DocumentVersionDiffIntegrationTest extends IntegrationTestBase {
     }
 
     private void updatePublished(String jwt, long documentId, String content) throws Exception {
+        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)))
+                .andExpect(status().isOk());
         mockMvc.perform(put("/api/documents/" + documentId).cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
-                        .content("{\"content\":\"" + content.replace("\n", "\\n") + "\",\"status\":\"PUBLISHED\"}"))
+                        .content("{\"content\":\"" + content.replace("\n", "\\n") + "\"}"))
                 .andExpect(status().isOk());
     }
 
     private void updatePublished(String jwt, long documentId, String title, String content) throws Exception {
+        mockMvc.perform(post("/api/documents/" + documentId + "/publish").cookie(jwtCookie(jwt)))
+                .andExpect(status().isOk());
         mockMvc.perform(put("/api/documents/" + documentId).cookie(jwtCookie(jwt))
                         .contentType(APPLICATION_JSON)
                         .content("{\"title\":\"" + title + "\",\"content\":\""
-                                + content.replace("\n", "\\n") + "\",\"status\":\"PUBLISHED\"}"))
+                                + content.replace("\n", "\\n") + "\"}"))
                 .andExpect(status().isOk());
     }
 

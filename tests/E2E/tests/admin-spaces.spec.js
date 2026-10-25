@@ -69,9 +69,10 @@ test("C4: edit and delete controls open modal / perform action", async ({
     baseURL,
   });
 
+  const space = await createSpace(request, baseURL, `E2E controls ${uniqueSuffix()}`);
   await page.goto("/admin/spaces");
   await expect(page.locator("#spacesTbody tr").first()).toBeVisible();
-  const firstRow = page.locator("#spacesTbody tr").first();
+  const firstRow = page.locator("#spacesTbody tr").filter({ hasText: space.name });
 
   await firstRow.getByRole("button", { name: /редактировать/i }).click();
   await expect(page.locator("#spaceModal")).toBeVisible();
@@ -131,7 +132,7 @@ test("C5: spaces owner and status filters narrow the table", async ({
   await page.locator("#clearFiltersBtn").click();
   await waitForSpacesLoaded(page);
 
-  await setSpacesStatusFilter(page, "inactive");
+  await setSpacesStatusFilter(page, "deleted");
   await applySpacesFilters(page);
   await expect(page.locator("#spacesTbody")).toContainText(otherSpace.name);
   await expect(page.locator("#spacesTbody")).not.toContainText(ownedSpace.name);

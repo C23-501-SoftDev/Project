@@ -29,27 +29,8 @@ async function newBrowserPageFromApi(browser, api) {
   return { context, page };
 }
 
-async function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Retries transient 5xx responses (Git lock/contention during parallel seed). */
-async function postWithRetry(api, url, options, { attempts = 6, delayMs = 400 } = {}) {
-  let response;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    response = await api.post(url, options);
-    if (response.status() < 500) {
-      return response;
-    }
-    if (attempt < attempts) {
-      await sleep(delayMs * attempt);
-    }
-  }
-  return response;
-}
-
 async function createSpace(adminApi, baseURL, name, options = {}) {
-  const response = await postWithRetry(adminApi, `${baseURL}/api/admin/spaces`, {
+  const response = await adminApi.post(`${baseURL}/api/admin/spaces`, {
     data: {
       name,
       description: options.description || "E2E documents test space",
@@ -93,19 +74,28 @@ async function createDocument(api, baseURL, payload = {}) {
   if (templateId !== undefined) {
     data.templateId = templateId;
   }
-  return postWithRetry(api, `${baseURL}/api/documents`, { data });
+  return api.post(`${baseURL}/api/documents`, { data });
 }
 
-async function getFirstSpaceId(api, baseURL) {
-  const response = await api.get(`${baseURL}/api/spaces`);
-  if (!response.ok()) {
-    throw new Error(`get spaces failed: ${response.status()}`);
+async function createTestSpaceId(api, baseURL) {
+  return (await createSpace(api, baseURL, `E2E isolated ${uniqueSuffix()}`)).id;
+}
+
+async function createContentFixture(api, baseURL) {
+  const space = await createSpace(api, baseURL, `E2E content ${uniqueSuffix()}`);
+  const title = `Fixture ${uniqueSuffix()}`;
+  const response = await createDocument(api, baseURL, {
+    title, spaceId: space.id, content: "# Fixture heading\n\nOriginal content",
+  });
+  if (response.status() !== 201) throw new Error(`Create fixture: ${response.status()}`);
+  const document = await response.json();
+  const published = await api.post(`${baseURL}/api/documents/${document.id}/publish`);
+  if (!published.ok()) throw new Error(`Publish fixture: ${published.status()}`);
+  for (const content of ["First saved version", "Second saved version"]) {
+    const saved = await api.put(`${baseURL}/api/documents/${document.id}`, { data: { content } });
+    if (!saved.ok()) throw new Error(`Save fixture: ${saved.status()}`);
   }
-  const spaces = await response.json();
-  if (!spaces.length) {
-    throw new Error("No spaces available for tests");
-  }
-  return spaces[0].id;
+  return { space, document };
 }
 
 function uniqueSuffix() {
@@ -121,6 +111,7 @@ module.exports = {
   grantSpacePermission,
   createUser,
   createDocument,
-  getFirstSpaceId,
+  createTestSpaceId,
+  createContentFixture,
   uniqueSuffix,
 };

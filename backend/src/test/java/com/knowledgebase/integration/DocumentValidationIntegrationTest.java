@@ -96,7 +96,9 @@ class DocumentValidationIntegrationTest extends IntegrationTestBase {
     }
 
     private long createSpace(String name, String desc) throws Exception {
-        persistUser("admin", "admin123", "admin@kb.local", GlobalRole.EDITOR, true);
+        if (userRepository.findByLogin("admin").isEmpty()) {
+            persistUser("admin", "admin123", "admin@kb.local", GlobalRole.EDITOR, true);
+        }
         String adminJwt = loginAndGetJwt("admin", "admin123");
         String spaceResp = mockMvc.perform(post("/api/admin/spaces")
                         .cookie(jwtCookie(adminJwt))

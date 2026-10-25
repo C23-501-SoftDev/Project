@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { createContentFixture, createTestSpaceId } = require("./helpers/documents");
 const { createAuthenticatedPage } = require("./helpers/session");
 
 test("@strict layout assets must be available (no 5xx)", async ({
@@ -51,6 +52,7 @@ test("@strict document create page must contain working form fields", async ({
     baseURL,
   });
 
+  await createTestSpaceId(request, baseURL);
   await page.goto("/documents/new");
   await expect(page.locator("#createDocForm")).toBeVisible();
   await expect(page.locator("#docTitle")).toBeVisible();
@@ -70,7 +72,9 @@ test("@strict document view page must render content blocks, not placeholder stu
     baseURL,
   });
 
-  await page.goto("/documents/1");
+  const { document } = await createContentFixture(request, baseURL);
+  await page.goto(`/documents/${document.id}`);
+  await expect(page.locator("#documentContent")).toContainText("Second saved version");
   await expect(page.locator("main")).not.toContainText(
     "Содержимое документа будет отображаться здесь."
   );
