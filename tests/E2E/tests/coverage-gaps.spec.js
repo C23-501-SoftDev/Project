@@ -174,7 +174,7 @@ test("@userfull G7: delete space owner performs soft-delete (200)", async ({ bas
       email: `${ownerLogin}@local.test`,
       password: "TempPass123!",
       role: "EDITOR",
-      isAdmin: false,
+      isAdmin: true,
     },
   });
   expect(createdUserResponse.ok()).toBeTruthy();

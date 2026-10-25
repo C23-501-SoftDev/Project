@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-08-19",
+    "updatedAt": "2026-10-25",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -414,6 +414,16 @@
             ],
             "dependsOn": [
                 "git-commit-on-document-save"
+            ]
+        },
+        {
+            "featureId": "repair-test-suite",
+            "title": "Restore repeatable publication and UI regression tests",
+            "status": "done",
+            "area": "tests",
+            "repo": "Project",
+            "docs": [
+                "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
             ]
         }
     ]

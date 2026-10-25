@@ -68,7 +68,7 @@ async function goToLastSpacesPage(page) {
     if (await next.isEnabled()) {
       const reload = page.waitForResponse(
         (r) =>
-          r.url().includes("/api/admin/spaces") &&
+          new URL(r.url()).pathname === "/api/admin/spaces" &&
           r.request().method() === "GET" &&
           r.ok()
       );
@@ -81,7 +81,7 @@ async function goToLastSpacesPage(page) {
 /** Выбрать первого доступного владельца при создании пространства. */
 async function selectFirstSpaceOwner(page) {
   const wrapper = page.locator("#spaceOwnerWrapper");
-  await wrapper.locator(".select-styled").click();
+  await wrapper.locator(".select-styled").fill("");
   await wrapper.locator(".select-option").first().click();
   await expect(page.locator("#spaceOwner")).not.toHaveValue("");
 }
@@ -153,7 +153,7 @@ async function waitForUsersTableReload(page) {
 async function waitForSpacesTableReload(page) {
   return page.waitForResponse(
     (r) =>
-      r.url().includes("/api/admin/spaces") &&
+      new URL(r.url()).pathname === "/api/admin/spaces" &&
       r.request().method() === "GET" &&
       r.ok()
   );

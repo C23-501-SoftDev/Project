@@ -1,64 +1,30 @@
 const { test, expect } = require("@playwright/test");
 const { createAuthenticatedPage } = require("./helpers/session");
+const { createContentFixture } = require("./helpers/documents");
 
-const implementedRoutes = [
-  { route: "/", texts: ["Документы"] },
-  { route: "/documents/new", texts: ["Создать документ", "Название"] },
-  { route: "/documents/1", texts: ["document-view-page"] },
-  { route: "/documents/1/edit", texts: ["Сохранить", "Название"] },
-];
-
-const wipPlaceholderRoutes = [
-  {
-    route: "/documents/1/history",
-    text: "История изменений будет отображаться здесь.",
-  },
-  { route: "/search?q=test", text: "Результаты поиска будут отображены здесь." },
-];
-
-test("D1: implemented content routes open with real UI", async ({
-  browser,
-  request,
-  baseURL,
-}) => {
-  const { context, page } = await createAuthenticatedPage({
-    browser,
-    request,
-    baseURL,
-  });
-
-  for (const { route, texts } of implementedRoutes) {
-    await page.goto(route);
-    const main = page.locator("main");
-    for (const text of texts) {
-      if (text.startsWith(".")) {
-        await expect(main.locator(text)).toBeVisible();
-      } else if (text.includes("-page")) {
-        await expect(page.locator(`.${text}`)).toBeVisible();
-      } else {
-        await expect(main).toContainText(text);
-      }
-    }
+test("D1: implemented content routes open with real UI", async ({ browser, request, baseURL }) => {
+  const { context, page } = await createAuthenticatedPage({ browser, request, baseURL });
+  const { document } = await createContentFixture(request, baseURL);
+  for (const [route, selector] of [
+    ["/", "#documentsTable"],
+    ["/documents/new", "#createDocForm"],
+    [`/documents/${document.id}`, "#documentContent"],
+    [`/documents/${document.id}/edit`, "#editorTextarea"],
+  ]) {
+    expect((await page.goto(route)).status()).toBe(200);
+    await expect(page.locator(selector)).toBeVisible();
   }
-
   await context.close();
 });
 
-test("D2: WIP content routes still show stage placeholders", async ({
-  browser,
-  request,
-  baseURL,
-}) => {
-  const { context, page } = await createAuthenticatedPage({
-    browser,
-    request,
-    baseURL,
-  });
-
-  for (const { route, text } of wipPlaceholderRoutes) {
-    await page.goto(route);
-    await expect(page.locator("main")).toContainText(text);
-  }
-
+test("D2: history and search display saved document data", async ({ browser, request, baseURL }) => {
+  const { context, page } = await createAuthenticatedPage({ browser, request, baseURL });
+  const { document } = await createContentFixture(request, baseURL);
+  await page.goto(`/documents/${document.id}/history`);
+  await expect(page.locator("#diffFrom option:not([value=\"\"])")).toHaveCount(2);
+  await page.locator("#diffSelector button[type=submit]").click();
+  await expect(page.locator("#diffResult")).toContainText("version");
+  await page.goto(`/search?q=${encodeURIComponent(document.title)}`);
+  await expect(page.locator(".search-result-item")).toContainText(document.title);
   await context.close();
 });

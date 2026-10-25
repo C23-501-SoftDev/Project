@@ -40,7 +40,7 @@ class DocumentSortOrderLiquibaseTest {
                         (30, 2, NULL, TIMESTAMP '2026-01-01 14:00:00')
                     """);
 
-            applyChangeLog(connection, "db/changelog/changes/034-add-document-sort-order.xml");
+            applyChangeLog(connection, "db/changelog/changes/035-add-document-sort-order.xml");
 
             assertEquals(0, sortOrder(statement, 10));
             assertEquals(1, sortOrder(statement, 11));

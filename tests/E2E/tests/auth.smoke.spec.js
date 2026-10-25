@@ -3,14 +3,15 @@ const { createAuthenticatedPage } = require("./helpers/session");
 
 test("A1: login page is available", async ({ page }) => {
   await page.goto("/login");
-  await expect(page.locator("h1")).toContainText("Вход в Базу знаний");
+  await expect(page.locator("h1")).toContainText("База знаний");
   await expect(page.locator("input[name='username']")).toBeVisible();
   await expect(page.locator("input[name='password']")).toBeVisible();
 });
 
 test("A2: anonymous user sees login on protected route", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("h1")).toContainText("Вход в Базу знаний");
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.locator("h1")).toContainText("База знаний");
 });
 
 test("A3+A4: API login allows access to admin pages", async ({

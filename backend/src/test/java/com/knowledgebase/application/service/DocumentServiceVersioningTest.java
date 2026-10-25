@@ -51,7 +51,7 @@ class DocumentServiceVersioningTest {
         service = new DocumentService(documentRepository, contentRepository, documentVersionRepository,
                 spaceRepository, permissionRepository, templateRepository, userRepository,
                 permissionService, requirementNumberService, eventPublisher, auditService);
-        document = Document.restore(10L, "Document", "spaces/Space/Document.md", DocumentStatus.DRAFT,
+        document = Document.restore(10L, "Document", "spaces/Space/Document.md", DocumentStatus.PUBLISHED,
                 null, 1L, 2L, null, null, null, LocalDateTime.now(), LocalDateTime.now());
 
         when(documentRepository.findById(10L)).thenReturn(Optional.of(document));
@@ -68,7 +68,7 @@ class DocumentServiceVersioningTest {
                 .thenThrow(new RuntimeException("Git unavailable"));
 
         assertThrows(RuntimeException.class, () -> service.updateDocument(10L, null, "# After",
-                DocumentStatus.PUBLISHED, null, 3L));
+                null, 3L));
 
         verify(documentRepository, never()).save(any());
         verify(documentVersionRepository, never()).save(any());
@@ -83,7 +83,7 @@ class DocumentServiceVersioningTest {
         doThrow(new RuntimeException("Database unavailable")).when(documentVersionRepository).save(any());
 
         assertThrows(RuntimeException.class, () -> service.updateDocument(10L, null, "# After",
-                DocumentStatus.PUBLISHED, null, 3L));
+                null, 3L));
 
         verify(documentRepository).save(document);
         verify(documentVersionRepository).save(any());

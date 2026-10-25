@@ -115,10 +115,8 @@ test.describe("DOCS API", () => {
     });
     expect(publishedRes.status()).toBe(201);
     const publishedDoc = await publishedRes.json();
-    const publishRes = await adminApi.put(
-      `${baseURL}/api/documents/${publishedDoc.id}`,
-      { data: { title: publishedTitle, content: "x", status: "PUBLISHED" } }
-    );
+    const publishRes = await adminApi.post(
+      `${baseURL}/api/documents/${publishedDoc.id}/publish`);
     expect(publishRes.ok()).toBeTruthy();
 
     const draftOnly = await adminApi.get(
@@ -399,6 +397,7 @@ test.describe("SPACES API", () => {
     });
     expect(seedDocRes.status()).toBe(201);
     const seedDoc = await seedDocRes.json();
+    expect((await adminApi.post(`${baseURL}/api/documents/${seedDoc.id}/publish`)).ok()).toBeTruthy();
 
     // Baseline: no explicit rights for guest -> no access
     const guestNoPermApi = await login(baseURL, guest.login, "GuestPass123!");
@@ -520,7 +519,7 @@ test.describe("SPACES API", () => {
       )
     ).toBeTruthy();
 
-    const inactive = await adminApi.get(`${baseURL}/api/admin/spaces?status=inactive`);
+    const inactive = await adminApi.get(`${baseURL}/api/admin/spaces?status=deleted`);
     expect(inactive.ok()).toBeTruthy();
     const inactivePayload = await inactive.json();
     expect(inactivePayload.content.some((s) => s.id === foreign.id)).toBeTruthy();
