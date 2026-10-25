@@ -133,6 +133,13 @@ test('EXPORT-02: HTML, PDF and DOCX still download and carry embedded local imag
         const href = await link.getAttribute('href');
         expect(href).toMatch(/^data:application\/octet-stream;base64,/);
         expect(Buffer.from(href.slice(href.indexOf(',') + 1), 'base64').toString('utf8')).toBe(INSTRUCTIONS);
+        const attachmentDownload = offline.page.waitForEvent('download');
+        await link.click();
+        const downloadedAttachment = await attachmentDownload;
+        const attachmentPath = testInfo.outputPath('html-attachment.txt');
+        await downloadedAttachment.saveAs(attachmentPath);
+        expect(await downloadedAttachment.failure()).toBeNull();
+        expect(await fs.readFile(attachmentPath, 'utf8')).toBe(INSTRUCTIONS);
         expect(offline.networkRequests).toEqual([]);
         const pdf = await fs.readFile(testInfo.outputPath('portable.pdf'));
         expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
