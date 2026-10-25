@@ -1,3 +1,7 @@
+# Verification: Editable DOCX tables, headings and nested lists (US5.1.3) (2026-10-25)
+
+Maven clean verify: 121 tests, 0 failures/errors/skips. Node tests passed. Playwright: 144 passed, 0 failed/flaky/skipped, workers=1, retries=0, PostgreSQL 18.6 fresh test schema.
+
 # Verification: Portable Cyrillic PDF fonts (US5.1.2) (2026-10-25)
 
 Maven clean verify: 118 tests, 0 failures/errors/skips. Node tests passed. Playwright: 144 passed, 0 failed/flaky/skipped, workers=1, retries=0, PostgreSQL 18.6 fresh test schema.
