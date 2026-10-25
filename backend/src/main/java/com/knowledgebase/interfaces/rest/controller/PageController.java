@@ -6,6 +6,10 @@ import com.knowledgebase.application.service.DocumentService;
 import com.knowledgebase.application.service.SpaceService;
 import com.knowledgebase.domain.repository.SpaceRepository;
 import com.knowledgebase.interfaces.rest.dto.response.DocumentResponse;
+import com.knowledgebase.interfaces.rest.view.DocumentTreeRenderer;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -14,6 +18,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
 /**
@@ -31,12 +37,14 @@ public class PageController {
     private final SpaceService spaceService;
     private final DocumentService documentService;
     private final com.knowledgebase.application.service.PermissionService permissionService;
+    private final DocumentTreeRenderer documentTreeRenderer;
 
-    public PageController(SpaceRepository spaceRepository, SpaceService spaceService, DocumentService documentService, com.knowledgebase.application.service.PermissionService permissionService) {
+    public PageController(SpaceRepository spaceRepository, SpaceService spaceService, DocumentService documentService, com.knowledgebase.application.service.PermissionService permissionService, DocumentTreeRenderer documentTreeRenderer) {
         this.spaceRepository = spaceRepository;
         this.spaceService = spaceService;
         this.documentService = documentService;
         this.permissionService = permissionService;
+        this.documentTreeRenderer = documentTreeRenderer;
     }
 
     private void addAccessibleSpaces(Model model, User user) {
@@ -64,21 +72,19 @@ public class PageController {
         return "layout";
     }
 
-    @GetMapping("/spaces/{id}/tree")
-    public String spaceDocumentTree(@PathVariable Long id,
+    @GetMapping(value = "/spaces/{id}/tree", produces = MediaType.TEXT_HTML_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> spaceDocumentTree(@PathVariable Long id,
                                     @RequestParam(required = false) Long documentId,
-                                    @AuthenticationPrincipal User user, Model model,
-                                    jakarta.servlet.http.HttpServletResponse response) {
+                                    @AuthenticationPrincipal User user,
+                                    jakarta.servlet.http.HttpServletRequest request) {
         var nodes = documentService.getVisibleHierarchyForSpace(id, user.getId(), user.isAdmin());
         var space = spaceRepository.findById(id)
                 .filter(value -> !value.isDeleted())
                 .orElseThrow(() -> new com.knowledgebase.domain.exception.SpaceNotFoundException(id));
-        model.addAttribute("space", space);
-        model.addAttribute("nodes", nodes);
-        model.addAttribute("nested", false);
-        model.addAttribute("documentId", documentId);
-        response.setHeader("Cache-Control", "no-store");
-        return "fragments/document-tree :: documentTree";
+        String html = documentTreeRenderer.render(space.getId(), nodes, documentId, request.getContextPath());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .contentType(new MediaType("text", "html", StandardCharsets.UTF_8)).body(html);
     }
 
     @GetMapping("/documents/{id}")

@@ -1,0 +1,716 @@
+[
+  {
+    "report": "2026-10-26-run-1.json.gz",
+    "rawSha256": "325f30f751ac5fbae69b75de28fe16d4f7ce2e4338051956e50ca9e2ab58c8aa",
+    "kind": "baseline-five-endpoint-workload",
+    "applicationCommit": "ccba089a187a918c69b8971b9e62dfe816d6e7e1",
+    "runtimeOverrides": {},
+    "profiles": [
+      {
+        "name": "normal-distributed",
+        "summary": {
+          "gateApplies": true,
+          "passed": true,
+          "violations": [],
+          "httpErrors": 0,
+          "browserErrors": 0,
+          "httpByEndpoint": {
+            "page": {
+              "count": 1307,
+              "minMs": 9.67,
+              "p50Ms": 21.48,
+              "p95Ms": 122.7,
+              "maxMs": 327.27
+            },
+            "document": {
+              "count": 1307,
+              "minMs": 3.86,
+              "p50Ms": 9.18,
+              "p95Ms": 34.89,
+              "maxMs": 101.75
+            },
+            "permissions": {
+              "count": 1307,
+              "minMs": 2.48,
+              "p50Ms": 7.46,
+              "p95Ms": 28.93,
+              "maxMs": 105.93
+            },
+            "attachments": {
+              "count": 1307,
+              "minMs": 2.13,
+              "p50Ms": 6.7,
+              "p95Ms": 25.53,
+              "maxMs": 155.5
+            },
+            "tree": {
+              "count": 1307,
+              "minMs": 16.16,
+              "p50Ms": 45.5,
+              "p95Ms": 196.18,
+              "maxMs": 506.44
+            }
+          },
+          "browserContentReady": {
+            "count": 95,
+            "minMs": 522.95,
+            "p50Ms": 544.75,
+            "p95Ms": 571.45,
+            "maxMs": 738.49
+          },
+          "browserColdContentReady": {
+            "count": 48,
+            "minMs": 541.2,
+            "p50Ms": 553.71,
+            "p95Ms": 580.31,
+            "maxMs": 738.49
+          },
+          "browserRepeatContentReady": {
+            "count": 47,
+            "minMs": 522.95,
+            "p50Ms": 532.91,
+            "p95Ms": 544.4,
+            "maxMs": 550.97
+          },
+          "browserTreeReady": {
+            "count": 95,
+            "minMs": 527.64,
+            "p50Ms": 552.03,
+            "p95Ms": 585.35,
+            "maxMs": 749.36
+          },
+          "contentHttpChain": {
+            "count": 1307,
+            "minMs": 16.33,
+            "p50Ms": 41.69,
+            "p95Ms": 183,
+            "maxMs": 451.18
+          },
+          "completedCycles": 1307,
+          "cyclesPerSecond": 21.5,
+          "requestsPerSecond": 107.49,
+          "statusCounts": {
+            "200": 6535
+          }
+        }
+      },
+      {
+        "name": "normal-large-space",
+        "summary": {
+          "gateApplies": true,
+          "passed": false,
+          "violations": [
+            "insufficient_browser_samples",
+            "insufficient_cold_samples",
+            "insufficient_repeat_samples",
+            "p95_tree_over_2s"
+          ],
+          "httpErrors": 0,
+          "browserErrors": 0,
+          "httpByEndpoint": {
+            "page": {
+              "count": 220,
+              "minMs": 11.96,
+              "p50Ms": 71.9,
+              "p95Ms": 120.62,
+              "maxMs": 220.44
+            },
+            "document": {
+              "count": 220,
+              "minMs": 4.8,
+              "p50Ms": 13.42,
+              "p95Ms": 43.52,
+              "maxMs": 91.79
+            },
+            "permissions": {
+              "count": 220,
+              "minMs": 3.02,
+              "p50Ms": 11.67,
+              "p95Ms": 28.69,
+              "maxMs": 72.77
+            },
+            "attachments": {
+              "count": 220,
+              "minMs": 2.74,
+              "p50Ms": 11.13,
+              "p95Ms": 24.32,
+              "maxMs": 72.14
+            },
+            "tree": {
+              "count": 220,
+              "minMs": 1188.63,
+              "p50Ms": 6192.36,
+              "p95Ms": 7055.93,
+              "maxMs": 7111.25
+            }
+          },
+          "browserContentReady": {
+            "count": 14,
+            "minMs": 529.57,
+            "p50Ms": 537.43,
+            "p95Ms": 570.64,
+            "maxMs": 570.64
+          },
+          "browserColdContentReady": {
+            "count": 7,
+            "minMs": 537.05,
+            "p50Ms": 548.97,
+            "p95Ms": 570.64,
+            "maxMs": 570.64
+          },
+          "browserRepeatContentReady": {
+            "count": 7,
+            "minMs": 529.57,
+            "p50Ms": 532.65,
+            "p95Ms": 544.49,
+            "maxMs": 544.49
+          },
+          "browserTreeReady": {
+            "count": 14,
+            "minMs": 1554.39,
+            "p50Ms": 3985.27,
+            "p95Ms": 7192.49,
+            "maxMs": 7192.49
+          },
+          "contentHttpChain": {
+            "count": 220,
+            "minMs": 20.62,
+            "p50Ms": 102.38,
+            "p95Ms": 203.1,
+            "maxMs": 252.26
+          },
+          "completedCycles": 220,
+          "cyclesPerSecond": 3.4,
+          "requestsPerSecond": 17.02,
+          "statusCounts": {
+            "200": 1100
+          }
+        }
+      },
+      {
+        "name": "stress-large-space",
+        "summary": {
+          "gateApplies": false,
+          "passed": false,
+          "violations": [
+            "insufficient_browser_samples",
+            "insufficient_cold_samples",
+            "insufficient_repeat_samples",
+            "http_errors",
+            "browser_errors",
+            "p95_tree_over_2s"
+          ],
+          "httpErrors": 294,
+          "browserErrors": 6,
+          "httpByEndpoint": {
+            "page": {
+              "count": 294,
+              "minMs": 144.71,
+              "p50Ms": 428.26,
+              "p95Ms": 655.73,
+              "maxMs": 728.31
+            },
+            "document": {
+              "count": 294,
+              "minMs": 16.82,
+              "p50Ms": 77.82,
+              "p95Ms": 152.72,
+              "maxMs": 217.42
+            },
+            "permissions": {
+              "count": 294,
+              "minMs": 6.87,
+              "p50Ms": 70.32,
+              "p95Ms": 124.7,
+              "maxMs": 237.63
+            },
+            "attachments": {
+              "count": 294,
+              "minMs": 15.22,
+              "p50Ms": 65.84,
+              "p95Ms": 109.23,
+              "maxMs": 184.13
+            },
+            "tree": {
+              "count": 294,
+              "minMs": 9998.3,
+              "p50Ms": 9999.75,
+              "p95Ms": 10000.88,
+              "maxMs": 10002.05
+            }
+          },
+          "browserContentReady": {
+            "count": 6,
+            "minMs": 589.79,
+            "p50Ms": 671.41,
+            "p95Ms": 954.04,
+            "maxMs": 954.04
+          },
+          "browserColdContentReady": {
+            "count": 3,
+            "minMs": 601.58,
+            "p50Ms": 671.41,
+            "p95Ms": 809.76,
+            "maxMs": 809.76
+          },
+          "browserRepeatContentReady": {
+            "count": 3,
+            "minMs": 589.79,
+            "p50Ms": 737.88,
+            "p95Ms": 954.04,
+            "maxMs": 954.04
+          },
+          "browserTreeReady": {
+            "count": 0,
+            "minMs": null,
+            "p50Ms": null,
+            "p95Ms": null,
+            "maxMs": null
+          },
+          "contentHttpChain": {
+            "count": 294,
+            "minMs": 235.53,
+            "p50Ms": 575.04,
+            "p95Ms": 833.25,
+            "maxMs": 909.28
+          },
+          "completedCycles": 294,
+          "cyclesPerSecond": 4.25,
+          "requestsPerSecond": 21.27,
+          "statusCounts": {
+            "200": 1176,
+            "NETWORK_ERROR": 294
+          }
+        }
+      }
+    ]
+  },
+  {
+    "report": "2026-10-26-run-2.json.gz",
+    "rawSha256": "6f1b612641c861af82e8cb705ac56cc1618bdd20a0d6fa547d54749605ef071f",
+    "kind": "diagnostic-template-cache-and-SpEL-compiler",
+    "applicationCommit": "ccba089a187a918c69b8971b9e62dfe816d6e7e1",
+    "runtimeOverrides": {
+      "spring.thymeleaf.cache": true,
+      "spring.thymeleaf.enable-spring-el-compiler": true
+    },
+    "profiles": [
+      {
+        "name": "normal-large-space",
+        "summary": {
+          "gateApplies": true,
+          "passed": false,
+          "violations": [
+            "insufficient_browser_samples",
+            "insufficient_cold_samples",
+            "insufficient_repeat_samples",
+            "p95_tree_over_2s"
+          ],
+          "httpErrors": 0,
+          "browserErrors": 0,
+          "httpByEndpoint": {
+            "page": {
+              "count": 199,
+              "minMs": 10.51,
+              "p50Ms": 106.91,
+              "p95Ms": 238.18,
+              "maxMs": 301.1
+            },
+            "document": {
+              "count": 199,
+              "minMs": 5.64,
+              "p50Ms": 28.78,
+              "p95Ms": 336.14,
+              "maxMs": 388.68
+            },
+            "permissions": {
+              "count": 199,
+              "minMs": 3.64,
+              "p50Ms": 26.62,
+              "p95Ms": 84.45,
+              "maxMs": 296.22
+            },
+            "attachments": {
+              "count": 199,
+              "minMs": 3.28,
+              "p50Ms": 22.8,
+              "p95Ms": 43.44,
+              "maxMs": 89.93
+            },
+            "tree": {
+              "count": 199,
+              "minMs": 1095.04,
+              "p50Ms": 6533.39,
+              "p95Ms": 7148.96,
+              "maxMs": 7210.29
+            },
+            "headerPermissions": {
+              "count": 199,
+              "minMs": 3.45,
+              "p50Ms": 22.83,
+              "p95Ms": 172.51,
+              "maxMs": 318.4
+            }
+          },
+          "browserContentReady": {
+            "count": 13,
+            "minMs": 526.69,
+            "p50Ms": 551.29,
+            "p95Ms": 1095.83,
+            "maxMs": 1095.83
+          },
+          "browserColdContentReady": {
+            "count": 7,
+            "minMs": 551.24,
+            "p50Ms": 552.51,
+            "p95Ms": 1095.83,
+            "maxMs": 1095.83
+          },
+          "browserRepeatContentReady": {
+            "count": 6,
+            "minMs": 526.69,
+            "p50Ms": 530.1,
+            "p95Ms": 560.68,
+            "maxMs": 560.68
+          },
+          "browserTreeReady": {
+            "count": 13,
+            "minMs": 1170.73,
+            "p50Ms": 4427.39,
+            "p95Ms": 7336.78,
+            "maxMs": 7336.78
+          },
+          "contentHttpChain": {
+            "count": 199,
+            "minMs": 20.08,
+            "p50Ms": 170.55,
+            "p95Ms": 611.06,
+            "maxMs": 632.76
+          },
+          "completedCycles": 199,
+          "cyclesPerSecond": 3.17,
+          "requestsPerSecond": 19.04,
+          "statusCounts": {
+            "200": 1194
+          }
+        }
+      }
+    ]
+  },
+  {
+    "report": "2026-10-26-run-3.json.gz",
+    "rawSha256": "0f0477d636bdd586eee8ab9d3df7297617a9cd827e7f68d88072ed18b7741825",
+    "kind": "final-six-endpoint-workload-document-tree-renderer",
+    "applicationCommit": "f9a7b12bfb4c299b6d40b6efad03757dcdec5377",
+    "sourceCommit": "f9a7b12bfb4c299b6d40b6efad03757dcdec5377",
+    "runtimeOverrides": {},
+    "applicationJar": "performance-verified.jar",
+    "applicationJarSha256": "c658c62add276be1e0de4717f46e76a181a93f5a55fcfacd8fb2cb1149e17483",
+    "runnerSha256": "e642fd9316f5e24225c80781e4ca503d13ca87b4c282bc843bf9801e7e814fc0",
+    "javaVersion": "21.0.7",
+    "acceptancePassed": true,
+    "acceptanceScopeComplete": true,
+    "profiles": [
+      {
+        "name": "normal-distributed",
+        "users": 25,
+        "httpWorkers": 24,
+        "browserUsers": 1,
+        "loadWindowMs": 60000,
+        "actualDurationMs": 60508.02,
+        "summary": {
+          "gateApplies": true,
+          "passed": true,
+          "violations": [],
+          "httpErrors": 0,
+          "browserErrors": 0,
+          "httpByEndpoint": {
+            "page": {
+              "count": 1368,
+              "minMs": 8.95,
+              "p50Ms": 21.97,
+              "p95Ms": 76.13,
+              "maxMs": 268.71
+            },
+            "document": {
+              "count": 1368,
+              "minMs": 3.75,
+              "p50Ms": 10.77,
+              "p95Ms": 30.08,
+              "maxMs": 204.92
+            },
+            "permissions": {
+              "count": 1368,
+              "minMs": 2.1,
+              "p50Ms": 5.27,
+              "p95Ms": 17.47,
+              "maxMs": 150.31
+            },
+            "attachments": {
+              "count": 1368,
+              "minMs": 1.68,
+              "p50Ms": 4.42,
+              "p95Ms": 14,
+              "maxMs": 54.23
+            },
+            "tree": {
+              "count": 1368,
+              "minMs": 2.29,
+              "p50Ms": 8.04,
+              "p95Ms": 23.85,
+              "maxMs": 184.97
+            },
+            "headerPermissions": {
+              "count": 1368,
+              "minMs": 1.88,
+              "p50Ms": 7.43,
+              "p95Ms": 20.72,
+              "maxMs": 137.3
+            }
+          },
+          "browserContentReady": {
+            "count": 82,
+            "minMs": 527.4,
+            "p50Ms": 552.59,
+            "p95Ms": 583.33,
+            "maxMs": 591.94
+          },
+          "browserColdContentReady": {
+            "count": 41,
+            "minMs": 544.18,
+            "p50Ms": 561.95,
+            "p95Ms": 583.5,
+            "maxMs": 591.94
+          },
+          "browserRepeatContentReady": {
+            "count": 41,
+            "minMs": 527.4,
+            "p50Ms": 543.26,
+            "p95Ms": 559.1,
+            "maxMs": 560.18
+          },
+          "browserTreeReady": {
+            "count": 82,
+            "minMs": 532.36,
+            "p50Ms": 560.68,
+            "p95Ms": 592.96,
+            "maxMs": 605.7
+          },
+          "contentHttpChain": {
+            "count": 1368,
+            "minMs": 15.59,
+            "p50Ms": 41.26,
+            "p95Ms": 110.53,
+            "maxMs": 407.65
+          },
+          "completedCycles": 1368,
+          "cyclesPerSecond": 22.61,
+          "requestsPerSecond": 135.65,
+          "statusCounts": {
+            "200": 8208
+          }
+        }
+      },
+      {
+        "name": "normal-large-space",
+        "users": 25,
+        "httpWorkers": 24,
+        "browserUsers": 1,
+        "loadWindowMs": 60000,
+        "actualDurationMs": 60874.47,
+        "summary": {
+          "gateApplies": true,
+          "passed": true,
+          "violations": [],
+          "httpErrors": 0,
+          "browserErrors": 0,
+          "httpByEndpoint": {
+            "page": {
+              "count": 1392,
+              "minMs": 8.68,
+              "p50Ms": 13.65,
+              "p95Ms": 41.34,
+              "maxMs": 173.68
+            },
+            "document": {
+              "count": 1392,
+              "minMs": 3.92,
+              "p50Ms": 8.58,
+              "p95Ms": 21.76,
+              "maxMs": 177.86
+            },
+            "permissions": {
+              "count": 1392,
+              "minMs": 2.02,
+              "p50Ms": 4.46,
+              "p95Ms": 14.7,
+              "maxMs": 118.76
+            },
+            "attachments": {
+              "count": 1392,
+              "minMs": 1.84,
+              "p50Ms": 4.12,
+              "p95Ms": 12.27,
+              "maxMs": 72.59
+            },
+            "tree": {
+              "count": 1392,
+              "minMs": 14.13,
+              "p50Ms": 22.22,
+              "p95Ms": 37.47,
+              "maxMs": 187.52
+            },
+            "headerPermissions": {
+              "count": 1392,
+              "minMs": 1.97,
+              "p50Ms": 5.16,
+              "p95Ms": 14.92,
+              "maxMs": 144.98
+            }
+          },
+          "browserContentReady": {
+            "count": 52,
+            "minMs": 530.4,
+            "p50Ms": 548.7,
+            "p95Ms": 572,
+            "maxMs": 580.46
+          },
+          "browserColdContentReady": {
+            "count": 26,
+            "minMs": 541.36,
+            "p50Ms": 560.76,
+            "p95Ms": 572.34,
+            "maxMs": 580.46
+          },
+          "browserRepeatContentReady": {
+            "count": 26,
+            "minMs": 530.4,
+            "p50Ms": 542.23,
+            "p95Ms": 554.21,
+            "maxMs": 559.59
+          },
+          "browserTreeReady": {
+            "count": 52,
+            "minMs": 1031.87,
+            "p50Ms": 1047.47,
+            "p95Ms": 1068.75,
+            "maxMs": 1079.39
+          },
+          "contentHttpChain": {
+            "count": 1392,
+            "minMs": 15.27,
+            "p50Ms": 28.15,
+            "p95Ms": 72.83,
+            "maxMs": 295.37
+          },
+          "completedCycles": 1392,
+          "cyclesPerSecond": 22.87,
+          "requestsPerSecond": 137.2,
+          "statusCounts": {
+            "200": 8352
+          }
+        }
+      },
+      {
+        "name": "stress-large-space",
+        "users": 50,
+        "httpWorkers": 49,
+        "browserUsers": 1,
+        "loadWindowMs": 60000,
+        "actualDurationMs": 61026.18,
+        "summary": {
+          "gateApplies": false,
+          "passed": true,
+          "violations": [],
+          "httpErrors": 0,
+          "browserErrors": 0,
+          "httpByEndpoint": {
+            "page": {
+              "count": 2830,
+              "minMs": 8.17,
+              "p50Ms": 11.59,
+              "p95Ms": 66.92,
+              "maxMs": 292.55
+            },
+            "document": {
+              "count": 2830,
+              "minMs": 3.74,
+              "p50Ms": 6.86,
+              "p95Ms": 29.14,
+              "maxMs": 195.21
+            },
+            "permissions": {
+              "count": 2830,
+              "minMs": 1.88,
+              "p50Ms": 3.46,
+              "p95Ms": 14.85,
+              "maxMs": 158.82
+            },
+            "attachments": {
+              "count": 2830,
+              "minMs": 1.7,
+              "p50Ms": 3.12,
+              "p95Ms": 10.92,
+              "maxMs": 85.06
+            },
+            "tree": {
+              "count": 2830,
+              "minMs": 13.81,
+              "p50Ms": 19.06,
+              "p95Ms": 42.88,
+              "maxMs": 185.6
+            },
+            "headerPermissions": {
+              "count": 2830,
+              "minMs": 1.81,
+              "p50Ms": 4.14,
+              "p95Ms": 21.41,
+              "maxMs": 185.12
+            }
+          },
+          "browserContentReady": {
+            "count": 52,
+            "minMs": 527.78,
+            "p50Ms": 546.84,
+            "p95Ms": 567.33,
+            "maxMs": 690.89
+          },
+          "browserColdContentReady": {
+            "count": 26,
+            "minMs": 536.39,
+            "p50Ms": 552.76,
+            "p95Ms": 567.33,
+            "maxMs": 690.89
+          },
+          "browserRepeatContentReady": {
+            "count": 26,
+            "minMs": 527.78,
+            "p50Ms": 536.05,
+            "p95Ms": 549.95,
+            "maxMs": 579.6
+          },
+          "browserTreeReady": {
+            "count": 52,
+            "minMs": 1028.48,
+            "p50Ms": 1037.54,
+            "p95Ms": 1050.66,
+            "maxMs": 1191.52
+          },
+          "contentHttpChain": {
+            "count": 2830,
+            "minMs": 14.17,
+            "p50Ms": 23.33,
+            "p95Ms": 116.77,
+            "maxMs": 413.48
+          },
+          "completedCycles": 2830,
+          "cyclesPerSecond": 46.37,
+          "requestsPerSecond": 278.24,
+          "statusCounts": {
+            "200": 16980
+          }
+        }
+      }
+    ]
+  }
+]
