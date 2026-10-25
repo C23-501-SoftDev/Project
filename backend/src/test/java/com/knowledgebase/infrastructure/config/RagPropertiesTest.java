@@ -24,8 +24,26 @@ class RagPropertiesTest {
         assertFalse(p.isConfigured());
         assertEquals("http://127.0.0.1:11434", p.getBaseUrl());
         assertEquals(1024, p.getEmbeddingDimensions());
+        assertEquals(8, p.getTopK());
+        assertEquals(2, p.getMaxChunksPerDocument());
         p.setEnabled(true);
         assertTrue(p.isConfigured());
+    }
+
+    @Test
+    void perDocumentLimitIsBoundedIndependentlyOfGlobalLimit() {
+        RagProperties p = new RagProperties();
+        p.setEnabled(true);
+        p.setTopK(1);
+        assertTrue(p.isConfigured()); // A global limit below the per-document cap is valid.
+        for (int value : new int[]{0, -1, 21, Integer.MAX_VALUE}) {
+            p.setMaxChunksPerDocument(value);
+            assertFalse(p.isConfigured());
+        }
+        for (int value : new int[]{1, 2, 20}) {
+            p.setMaxChunksPerDocument(value);
+            assertTrue(p.isConfigured());
+        }
     }
 
     @ParameterizedTest

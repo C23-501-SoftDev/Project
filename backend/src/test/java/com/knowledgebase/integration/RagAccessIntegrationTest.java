@@ -77,7 +77,7 @@ class RagAccessIntegrationTest extends IntegrationTestBase {
         allowedSpace = spaceRepository.save(Space.create("RAG allowed", "", editor.getId()));
         published = publish(allowedSpace, "Published policy", "Хранить документы 30 дней.");
         guestJwt = loginAndGetJwt(guest.getLogin(), "password123");
-        when(index.search(any(), anyString(), anyList(), anyInt(), anyDouble()))
+        when(index.search(any(), anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
                 .thenReturn(List.of(chunk(published)));
     }
 
@@ -107,7 +107,7 @@ class RagAccessIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.sources", empty()))
                 .andExpect(content().string(not(containsString(published.getTitle()))));
         verifyNoInteractions(provider);
-        verify(index, never()).search(any(), anyString(), anyList(), anyInt(), anyDouble());
+        verify(index, never()).search(any(), anyString(), anyList(), anyInt(), anyDouble(), anyInt());
     }
 
     @Test
@@ -127,7 +127,7 @@ class RagAccessIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.sources[0].versionSha").value(expectedChunk.versionSha()))
                 .andExpect(content().string(not(containsString("SECRET"))));
         ArgumentCaptor<List<Long>> allowedIds = ArgumentCaptor.forClass(List.class);
-        verify(index).search(any(), anyString(), allowedIds.capture(), anyInt(), anyDouble());
+        verify(index).search(any(), anyString(), allowedIds.capture(), anyInt(), anyDouble(), anyInt());
         assertEquals(List.of(published.getId()), allowedIds.getValue());
         ArgumentCaptor<List<RagGenerationClient.Context>> contexts = ArgumentCaptor.forClass(List.class);
         verify(provider).generate(anyString(), contexts.capture());
@@ -141,7 +141,7 @@ class RagAccessIntegrationTest extends IntegrationTestBase {
         Space secondSpace = spaceRepository.save(Space.create("RAG second source", "", editor.getId()));
         grant(secondSpace, guest);
         Document second = publish(secondSpace, "Second policy", "Секретное дополнительное условие.");
-        when(index.search(any(), anyString(), anyList(), anyInt(), anyDouble()))
+        when(index.search(any(), anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
                 .thenReturn(List.of(chunk(published), chunk(second)));
         when(provider.generate(anyString(), anyList())).thenAnswer(invocation -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive(),

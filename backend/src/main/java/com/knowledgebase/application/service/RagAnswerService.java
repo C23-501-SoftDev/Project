@@ -61,7 +61,7 @@ public class RagAnswerService {
             if (allowed.isEmpty()) return insufficient(requestId);
             float[] vector = embeddings.embed(List.of(question.strip())).get(0);
             List<RagChunk> candidates = index.search(vector, properties.getEmbeddingModel(), allowed,
-                    properties.getTopK(), properties.getMinimumScore());
+                    properties.getTopK(), properties.getMinimumScore(), properties.getMaxChunksPerDocument());
             List<RagChunk> selected = new ArrayList<>();
             List<RagGenerationClient.Context> contexts = new ArrayList<>();
             Map<Long, Document> sourceDocuments = new HashMap<>();

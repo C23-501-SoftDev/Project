@@ -516,7 +516,7 @@
                 "docs/RAG_LOCAL.md",
                 "tests/rag/results/README.md"
             ],
-            "note": "Local Ollama + opt-in pgvector, durable versioned indexing, published-source ACL rechecks and verified citations. Default disabled. 246 Java / 3 Node / 154 browser tests pass; real local evaluation 24/24 answers and 6/6 refusals. Production corpus and load acceptance remain deployment work.",
+            "note": "Local Ollama + opt-in pgvector, durable versioned indexing, published-source ACL rechecks and verified citations. Cross-article synthesis: default 8 chunks, at most 2 per article; explicit evidence gaps. Default disabled. 281 Java / 12 Node / 7 Python / 158 browser tests pass; real local evaluation retains 24/24 original answers and 6/6 refusals, with 10/10 complete multi-article answers versus 7/10 baseline. Team corpus and production load remain deployment work.",
             "endpoints": [
                 "GET /ask",
                 "GET /api/ai/rag/status",

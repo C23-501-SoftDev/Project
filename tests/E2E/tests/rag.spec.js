@@ -45,6 +45,7 @@ test('RAG-02: answer and versioned sources render as text and use CSRF', async (
                 answer: '<img src=x onerror="window.ragXss=true"> Ответ [1].',
                 sources: [
                     { documentId: 42, title: '<script>window.ragXss=true</script>', url: '/documents/42', versionSha: 'abc123', chunkIndex: 2 },
+                    { documentId: 44, title: 'Вторая статья для сопоставления', url: '/documents/44', versionSha: 'def456', chunkIndex: 0 },
                     { documentId: 43, title: 'Внешний адрес', url: 'https://example.invalid/documents/43', versionSha: 'abc456', chunkIndex: 0 }
                 ], insufficientEvidence: false, requestId: 'rag-e2e-42'
             } });
@@ -53,9 +54,11 @@ test('RAG-02: answer and versioned sources render as text and use CSRF', async (
         await page.locator('#ragSubmit').click();
         await expect(page.locator('#ragAnswer')).toContainText('<img src=x');
         await expect(page.locator('#ragAnswer img')).toHaveCount(0);
-        await expect(page.locator('#ragSources a')).toHaveCount(1);
-        await expect(page.locator('#ragSources a')).toHaveAttribute('href', '/documents/42');
+        await expect(page.locator('#ragSources a')).toHaveCount(2);
+        await expect(page.locator('#ragSources a').nth(0)).toHaveAttribute('href', '/documents/42');
+        await expect(page.locator('#ragSources a').nth(1)).toHaveAttribute('href', '/documents/44');
         await expect(page.locator('#ragSources')).toContainText('abc123 · Фрагмент 3');
+        await expect(page.locator('#ragSources')).toContainText('def456 · Фрагмент 1');
         await expect(page.locator('#ragRequestId')).toContainText('rag-e2e-42');
         expect(await page.evaluate(() => window.ragXss)).toBeUndefined();
         expect(submitted).toEqual({ question: 'Как создать статью?', spaceIds: [] });

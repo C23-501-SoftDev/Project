@@ -164,7 +164,8 @@ app:
     max-context-chars: ${RAG_MAX_CONTEXT_CHARS:12000}
     chunk-chars: ${RAG_CHUNK_CHARS:1200}
     chunk-overlap: ${RAG_CHUNK_OVERLAP:150}
-    top-k: ${RAG_TOP_K:5}
+    top-k: ${RAG_TOP_K:8}
+    max-chunks-per-document: ${RAG_MAX_CHUNKS_PER_DOCUMENT:2}
     minimum-score: ${RAG_MINIMUM_SCORE:0.3}
     requests-per-minute: ${RAG_REQUESTS_PER_MINUTE:6}
     daily-requests: ${RAG_DAILY_REQUESTS:100}
