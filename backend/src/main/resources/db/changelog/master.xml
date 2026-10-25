@@ -53,4 +53,7 @@
     <!-- US4.1.5 — Журнал аудита действий системы -->
     <include file="db/changelog/changes/029-create-audit-log-table.xml" relativeToChangelogFile="false"/>
 
+    <!-- Explicit opt-in only; normal boot and H2 tests do not require pgvector. -->
+    <include file="db/changelog/changes/037-add-opt-in-rag-vector-index.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

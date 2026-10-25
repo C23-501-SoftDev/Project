@@ -94,6 +94,7 @@ public class DocumentVersionService {
     public DocumentVersion restoreVersion(Long documentId, String gitHash, Long editorId) {
         validateHash(gitHash);
         String normalizedHash = gitHash.toLowerCase(Locale.ROOT);
+        documentRepository.lockById(documentId);
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
         if (document.getStatus() != DocumentStatus.PUBLISHED) {

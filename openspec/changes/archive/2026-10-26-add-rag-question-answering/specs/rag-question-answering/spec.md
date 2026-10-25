@@ -29,7 +29,19 @@ The feature MUST support disabled mode, validated input, configured timeouts/rat
 - **WHEN** a user submits a question while the feature is disabled or generation fails
 - **THEN** the API returns a documented controlled error and the rest of the knowledge base remains usable
 ### Requirement: Measurable acceptance
-Before enabling RAG, the implementation SHALL pass an ACL/leakage suite and a labelled retrieval/answer evaluation set with documented thresholds and model versions.
+Before enabling RAG, the implementation SHALL pass an ACL/leakage suite and a labelled retrieval/answer evaluation set with documented thresholds and model versions. The local release evaluation SHALL require at least 90% expected-source recall@5, at least 90% substantive answers with sources and at least 90% expected-source citations on answerable questions, refusals for all unsupported questions, and zero invalid citations or detected injection markers.
 #### Scenario: Release evaluation
 - **WHEN** a candidate RAG version is evaluated
 - **THEN** source retrieval quality, citation validity, denied-access cases, unanswerable cases, latency and cost measurements are recorded
+
+### Requirement: Local-only inference and controlled rollout
+RAG MUST use local Ollama with cloud features disabled and MUST reject external endpoints and cloud model names. Indexing and serving SHALL have separate switches.
+#### Scenario: Local model execution
+- **WHEN** an article is indexed or a question is answered
+- **THEN** embeddings and generation use the configured local models; article text is not sent to external AI APIs
+#### Scenario: Initial backfill
+- **WHEN** RAG is enabled with serving disabled
+- **THEN** the durable worker can prepare the index while question requests receive a controlled disabled response
+#### Scenario: First published article has no version row
+- **WHEN** the RAG worker finds a published article without version metadata
+- **THEN** it captures an immutable Git baseline under the document mutation lock and persists a real version before indexing

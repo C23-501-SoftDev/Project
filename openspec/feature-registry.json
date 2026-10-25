@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "updatedAt": "2026-10-25",
+    "updatedAt": "2026-10-26",
     "notes": "Fast feature lookup for agents. Update when archiving an OpenSpec change.",
     "features": [
         {
@@ -507,14 +507,21 @@
         },
         {
             "featureId": "rag-question-answering",
-            "title": "Planned RAG question answering over authorized published articles",
-            "status": "planned",
+            "title": "Local RAG question answering over authorized published articles",
+            "status": "done",
             "area": "backend+frontend",
             "repo": "Project",
             "docs": [
-                "openspec/changes/add-rag-question-answering/proposal.md"
+                "openspec/specs/rag-question-answering/spec.md",
+                "docs/RAG_LOCAL.md",
+                "tests/rag/results/README.md"
             ],
-            "note": "Requirements/design prepared; no RAG implementation or vector schema exists yet."
+            "note": "Local Ollama + opt-in pgvector, durable versioned indexing, published-source ACL rechecks and verified citations. Default disabled. 246 Java / 3 Node / 154 browser tests pass; real local evaluation 24/24 answers and 6/6 refusals. Production corpus and load acceptance remain deployment work.",
+            "endpoints": [
+                "GET /ask",
+                "GET /api/ai/rag/status",
+                "POST /api/ai/ask"
+            ]
         },
         {
             "featureId": "project-documentation-reconciliation",

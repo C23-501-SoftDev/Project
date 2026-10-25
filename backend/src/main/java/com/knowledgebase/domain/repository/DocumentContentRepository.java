@@ -61,6 +61,11 @@ public interface DocumentContentRepository {
      */
     Optional<String> readDocumentVersion(String gitFilePath, String gitHash);
 
+    /** Last immutable commit touching this path, used when baselining pre-versioning documents. */
+    default Optional<String> latestCommitForPath(String gitFilePath) {
+        return Optional.empty();
+    }
+
 
     /**
      * Перемещает файл в Git (используется при архивации).

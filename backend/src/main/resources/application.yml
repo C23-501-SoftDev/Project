@@ -150,6 +150,30 @@ app:
     model: ${AI_MODEL:deepseek/deepseek-v4-pro}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:60}
 
+  # Local-only RAG; requires explicit Liquibase context `rag` and downloaded Ollama models.
+  rag:
+    enabled: ${RAG_ENABLED:false}
+    serving-enabled: ${RAG_SERVING_ENABLED:true}
+    base-url: ${RAG_BASE_URL:http://127.0.0.1:11434}
+    embedding-model: ${RAG_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+    generation-model: ${RAG_GENERATION_MODEL:qwen3:4b}
+    embedding-dimensions: ${RAG_EMBEDDING_DIMENSIONS:1024}
+    timeout-seconds: ${RAG_TIMEOUT_SECONDS:90}
+    max-output-tokens: ${RAG_MAX_OUTPUT_TOKENS:600}
+    generation-context-tokens: ${RAG_CONTEXT_TOKENS:8192}
+    max-context-chars: ${RAG_MAX_CONTEXT_CHARS:12000}
+    chunk-chars: ${RAG_CHUNK_CHARS:1200}
+    chunk-overlap: ${RAG_CHUNK_OVERLAP:150}
+    top-k: ${RAG_TOP_K:5}
+    minimum-score: ${RAG_MINIMUM_SCORE:0.3}
+    requests-per-minute: ${RAG_REQUESTS_PER_MINUTE:6}
+    daily-requests: ${RAG_DAILY_REQUESTS:100}
+    daily-embedding-characters: ${RAG_DAILY_EMBEDDING_CHARACTERS:1000000}
+    indexing-batch-size: ${RAG_INDEXING_BATCH_SIZE:10}
+    max-document-chars: ${RAG_MAX_DOCUMENT_CHARS:100000}
+    indexing-enabled: ${RAG_INDEXING_ENABLED:true}
+    indexing-delay-ms: ${RAG_INDEXING_DELAY_MS:15000}
+
   jwt:
     # ВАЖНО: В prod заменить на ENV-переменную JWT_SECRET_KEY
     secret-key: "knowledge-base-secret-key-for-jwt-signing-minimum-256-bits-long!"

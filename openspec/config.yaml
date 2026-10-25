@@ -14,7 +14,7 @@ context: |
   - HTML: Flexmark + jsoup; preview: Marked + DOMPurify (локальные pinned bundles)
   - Экспорт: OpenHTMLtoPDF/PDFBox с Noto fonts; DOCX через Apache POI
   - Дерево документов: GET /spaces/{id}/tree, загрузка по запросу и фильтр Draft
-  - AI: преобразование текста через внешний провайдер; RAG пока planned
+  - AI: внешний провайдер только для переписывания; RAG — локальный Ollama + pgvector, opt-in RAG_ENABLED и Liquibase context rag
   - Утилиты: Lombok (boilerplate reduction)
 
   Архитектура:
