@@ -470,6 +470,14 @@ public class DocumentService {
         return false;
     }
 
+    /** Read guards for every representation, including drafts and their attachments. */
+    public boolean canReadDocument(Long userId, boolean isAdmin, Long documentId) {
+        if (userId == null) return false;
+        Document document = getDocumentById(documentId);
+        return permissionService.canRead(userId, isAdmin, document.getSpaceId())
+                && canViewDocument(userId, isAdmin, document);
+    }
+
     /**
      * Публикация документа (перевод из Draft в Published).
      * Публиковать может только автор документа или администратор.
