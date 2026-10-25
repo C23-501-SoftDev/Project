@@ -30,3 +30,6 @@
 **Входные документы:** `../../Docs/documents/backlog-descriptions/E2 Жизненный цикл и Версионность (Lifecycle & Versioning)/F2.2 Контроль версий (Git Integration)/US2.2.1 Git commit при сохранении/description.md`; `../../Docs/documents/backlog-descriptions/E4 Администрирование и Безопасность (Admin & Security)/F4.1 Управление пользователями (RBAC)/US4.1.1 Инициализация проекта/description.md`; `BACKTRACKER.md`; `backend/src/main/resources/db/changelog/changes/008-create-versions-table.xml`.
 
 **Feature Registry:** добавить `git-commit-on-document-save` со статусом `planned`.
+
+
+Reconciled 2026-10-25: featureId `git-commit-on-document-save`. Implementation verified against the current code and full test suite; see [project review](https://github.com/C23-501-SoftDev/Project/blob/main/docs/PROJECT_REVIEW_RU.md). Input backlog: https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json.

@@ -31,3 +31,6 @@ Backlog: ../../Docs/documents/backlog-descriptions/E1 Управление ко�
 - Обновление логики сервиса создания документов в `application` слое для поддержки создания из шаблона.
 - Добавление постоянного хранилища счетчиков требований в PostgreSQL.
 - Исходный документ: C:\git-home\Docs\documents\backlog-descriptions\E1 Управление контентом (Content Management)\F1.2 Шаблоны документов\US1.2.1 Поддержка шаблонов документов\description.md
+
+
+Reconciled 2026-10-25: featureId `document-templates`. Implementation verified against the current code and full test suite; see [project review](https://github.com/C23-501-SoftDev/Project/blob/main/docs/PROJECT_REVIEW_RU.md). Input backlog: https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json.

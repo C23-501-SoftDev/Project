@@ -1,5 +1,9 @@
 # Project Documentation
 
+[Актуальный обзор проекта на русском: архитектура, стек, схемы, исправления и план](docs/PROJECT_REVIEW_RU.md) (проверено 2026-10-25).
+
+[Команды полной проверки](openspec/quality-gates.md) · [Контракты API](BACKTRACKER.md) · [Требования к будущему RAG](openspec/changes/add-rag-question-answering/proposal.md)
+
 ## Table of Contents
 
 1. [First-Time Setup](#first-time-setup)
