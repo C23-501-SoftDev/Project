@@ -19,7 +19,8 @@ public class RagProperties {
     private int maxContextChars = 12000;
     private int chunkChars = 1200;
     private int chunkOverlap = 150;
-    private int topK = 5;
+    private int topK = 8;
+    private int maxChunksPerDocument = 2;
     private double minimumScore = 0.3;
     private int requestsPerMinute = 6;
     private int dailyRequests = 100;
@@ -67,6 +68,9 @@ public class RagProperties {
     public int getTopK() { return topK; }
     public void setTopK(int topK) { this.topK = topK; }
 
+    public int getMaxChunksPerDocument() { return maxChunksPerDocument; }
+    public void setMaxChunksPerDocument(int value) { maxChunksPerDocument = value; }
+
     public double getMinimumScore() { return minimumScore; }
     public void setMinimumScore(double minimumScore) { this.minimumScore = minimumScore; }
 
@@ -95,7 +99,8 @@ public class RagProperties {
                 && between(embeddingDimensions, 1, 4096) && between(timeoutSeconds, 1, 120)
                 && between(generationContextTokens, 2048, 65536) && between(maxOutputTokens, 32, 4096) && between(maxContextChars, 256, 100000)
                 && between(chunkChars, 128, 16000) && chunkOverlap >= 0 && chunkOverlap <= chunkChars / 2
-                && between(topK, 1, 20) && Double.isFinite(minimumScore) && minimumScore >= -1 && minimumScore <= 1
+                && between(topK, 1, 20) && between(maxChunksPerDocument, 1, 20)
+                && Double.isFinite(minimumScore) && minimumScore >= -1 && minimumScore <= 1
                 && between(requestsPerMinute, 1, 1000) && between(dailyRequests, 1, 100000)
                 && dailyEmbeddingCharacters > 0 && dailyEmbeddingCharacters <= 1000000000L
                 && between(indexingBatchSize, 1, 100) && between(maxDocumentChars, chunkChars, 1000000);

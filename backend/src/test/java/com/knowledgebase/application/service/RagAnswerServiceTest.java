@@ -59,7 +59,7 @@ class RagAnswerServiceTest {
                 .thenAnswer(invocation -> grantedSpaces.contains(invocation.getArgument(0)));
         when(index.isAvailable()).thenReturn(true);
         when(embeddings.embed(anyList())).thenReturn(List.of(VECTOR));
-        when(index.search(any(), anyString(), anyList(), anyInt(), anyDouble())).thenAnswer(invocation -> {
+        when(index.search(any(), anyString(), anyList(), anyInt(), anyDouble(), anyInt())).thenAnswer(invocation -> {
             List<Long> allowed = invocation.getArgument(2);
             return candidates.stream().filter(chunk -> allowed.contains(chunk.documentId())).toList();
         });
@@ -81,7 +81,7 @@ class RagAnswerServiceTest {
         grantedSpaces.add(100L);
         RagAnswer result = ask();
         ArgumentCaptor<List<Long>> allowed = ArgumentCaptor.forClass(List.class);
-        verify(index).search(eq(VECTOR), eq(properties.getEmbeddingModel()), allowed.capture(), eq(5), eq(0.3));
+        verify(index).search(eq(VECTOR), eq(properties.getEmbeddingModel()), allowed.capture(), eq(8), eq(0.3), eq(2));
         assertEquals(List.of(10L), allowed.getValue());
         assertFalse(result.insufficientEvidence());
         assertEquals(1, result.sources().size());
@@ -89,6 +89,48 @@ class RagAnswerServiceTest {
         assertEquals("/documents/10", result.sources().get(0).url());
         assertEquals(SHA, result.sources().get(0).versionSha());
         assertNotNull(UUID.fromString(result.requestId()));
+    }
+
+    @Test
+    void eightArticlesCanReachGenerationAndKeepAllVerifiedCitations() {
+        for (long id = 11; id < 18; id++) {
+            addDocument(id, 100, DocumentStatus.PUBLISHED);
+            candidates.add(chunk(id));
+        }
+        when(generation.generate(anyString(), anyList())).thenAnswer(invocation -> {
+            List<RagGenerationClient.Context> contexts = invocation.getArgument(1);
+            assertEquals(8, contexts.size());
+            assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8), contexts.stream()
+                    .map(RagGenerationClient.Context::sourceId).toList());
+            return new RagGenerationClient.GeneratedAnswer("Сводка восьми статей.",
+                    List.of(1, 2, 3, 4, 5, 6, 7, 8), false);
+        });
+        RagAnswer answer = ask();
+        assertEquals(List.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L),
+                answer.sources().stream().map(RagAnswer.Source::documentId).toList());
+        assertTrue(answer.sources().stream().allMatch(source -> SHA.equals(source.versionSha())));
+    }
+
+    @Test
+    void expandedRetrievalStillRespectsContextBudgetAndContiguousSourceIds() {
+        properties.setMaxContextChars(256);
+        candidates.clear();
+        candidates.add(new RagChunk(10, 100, SHA, 0, "x".repeat(230), .99, NOW));
+        addDocument(11, 100, DocumentStatus.PUBLISHED);
+        candidates.add(new RagChunk(11, 100, SHA, 0, "y".repeat(100), .95, NOW));
+        addDocument(12, 100, DocumentStatus.PUBLISHED);
+        candidates.add(new RagChunk(12, 100, SHA, 0, "z", .9, NOW));
+        when(generation.generate(anyString(), anyList())).thenAnswer(invocation -> {
+            List<RagGenerationClient.Context> contexts = invocation.getArgument(1);
+            assertEquals(2, contexts.size());
+            assertEquals(1, contexts.get(0).sourceId());
+            assertEquals(2, contexts.get(1).sourceId());
+            assertEquals("Статья 12", contexts.get(1).title());
+            assertTrue(contexts.stream().mapToInt(context -> context.title().length() + context.text().length()).sum() <= 256);
+            return new RagGenerationClient.GeneratedAnswer("Подтверждённый ответ.", List.of(1, 2), false);
+        });
+        RagAnswer answer = ask();
+        assertEquals(List.of(10L, 12L), answer.sources().stream().map(RagAnswer.Source::documentId).toList());
     }
 
     @Test
@@ -107,7 +149,7 @@ class RagAnswerServiceTest {
         assertTrue(answer.insufficientEvidence());
         assertTrue(answer.sources().isEmpty());
         verifyNoInteractions(embeddings, generation);
-        verify(index, never()).search(any(), anyString(), anyList(), anyInt(), anyDouble());
+        verify(index, never()).search(any(), anyString(), anyList(), anyInt(), anyDouble(), anyInt());
     }
 
     @Test
@@ -116,7 +158,7 @@ class RagAnswerServiceTest {
         candidates.add(chunk(11));
         RagAnswer answer = service.ask(USER_ID, false, "Срок?", List.of(200L));
         assertEquals(11L, answer.sources().get(0).documentId());
-        verify(index).search(eq(VECTOR), anyString(), eq(List.of(11L)), anyInt(), anyDouble());
+        verify(index).search(eq(VECTOR), anyString(), eq(List.of(11L)), anyInt(), anyDouble(), anyInt());
     }
 
     @Test

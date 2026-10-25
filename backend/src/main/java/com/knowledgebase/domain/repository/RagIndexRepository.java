@@ -5,7 +5,7 @@ import java.util.List;
 
 public interface RagIndexRepository {
     List<RagChunk> search(float[] query, String model, List<Long> authorizedDocumentIds,
-                          int limit, double minimumScore);
+                          int limit, double minimumScore, int maxChunksPerDocument);
 
     boolean isAvailable();
 }

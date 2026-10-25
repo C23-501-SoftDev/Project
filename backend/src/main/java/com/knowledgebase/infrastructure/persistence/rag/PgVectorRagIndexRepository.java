@@ -36,9 +36,9 @@ public class PgVectorRagIndexRepository implements RagIndexRepository {
 
     @Override
     public List<RagChunk> search(float[] query, String model, List<Long> authorizedDocumentIds,
-                                 int limit, double minimumScore) {
+                                 int limit, double minimumScore, int maxChunksPerDocument) {
         if (authorizedDocumentIds == null || authorizedDocumentIds.isEmpty()) return List.of();
-        if (limit < 1 || limit > 100 || !Double.isFinite(minimumScore)
+        if (limit < 1 || limit > 100 || maxChunksPerDocument < 1 || maxChunksPerDocument > 20 || !Double.isFinite(minimumScore)
                 || minimumScore < -1 || minimumScore > 1) {
             throw new IllegalArgumentException("Invalid RAG retrieval bounds");
         }
@@ -47,7 +47,8 @@ public class PgVectorRagIndexRepository implements RagIndexRepository {
                 .addValue("dimensions", query.length)
                 .addValue("model", Objects.requireNonNull(model))
                 .addValue("documentIds", authorizedDocumentIds)
-                .addValue("limit", limit).addValue("minimumScore", minimumScore);
+                .addValue("limit", limit).addValue("minimumScore", minimumScore)
+                .addValue("maxChunksPerDocument", maxChunksPerDocument);
         // MATERIALIZED keeps dimensionality filtering before the vector operator.
         // SQL metadata and latest version are authoritative even before async cleanup runs.
         return named.query("""
@@ -69,9 +70,14 @@ public class PgVectorRagIndexRepository implements RagIndexRepository {
                 ), scored AS (
                     SELECT *, 1 - (embedding <=> CAST(:vector AS vector)) AS score
                     FROM eligible
+                ), ranked AS (
+                    SELECT *, row_number() OVER (
+                        PARTITION BY document_id ORDER BY score DESC, chunk_index
+                    ) AS document_rank
+                    FROM scored WHERE score >= :minimumScore
                 )
                 SELECT document_id, space_id, version_sha, chunk_index, chunk_text, score, source_updated_at
-                FROM scored WHERE score >= :minimumScore
+                FROM ranked WHERE document_rank <= :maxChunksPerDocument
                 ORDER BY score DESC, document_id, chunk_index LIMIT :limit
                 """, parameters, (rs, row) -> new RagChunk(rs.getLong("document_id"),
                 rs.getLong("space_id"), rs.getString("version_sha"), rs.getInt("chunk_index"),

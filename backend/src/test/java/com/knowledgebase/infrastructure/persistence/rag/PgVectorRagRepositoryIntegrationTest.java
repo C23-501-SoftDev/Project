@@ -94,12 +94,12 @@ class PgVectorRagRepositoryIntegrationTest {
         var second = jobs.claim(MODEL, 2).orElseThrow();
         jobs.complete(second, List.of("Закрытый факт"), List.of(new float[]{1, 0}));
         assertTrue(index.isAvailable());
-        var found = index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, .3);
+        var found = index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, .3, 2);
         assertEquals(1, found.size());
         assertEquals(1, found.get(0).documentId());
         assertEquals(UPDATED, found.get(0).sourceUpdatedAt());
         assertEquals(1, found.get(0).score(), .000001);
-        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(), 5, .3).isEmpty());
+        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(), 5, .3, 2).isEmpty());
     }
 
     @Test
@@ -116,7 +116,7 @@ class PgVectorRagRepositoryIntegrationTest {
             assertTrue(jobs.complete(job, List.of("Статья " + job.documentId() + " 😀"),
                     List.of(new float[]{1, job.documentId() / 10.0f})));
         }
-        var found = index.search(new float[]{1, 0}, MODEL, List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L), 5, 0);
+        var found = index.search(new float[]{1, 0}, MODEL, List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L), 5, 0, 2);
         assertEquals(List.of(1L, 2L, 3L, 4L, 5L), found.stream().map(value -> value.documentId()).toList());
         assertEquals("Статья 1 😀", found.get(0).text());
         assertEquals("Статья 5 😀", found.get(4).text());
@@ -124,23 +124,90 @@ class PgVectorRagRepositoryIntegrationTest {
     }
 
     @Test
+    void perDocumentCapIsAppliedBeforeGlobalLimitWithoutPromotingWeakDocuments() {
+        jobs.reconcile(MODEL, 2, 100);
+        var first = jobs.claim(MODEL, 2).orElseThrow();
+        assertTrue(jobs.complete(first,
+                List.of("A0", "A1", "A2", "A3", "A4", "A5"),
+                List.of(new float[]{1, 0}, new float[]{1, .01f}, new float[]{1, .02f},
+                        new float[]{1, .03f}, new float[]{1, .04f}, new float[]{1, .05f})));
+        var second = jobs.claim(MODEL, 2).orElseThrow();
+        assertTrue(jobs.complete(second, List.of("B0", "B1 below threshold"),
+                List.of(new float[]{.8f, .6f}, new float[]{.1f, 1})));
+
+        assertEquals(List.of("A0", "A1", "A2", "A3", "A4"),
+                index.search(new float[]{1, 0}, MODEL, List.of(1L, 2L), 5, .3, 20)
+                        .stream().map(value -> value.text()).toList());
+        assertEquals(List.of("A0", "A1", "B0"),
+                index.search(new float[]{1, 0}, MODEL, List.of(1L, 2L), 5, .3, 2)
+                        .stream().map(value -> value.text()).toList());
+        // Diversity limits repetition; it does not force a weaker document above a stronger chunk.
+        assertEquals(List.of("A0", "A1"),
+                index.search(new float[]{1, 0}, MODEL, List.of(1L, 2L), 2, .3, 2)
+                        .stream().map(value -> value.text()).toList());
+        assertEquals(List.of("A0"),
+                index.search(new float[]{1, 0}, MODEL, List.of(1L, 2L), 1, .3, 2)
+                        .stream().map(value -> value.text()).toList());
+        assertEquals(List.of("A0", "A1"),
+                index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, .3, 2)
+                        .stream().map(value -> value.text()).toList());
+        assertThrows(IllegalArgumentException.class,
+                () -> index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, .3, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, .3, 21));
+    }
+
+    @Test
+    void documentAndChunkTiesAreDeterministicAfterPerDocumentCap() {
+        jobs.reconcile(MODEL, 2, 100);
+        for (int document = 0; document < 2; document++) {
+            var job = jobs.claim(MODEL, 2).orElseThrow();
+            assertTrue(jobs.complete(job, List.of("first", "second", "third"),
+                    List.of(new float[]{1, 0}, new float[]{1, 0}, new float[]{1, 0})));
+        }
+        var selected = index.search(new float[]{1, 0}, MODEL, List.of(2L, 1L), 8, .3, 2);
+        assertEquals(List.of("1:0", "1:1", "2:0", "2:1"), selected.stream()
+                .map(value -> value.documentId() + ":" + value.chunkIndex()).toList());
+    }
+
+    @Test
+    void eightChunkBudgetCanRetrieveEightDistinctArticles() {
+        for (long document = 3; document <= 9; document++) {
+            jdbc.update("INSERT INTO documents (id, space_id, status, git_file_path, updated_at) VALUES (?, 10, 'Published', ?, ?)",
+                    document, "spaces/" + document + ".md", UPDATED);
+            jdbc.update("INSERT INTO versions (document_id, git_hash, git_file_path) VALUES (?, ?, ?)",
+                    document, SHA, "spaces/" + document + ".md");
+        }
+        jobs.reconcile(MODEL, 2, 100);
+        for (int i = 0; i < 9; i++) {
+            var job = jobs.claim(MODEL, 2).orElseThrow();
+            assertTrue(jobs.complete(job, List.of("Article " + job.documentId()),
+                    List.of(new float[]{1, job.documentId() / 10.0f})));
+        }
+        var selected = index.search(new float[]{1, 0}, MODEL,
+                List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L), 8, .3, 2);
+        assertEquals(List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L),
+                selected.stream().map(value -> value.documentId()).toList());
+    }
+
+    @Test
     void currentVersionAndTimestampExcludeStaleChunksBeforeCleanup() {
         completeFirstJob();
         jdbc.update("INSERT INTO versions (document_id, git_hash, git_file_path, created_at) VALUES (1, ?, 'spaces/1.md', CURRENT_TIMESTAMP + INTERVAL '1 second')", "b".repeat(40));
-        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, 0).isEmpty());
+        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, 0, 2).isEmpty());
         jdbc.update("DELETE FROM versions WHERE git_hash = ?", "b".repeat(40));
         jdbc.update("UPDATE documents SET updated_at = updated_at + INTERVAL '1 second' WHERE id = 1");
-        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, 0).isEmpty());
+        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, 0, 2).isEmpty());
     }
 
     @Test
     void deletedDocumentsAndSpacesAreImmediatelyExcludedAndPurged() {
         completeFirstJob();
         jdbc.update("UPDATE spaces SET is_deleted = true WHERE id = 10");
-        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, 0).isEmpty());
+        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, 0, 2).isEmpty());
         jdbc.update("UPDATE spaces SET is_deleted = false WHERE id = 10");
         jdbc.update("UPDATE documents SET status = 'Deleted' WHERE id = 1");
-        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, 0).isEmpty());
+        assertTrue(index.search(new float[]{1, 0}, MODEL, List.of(1L), 5, 0, 2).isEmpty());
         jobs.reconcile(MODEL, 2, 100);
         assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM rag_chunks", Integer.class));
     }
@@ -148,10 +215,10 @@ class PgVectorRagRepositoryIntegrationTest {
     @Test
     void differentDimensionsAndModelsCannotReachCosineOperator() {
         completeFirstJob();
-        assertTrue(index.search(new float[]{1, 0, 0}, MODEL, List.of(1L), 5, 0).isEmpty());
-        assertTrue(index.search(new float[]{1, 0}, "another-model", List.of(1L), 5, 0).isEmpty());
-        assertThrows(IllegalArgumentException.class, () -> index.search(new float[]{0, 0}, MODEL, List.of(1L), 5, 0));
-        assertThrows(IllegalArgumentException.class, () -> index.search(new float[]{Float.NaN, 0}, MODEL, List.of(1L), 5, 0));
+        assertTrue(index.search(new float[]{1, 0, 0}, MODEL, List.of(1L), 5, 0, 2).isEmpty());
+        assertTrue(index.search(new float[]{1, 0}, "another-model", List.of(1L), 5, 0, 2).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> index.search(new float[]{0, 0}, MODEL, List.of(1L), 5, 0, 2));
+        assertThrows(IllegalArgumentException.class, () -> index.search(new float[]{Float.NaN, 0}, MODEL, List.of(1L), 5, 0, 2));
     }
 
     @Test
@@ -220,8 +287,8 @@ class PgVectorRagRepositoryIntegrationTest {
         jobs.reconcile("replacement-model", 2, 1);
         var replacement = jobs.claim("replacement-model", 2).orElseThrow();
         assertTrue(jobs.complete(replacement, List.of("new model"), List.of(new float[]{1, 0})));
-        assertEquals("new dimensions", index.search(new float[]{1, 0, 0}, MODEL, List.of(1L), 5, 0).get(0).text());
-        assertEquals("new model", index.search(new float[]{1, 0}, "replacement-model", List.of(1L), 5, 0).get(0).text());
+        assertEquals("new dimensions", index.search(new float[]{1, 0, 0}, MODEL, List.of(1L), 5, 0, 2).get(0).text());
+        assertEquals("new model", index.search(new float[]{1, 0}, "replacement-model", List.of(1L), 5, 0, 2).get(0).text());
         // Same order as the application's hard_delete_document function.
         jdbc.update("DELETE FROM versions WHERE document_id = 1");
         jdbc.update("DELETE FROM documents WHERE id = 1");

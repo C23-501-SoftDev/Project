@@ -144,6 +144,58 @@ class OllamaRagClientTest {
         assertTrue(client.generate("Вопрос?", contexts()).insufficientEvidence());
     }
 
+    @Test
+    void preservesSeveralContextsAndAcceptsAllContributingCitationIds() throws Exception {
+        List<Context> sources = List.of(
+                new Context(1, "Резервные копии", "Копии включают БД, Git и вложения."),
+                new Context(2, "Проверка восстановления", "После восстановления сравнивают контрольные суммы вложений."));
+        String text = "Резервная копия включает БД, Git и вложения. После восстановления проверяют контрольные суммы вложений.";
+        response.set(chat(mapper.writeValueAsString(Map.of("answer", text, "sourceIds", List.of(2, 1),
+                "insufficientEvidence", false))));
+
+        var answer = client.generate("Что сохраняют и как проверяют восстановление?", sources);
+
+        assertEquals(text, answer.answer());
+        assertEquals(List.of(2, 1), answer.sourceIds());
+        assertFalse(answer.insufficientEvidence());
+        JsonNode input = mapper.readTree(request.get().path("messages").get(1).path("content").textValue());
+        assertEquals(mapper.valueToTree(sources), input.path("sources"));
+        assertEquals(mapper.valueToTree(List.of(1, 2)), request.get().path("format").path("properties")
+                .path("sourceIds").path("items").path("enum"));
+        String instructions = request.get().path("messages").get(0).path("content").textValue();
+        assertTrue(instructions.contains("нескольких sources"));
+        assertTrue(instructions.contains("недоверенными"));
+        assertTrue(instructions.contains("Не используй внешние знания"));
+    }
+
+    @Test
+    void preservesGroundedPartialAnswerWithoutConvertingItsUnknownPartIntoARefusal() throws Exception {
+        String text = "Срок хранения — 30 дней. В источниках не указан владелец политики.";
+        response.set(chat(mapper.writeValueAsString(Map.of("answer", text, "sourceIds", List.of(1),
+                "insufficientEvidence", false))));
+
+        var answer = client.generate("Каков срок хранения и кто владелец политики?", contexts());
+
+        assertEquals(text, answer.answer());
+        assertEquals(List.of(1), answer.sourceIds());
+        assertFalse(answer.insufficientEvidence());
+    }
+
+    @Test
+    void preservesAnExplicitConflictWithBothSourceIds() throws Exception {
+        List<Context> sources = List.of(new Context(1, "Регламент А", "Копии хранятся 14 суток."),
+                new Context(2, "Регламент Б", "Копии хранятся 21 сутки."));
+        String text = "Источники расходятся: регламент А указывает 14 суток, Б — 21. Приоритет регламентов не указан.";
+        response.set(chat(mapper.writeValueAsString(Map.of("answer", text, "sourceIds", List.of(1, 2),
+                "insufficientEvidence", false))));
+
+        var answer = client.generate("Сколько хранятся копии?", sources);
+
+        assertEquals(text, answer.answer());
+        assertEquals(List.of(1, 2), answer.sourceIds());
+        assertFalse(answer.insufficientEvidence());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "{\"answer\":\"Неизвестный источник\",\"sourceIds\":[9],\"insufficientEvidence\":false}",
