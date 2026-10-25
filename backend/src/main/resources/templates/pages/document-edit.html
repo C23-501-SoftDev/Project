@@ -126,7 +126,8 @@
 
 
 <!-- Подключаем marked.js для рендеринга Markdown -->
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script th:src="@{/js/vendor/marked-18.1.1.umd.js}"></script>
+<script th:src="@{/js/vendor/purify-3.4.17.min.js}"></script>
 
 <style>
 .autosave-status {
@@ -266,7 +267,15 @@
         });
 
         function renderPreview() {
-            preview.innerHTML = marked.parse(textarea.value);
+            if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined' || !DOMPurify.isSupported) {
+                preview.textContent = textarea.value;
+                return;
+            }
+            preview.innerHTML = DOMPurify.sanitize(marked.parse(textarea.value, { async: false }), {
+                USE_PROFILES: { html: true },
+                FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select'],
+                FORBID_ATTR: ['style', 'id', 'name']
+            });
         }
 
         function formatFileSize(sizeBytes) {

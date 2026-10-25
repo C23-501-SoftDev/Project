@@ -187,6 +187,13 @@
             <version>${flexmark.version}</version>
         </dependency>
 
+        <!-- Explicitly maintained sanitizer; replaces flexmark's older transitive jsoup. -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.23.2</version>
+        </dependency>
+
         <!-- OpenHTMLtoPDF — HTML → PDF через PDFBox -->
         <dependency>
             <groupId>com.openhtmltopdf</groupId>

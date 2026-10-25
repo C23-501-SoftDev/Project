@@ -336,29 +336,36 @@ test("@documents DOC12: cancel on new form returns to list", async ({
   await adminApi.dispose();
 });
 
-test("@documents DOC13: markdown with raw HTML is rendered as-is (marked.js)", async ({
-  browser,
-  baseURL,
-}) => {
-  const adminApi = await createAdminApi(baseURL);
-  const spaceId = await createTestSpaceId(adminApi, baseURL);
-  const payload = '<script>alert("xss")</script>';
-  const createRes = await createDocument(adminApi, baseURL, {
-    title: `E2E HTML ${uniqueSuffix()}`,
-    spaceId,
-    content: payload,
-  });
-  const doc = await createRes.json();
-
-  const { context, page } = await newBrowserPageFromApi(browser, adminApi);
+test("@documents DOC13: view, editor preview and HTML export remove executable markup", async ({ browser, baseURL }) => {
+  const api = await createAdminApi(baseURL);
+  const spaceId = await createTestSpaceId(api, baseURL);
+  const payload = '# Safe heading\n\n<img src="missing.png" onerror="window.markdownXss=1">'
+    + '<script>window.markdownXss=1</script><a href="javascript:window.markdownXss=1">bad link</a>';
+  const response = await createDocument(api, baseURL, { title: `Safe HTML ${uniqueSuffix()}`, spaceId, content: payload });
+  expect(response.status()).toBe(201);
+  const doc = await response.json();
+  const { context, page } = await newBrowserPageFromApi(browser, api);
   await page.goto(`/documents/${doc.id}`);
-  await expect(page.locator("#documentContent")).toBeVisible({ timeout: 10_000 });
-  const html = await page.locator("#documentContent").innerHTML();
-  // marked.js пропускает inline HTML — тест фиксирует текущее поведение
-  expect(html.toLowerCase()).toContain("script");
+  await expect(page.locator("#documentContent h1")).toHaveText("Safe heading");
+  await expect(page.locator("#documentContent script, #documentContent [onerror]")).toHaveCount(0);
+  expect(await page.evaluate(() => window.markdownXss)).toBeUndefined();
 
+  await page.goto(`/documents/${doc.id}/edit`);
+  await expect(page.locator("#editorTextarea")).toHaveValue(payload);
+  await expect(page.locator("#previewContent h1")).toHaveText("Safe heading");
+  await expect(page.locator("#previewContent script, #previewContent [onerror]")).toHaveCount(0);
+  expect(await page.evaluate(() => window.markdownXss)).toBeUndefined();
+
+  const exported = await api.get(`${baseURL}/api/documents/${doc.id}/export/html`);
+  expect(exported.ok()).toBeTruthy();
+  const html = await exported.text();
+  expect(html).toContain("<style>");
+  await page.setContent(html);
+  await expect(page.locator("body h1").last()).toHaveText("Safe heading");
+  await expect(page.locator("script, [onerror], a[href^='javascript:']")).toHaveCount(0);
+  expect(await page.evaluate(() => window.markdownXss)).toBeUndefined();
   await context.close();
-  await adminApi.dispose();
+  await api.dispose();
 });
 
 test("@documents DOC31: title search via URL query parameter", async ({
