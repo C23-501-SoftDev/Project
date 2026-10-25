@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface DocumentRepository {
+
+    /** Serialize mutations with RAG baseline capture before touching Git. */
+    default void lockById(Long id) { }
     Document save(Document document);
     Optional<Document> findById(Long id);
     List<Document> findBySpaceId(Long spaceId, boolean includeDeleted);

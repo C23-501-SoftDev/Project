@@ -56,6 +56,7 @@
         <!-- Боковая панель -->
         <aside class="sidebar" th:if="${currentUser != null}" id="spacesSidebar">
             <div class="sidebar-header">
+                <a th:href="@{/ask}" class="button-secondary" style="display:block; text-decoration:none; margin-bottom:20px;">Спросить базу знаний</a>
                 <h3>Пространства</h3>
                 <form class="sidebar-search" id="spaceSearchForm" autocomplete="off">
                     <input type="search" id="spaceSearchInput" class="sidebar-search-input"

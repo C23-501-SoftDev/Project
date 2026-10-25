@@ -1,3 +1,9 @@
+# Verification: Local authorized RAG through Ollama and pgvector (2026-10-26)
+
+Maven clean verify: 246 tests, 0 failures/errors/skips, including 14 real PostgreSQL/pgvector tests and 6 Spring/MockMvc RAG authorization tests. Node: 3 passed. Playwright: 154 passed, 0 failed/flaky/skipped, workers=1, retries=0, PostgreSQL 18.6 fresh isolated schema, 68.5 seconds. Final JAR used by both local test applications.
+
+Real-model evaluation: 30/30 successful requests, 24/24 expected documents retrieved and cited with substantive answers, 6/6 unsupported questions declined, no invalid citations or injection canary. Full ask p50=1720ms, p95=2023ms; synthetic local scope only. [Methodology, all three runs and limitations](../rag/results/README.md).
+
 # Verification: Verified architecture, specifications and remaining roadmap (2026-10-25)
 
 Maven clean verify: 127 tests, 0 failures/errors/skips. Node tests passed. Playwright: 149 passed, 0 failed/flaky/skipped, workers=1, retries=0, PostgreSQL 18.6 fresh test schema.

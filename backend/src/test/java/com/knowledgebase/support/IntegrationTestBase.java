@@ -69,6 +69,7 @@ public abstract class IntegrationTestBase {
         registry.add("app.notifications.from", () -> "no-reply@knowledgebase.local");
         registry.add("app.notifications.admin-email", () -> "admin@knowledgebase.local");
         registry.add("app.ai.enabled", () -> "false");
+        registry.add("app.rag.enabled", () -> "false");
         registry.add("app.ai.api-key", () -> "");
     }
 

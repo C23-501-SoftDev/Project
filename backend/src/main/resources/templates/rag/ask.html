@@ -1,0 +1,38 @@
+<section class="rag-page" id="ragPage" aria-labelledby="ragTitle">
+    <link rel="stylesheet" th:href="@{/css/rag.css}">
+    <h1 id="ragTitle">Вопрос по базе знаний</h1>
+    <p class="rag-description">Ответы основаны на опубликованных статьях, которые вам доступны. Проверяйте выводы по источникам.</p>
+    <p id="ragAvailability" class="rag-notice" role="status">Проверяем доступность сервиса…</p>
+
+    <form id="ragForm" novalidate>
+        <label for="ragQuestion">Ваш вопрос</label>
+        <textarea id="ragQuestion" name="question" rows="4" maxlength="2000" required
+                  placeholder="Например, как опубликовать новую статью?"
+                  aria-describedby="ragQuestionHint" disabled></textarea>
+        <div class="rag-field-hint" id="ragQuestionHint">От 1 до 2000 символов. <span id="ragCount">0</span>/2000</div>
+
+        <label for="ragSpaces">Ограничить поиск пространствами</label>
+        <select id="ragSpaces" name="spaces" multiple size="4" aria-describedby="ragSpacesHint" disabled>
+            <option th:each="space : ${spaces}" th:value="${space.id}" th:text="${space.name}"></option>
+        </select>
+        <div class="rag-field-hint" id="ragSpacesHint">Без выбора — все доступные пространства. Можно выбрать до 20; удерживайте Ctrl или ⌘ для нескольких.</div>
+        <div class="rag-actions">
+            <button id="ragSubmit" class="button-primary" type="submit" disabled>Получить ответ</button>
+            <button id="ragClearSpaces" class="button-secondary" type="button" disabled>Сбросить пространства</button>
+        </div>
+    </form>
+
+    <p id="ragError" class="rag-error" role="alert" hidden></p>
+    <p id="ragLoading" role="status" hidden>Ищем статьи и готовим ответ…</p>
+    <section id="ragResult" class="rag-result" aria-labelledby="ragResultTitle" aria-live="polite" hidden>
+        <h2 id="ragResultTitle">Ответ</h2>
+        <p id="ragInsufficient" class="rag-notice" hidden>В доступных статьях недостаточно сведений для ответа. Попробуйте уточнить вопрос.</p>
+        <div id="ragAnswer" class="rag-answer"></div>
+        <div id="ragSourcesSection" hidden>
+            <h3>Источники</h3>
+            <ol id="ragSources"></ol>
+        </div>
+        <p id="ragRequestId" class="rag-field-hint"></p>
+    </section>
+    <script th:src="@{/js/rag.js}" defer></script>
+</section>

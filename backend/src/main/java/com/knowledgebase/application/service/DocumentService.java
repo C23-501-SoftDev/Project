@@ -205,7 +205,7 @@ public class DocumentService {
     @Transactional
     public Document moveDocument(Long id, Long targetSpaceId, Long targetParentId,
                                  Integer targetPosition, Long editorId) {
-        Document document = getDocumentById(id);
+        Document document = getDocumentForUpdate(id);
         if (document.getStatus() == DocumentStatus.DELETED) {
             throw new DocumentValidationException("Нельзя перемещать удаленный документ");
         }
@@ -374,6 +374,7 @@ public class DocumentService {
 
     private void updateSpaceAndPathsRecursive(Document doc, Long targetSpaceId, Long targetParentId, String targetSpaceName,
                                              java.util.Map<Long, List<Document>> childrenMap, User editor) {
+        documentRepository.lockById(doc.getId());
         String oldPath = doc.getGitFilePath();
         String content = getDocumentContent(doc);
 
@@ -440,6 +441,11 @@ public class DocumentService {
             throw new DocumentValidationException("Заголовок '" + title + "' уже занят на этом уровне");
         }
     }
+    private Document getDocumentForUpdate(Long id) {
+        documentRepository.lockById(id);
+        return getDocumentById(id);
+    }
+
     public Document getDocumentById(Long id) {
         Document document = documentRepository.findById(id)
                 .orElseThrow(() -> new DocumentNotFoundException(id));
@@ -484,7 +490,7 @@ public class DocumentService {
      */
     @Transactional
     public Document publishDocument(Long id, Long userId, boolean isAdmin) {
-        Document document = getDocumentById(id);
+        Document document = getDocumentForUpdate(id);
 
         if (document.getStatus() == DocumentStatus.DELETED) {
             throw new DocumentValidationException("Нельзя опубликовать удаленный документ");
@@ -535,7 +541,7 @@ public class DocumentService {
      */
     @Transactional
     public Document updateDocument(Long id, String title, String content, Long parentId, Long editorId) {
-        Document document = getDocumentById(id);
+        Document document = getDocumentForUpdate(id);
         if (document.getStatus() == DocumentStatus.DELETED) {
             throw new DocumentValidationException("Нельзя изменять удаленный документ");
         }
@@ -661,7 +667,7 @@ public class DocumentService {
      */
     @Transactional
     public void deleteDocument(Long id, boolean reparentChildren) {
-        Document document = getDocumentById(id);
+        Document document = getDocumentForUpdate(id);
         
         if (document.getStatus() == DocumentStatus.DELETED) {
             log.info("Документ ID {} уже удален", id);
@@ -727,7 +733,7 @@ public class DocumentService {
         if (documentRepository.hasChildren(id)) {
             throw new DocumentValidationException("Нельзя удалить документ, у которого есть дочерние документы");
         }
-        Document document = getDocumentById(id);
+        Document document = getDocumentForUpdate(id);
         log.info("Полное удаление документа ID {}: title='{}'", id, document.getTitle());
 
         // 1. Удаляем из БД
@@ -745,7 +751,7 @@ public class DocumentService {
      */
     @Transactional
     public void restoreDocument(Long id, boolean keepHierarchy) {
-        Document document = getDocumentById(id);
+        Document document = getDocumentForUpdate(id);
         
         if (document.getStatus() != DocumentStatus.DELETED) {
             log.info("Документ ID {} не находится в архиве", id);

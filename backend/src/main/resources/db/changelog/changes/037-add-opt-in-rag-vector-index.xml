@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+    <!-- @ requires an explicit context filter: normal startup/H2 never installs the extension. -->
+    <changeSet id="037-add-opt-in-rag-vector-index" author="knowledgebase-dev" context="@rag" dbms="postgresql">
+        <comment>Rebuildable pgvector chunks and leased indexing queue; enable with spring.liquibase.contexts=rag.</comment>
+        <sql splitStatements="true"><![CDATA[
+            CREATE EXTENSION IF NOT EXISTS vector;
+            CREATE TABLE rag_chunks (
+                document_id BIGINT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                space_id BIGINT NOT NULL,
+                version_sha VARCHAR(40) NOT NULL,
+                source_updated_at TIMESTAMP NOT NULL,
+                chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
+                chunk_text TEXT NOT NULL,
+                embedding_model VARCHAR(200) NOT NULL,
+                embedding_dimensions INTEGER NOT NULL CHECK (embedding_dimensions BETWEEN 1 AND 16000),
+                embedding vector NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (document_id, version_sha, embedding_model, embedding_dimensions, chunk_index),
+                CHECK (vector_dims(embedding) = embedding_dimensions)
+            );
+            CREATE INDEX idx_rag_chunks_model_document ON rag_chunks(embedding_model, embedding_dimensions, document_id);
+            CREATE TABLE rag_index_jobs (
+                document_id BIGINT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                space_id BIGINT NOT NULL,
+                version_sha VARCHAR(40) NOT NULL,
+                git_file_path VARCHAR(500) NOT NULL,
+                source_updated_at TIMESTAMP NOT NULL,
+                embedding_model VARCHAR(200) NOT NULL,
+                embedding_dimensions INTEGER NOT NULL CHECK (embedding_dimensions BETWEEN 1 AND 16000),
+                state VARCHAR(20) NOT NULL CHECK (state IN ('PENDING', 'PROCESSING', 'DONE', 'FAILED')),
+                attempts INTEGER NOT NULL DEFAULT 0,
+                available_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                lease_until TIMESTAMPTZ,
+                lease_token VARCHAR(36),
+                last_error VARCHAR(80),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (document_id, embedding_model, embedding_dimensions)
+            );
+            CREATE INDEX idx_rag_jobs_available ON rag_index_jobs(state, available_at);
+            CREATE TABLE rag_embedding_budget (
+                budget_day DATE PRIMARY KEY,
+                used_characters BIGINT NOT NULL CHECK (used_characters >= 0)
+            );
+        ]]></sql>
+        <rollback>
+            <dropTable tableName="rag_chunks"/>
+            <dropTable tableName="rag_index_jobs"/>
+            <dropTable tableName="rag_embedding_budget"/>
+            <!-- Preserve vector: another application/schema may use the shared extension. -->
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

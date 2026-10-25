@@ -149,6 +149,17 @@ public class JGitDocumentContentRepository implements DocumentContentRepository 
     }
 
     @Override
+    public synchronized Optional<String> latestCommitForPath(String gitFilePath) {
+        resolvePath(gitFilePath);
+        try (Git git = Git.open(new File(gitRepoPath))) {
+            var commits = git.log().addPath(gitFilePath).setMaxCount(1).call().iterator();
+            return commits.hasNext() ? Optional.of(commits.next().getId().name()) : Optional.empty();
+        } catch (IOException | GitAPIException ex) {
+            throw new IllegalStateException("Unable to resolve immutable document snapshot", ex);
+        }
+    }
+
+    @Override
     public synchronized Optional<String> readDocumentVersion(String gitFilePath, String gitHash) {
         validateVersionReadArguments(gitFilePath, gitHash);
         try (Git git = Git.open(new File(gitRepoPath))) {

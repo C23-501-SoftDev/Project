@@ -36,6 +36,9 @@ public class DocumentRepositoryImpl implements DocumentRepository {
     }
 
     @Override
+    public void lockById(Long id) { jpaRepository.lockById(id); }
+
+    @Override
     public Document save(Document document) {
         DocumentJpaEntity entity = mapper.toEntity(document);
         DocumentJpaEntity savedEntity = jpaRepository.save(entity);

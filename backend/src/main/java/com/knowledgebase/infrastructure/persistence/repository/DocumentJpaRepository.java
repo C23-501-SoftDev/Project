@@ -15,6 +15,9 @@ import java.util.List;
 @Repository
 public interface DocumentJpaRepository extends JpaRepository<DocumentJpaEntity, Long> {
 
+    @Query(value = "SELECT * FROM documents WHERE id = :id FOR UPDATE", nativeQuery = true)
+    java.util.Optional<DocumentJpaEntity> lockById(@Param("id") Long id);
+
     List<DocumentJpaEntity> findBySpaceId(Long spaceId);
 
     List<DocumentJpaEntity> findBySpaceIdAndStatusNot(Long spaceId, String status);
