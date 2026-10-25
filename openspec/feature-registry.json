@@ -452,6 +452,16 @@
             "docs": [
                 "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
             ]
+        },
+        {
+            "featureId": "safe-markdown-html-export",
+            "title": "Safe styled Markdown HTML conversion (US5.1.1)",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
+            ]
         }
     ]
 }

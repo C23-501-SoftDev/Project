@@ -8,7 +8,11 @@ From `backend`: `mvn clean verify`.
 From repository root: `node --test backend/src/test/javascript/*.test.js`.
 From `tests/E2E`: `npm ci`, `npx playwright install chromium`, then `E2E_BASE_URL=http://127.0.0.1:18080 npm test` against a running application with migrations applied.
 
-## Latest: protect-document-exports
+## Latest: sanitize-markdown-html
+
+Java **117 passed**, JavaScript test passed, full Playwright **144 passed / 0 failed / 0 skipped / 0 retries**. New browser regression checks script/event-handler removal in document view, editor preview and standalone HTML. PDF resource test observed zero HTTP requests.
+
+## Previous: protect-document-exports
 
 Java **114 passed**, JavaScript test passed, full Playwright **144 passed / 0 failed / 0 skipped / 0 retries** on a fresh PostgreSQL schema. Draft export, version and attachment access regressions are covered by the added Java integration tests.
 

@@ -10,6 +10,10 @@ import com.vladsch.flexmark.util.ast.Node;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.stereotype.Service;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Entities;
+import org.jsoup.safety.Safelist;
+import com.openhtmltopdf.outputdevice.helper.ExternalResourceControlPriority;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -36,7 +40,23 @@ public class MarkdownService {
     public String toHtml(String markdown) {
         if (markdown == null || markdown.isBlank()) return "";
         Node document = parser.parse(markdown);
-        return renderer.render(document);
+        Safelist safe = Safelist.relaxed().addTags("del")
+                .addProtocols("a", "href", "#").preserveRelativeLinks(true);
+        var output = new org.jsoup.nodes.Document.OutputSettings()
+                .syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml)
+                .escapeMode(Entities.EscapeMode.xhtml).prettyPrint(false);
+        return Jsoup.clean(renderer.render(document), "https://knowledge-base.invalid/", safe, output);
+    }
+
+    public String toHtmlDocument(String title, String markdown) {
+        return "<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"UTF-8\"/>"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>"
+                + "<title>" + escapeHtml(title) + "</title><style>"
+                + "body{font-family:system-ui,sans-serif;max-width:900px;margin:32px auto;padding:0 20px;line-height:1.6}"
+                + "table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:8px;text-align:left}"
+                + "pre{white-space:pre-wrap;background:#f4f4f4;padding:16px}code{font-family:monospace}"
+                + "blockquote{border-left:4px solid #bbb;padding-left:16px;color:#555}img{max-width:100%}"
+                + "</style></head><body><h1>" + escapeHtml(title) + "</h1>" + toHtml(markdown) + "</body></html>";
     }
 
     public byte[] toPdf(String title, String markdown) throws IOException {
@@ -45,6 +65,12 @@ public class MarkdownService {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PdfRendererBuilder builder = new PdfRendererBuilder();
         builder.useFastMode();
+        // PDFBox image loading in 1.0.10 can bypass resource predicates; deny URI resolution too.
+        builder.useUriResolver((baseUri, uri) -> null);
+        builder.useExternalResourceAccessControl((uri, type) -> false,
+                ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
+        builder.useExternalResourceAccessControl((uri, type) -> false,
+                ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
         registerDejaVuFonts(builder);
         builder.withHtmlContent(fullHtml, null);
         builder.toStream(out);

@@ -198,8 +198,8 @@
 |-------|----------|----------|--------|
 | GET | `/api/documents/{id}/export/pdf` | Экспорт в PDF; права пространства + видимость документа, чужой Draft → 403 | ✅ |
 | GET | `/api/documents/{id}/export/docx` | Экспорт в DOCX; права пространства + видимость документа, чужой Draft → 403 | ✅ |
-| GET | `/api/documents/{id}/export/html` | Экспорт в HTML; права пространства + видимость документа, чужой Draft → 403 | ✅ |
-| GET | `/api/documents/{id}/export?format=html&includeAttachments=true` | Экспорт с вложениями (архив) | ❌ |
+| GET | `/api/documents/{id}/export/html` | HTML с очищенной разметкой и встроенными стилями; права пространства + видимость документа, чужой Draft → 403 | ✅ |
+| GET | `/api/documents/{id}/export?format=html&includeAttachments=true` | План: экспорт с вложениями в архиве (не реализован) | ❌ |
 
 ---
 

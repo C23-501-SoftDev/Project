@@ -39,10 +39,7 @@ public class DocumentExportController {
     public ResponseEntity<byte[]> exportHtml(@PathVariable Long id) {
         Document doc = documentService.getDocumentById(id);
         String markdown = documentService.getDocumentContent(doc);
-        String bodyHtml = markdownService.toHtml(markdown);
-        String fullHtml = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"/>" +
-                "<title>" + escapeHtml(doc.getTitle()) + "</title></head><body>" +
-                "<h1>" + escapeHtml(doc.getTitle()) + "</h1>" + bodyHtml + "</body></html>";
+        String fullHtml = markdownService.toHtmlDocument(doc.getTitle(), markdown);
         byte[] bytes = fullHtml.getBytes(StandardCharsets.UTF_8);
         ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
                 .contentType(new MediaType("text", "html", StandardCharsets.UTF_8));
@@ -90,8 +87,4 @@ public class DocumentExportController {
         builder.header("Access-Control-Expose-Headers", HttpHeaders.CONTENT_DISPOSITION);
     }
 
-    private String escapeHtml(String text) {
-        if (text == null) return "";
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-    }
 }
