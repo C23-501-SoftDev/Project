@@ -1,7 +1,7 @@
 # portable-cyrillic-pdf Specification
 
 ## Purpose
-Portable Cyrillic PDF fonts (US5.1.2).
+Preserve Cyrillic and Latin text in exported PDF documents by embedding licensed, versioned fonts independently of the host operating system (US5.1.2).
 
 ## Requirements
 ### Requirement: Portable Cyrillic PDF fonts
