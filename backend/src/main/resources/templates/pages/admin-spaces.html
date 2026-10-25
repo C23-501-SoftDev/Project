@@ -43,7 +43,7 @@
     <div class="filter-bar" style="margin-bottom: 20px;">
         <div class="filter-group">
             <label>Статус:</label>
-            <div class="custom-select" id="statusFilterWrapper" style="width: 180px;">
+            <div class="custom-select" id="statusFilterWrapper" data-target="statusFilter" style="width: 180px;">
                 <div class="select-styled">Активные</div>
                 <div class="select-options">
                     <div class="select-option" data-value="active">Активные</div>
@@ -320,10 +320,15 @@
         }
 
         //  Загрузка владельцев для фильтра (из второго варианта) 
+        let ownerRequestSequence = 0;
         async function loadAdminSpaceOwners(status) {
+            const sequence = ++ownerRequestSequence;
+            const ownerOptionsDiv = document.getElementById('ownerFilterWrapper').querySelector('.select-options');
+            ownerOptionsDiv.replaceChildren();
+            ownerOptionsDiv.setAttribute('aria-busy', 'true');
             try {
                 const data = await adminFetch('/api/admin/spaces/space-owners?status=' + status);
-                const ownerOptionsDiv = document.getElementById('ownerFilterWrapper').querySelector('.select-options');
+                if (sequence !== ownerRequestSequence) return;
                 if (ownerOptionsDiv) {
                     const owners = data || [];
                     ownerOptionsDiv.innerHTML = '<div class="select-option" data-value="">Все</div>';
@@ -337,6 +342,8 @@
                 }
             } catch (e) {
                 console.error('Failed to load admin space owners:', e);
+            } finally {
+                if (sequence === ownerRequestSequence) ownerOptionsDiv.setAttribute('aria-busy', 'false');
             }
         }
 
@@ -721,12 +728,13 @@
             });
 
             // При смене статуса обновляем список владельцев
-            document.getElementById('statusFilterWrapper')?.addEventListener('change', async (e) => {
+            document.getElementById('statusFilter')?.addEventListener('change', async (e) => {
                 const status = document.getElementById('statusFilter').value;
-                await loadAdminSpaceOwners(status);
+                // Reset before loading so a newer selection is never overwritten.
                 // сбросить выбранного владельца
                 document.getElementById('ownerFilter').value = '';
                 document.getElementById('ownerFilterWrapper').querySelector('.select-styled').textContent = 'Все';
+                await loadAdminSpaceOwners(status);
             });
         });
     })();
