@@ -462,6 +462,16 @@
             "docs": [
                 "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
             ]
+        },
+        {
+            "featureId": "pdf-portable-cyrillic-fonts",
+            "title": "Portable Cyrillic PDF fonts (US5.1.2)",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
+            ]
         }
     ]
 }
