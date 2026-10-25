@@ -22,7 +22,7 @@
 Из корня репозитория:
 
 ```sh
-node --test backend/src/test/javascript/*.test.js
+node --test backend/src/test/javascript/*.test.js tests/performance/*.test.cjs
 openspec validate --all --strict
 ```
 
@@ -37,7 +37,7 @@ E2E_BASE_URL=http://127.0.0.1:18080 npm test
 
 В конфигурации Playwright: один worker, retries=0. Перед полным прогоном используйте свежую тестовую схему и JAR из текущей сборки. Не очищайте рабочую или общую БД. Обычные тестовые API-клиенты получают серверную CSRF-cookie и передают заголовок; отрицательные проверки CSRF используют отдельный raw client.
 
-Для каждого исправления сохраняйте результаты в OpenSpec tasks и `tests/E2E/E2E_RESULTS.md`. Замер US4.4.1 описан в `tests/performance/README.md`; он дополняет функциональные тесты.
+Для каждого исправления сохраняйте результаты в OpenSpec tasks и `tests/E2E/E2E_RESULTS.md`. Нагрузочная приёмка US4.4.1 описана в `tests/performance/README.md`: согласованный нормальный профиль — 25 пользователей, отдельный стресс — 50. Она дополняет функциональные тесты; её измерения запускаются без параллельных сборок, E2E и модельного inference. Неуспешные замеры и исходные пороги сохраняются вместе с итоговым результатом.
 
 ## Если нет PostgreSQL
 Не менять security/авторизацию “для демо” в main-ветке.  
