@@ -74,15 +74,10 @@
                             th:data-space-id="${space.id}">
                             Пространство
                         </button>
-                        <!-- Дерево отображается, если оно было загружено, скрытие/раскрытие через JS -->
                         <div th:id="'tree-' + ${space.id}"
-                            th:style="${currentSpace != null && currentSpace.id == space.id} ? 'display:block' : 'display:none'">
-                            <div th:if="${spaceTrees != null && spaceTrees.get(space.id) != null}">
-                                <div
-                                    th:replace="~{fragments/document-tree :: documentTree(${spaceTrees.get(space.id)}, false)}">
-                                </div>
-                            </div>
-                        </div>
+                            th:data-tree-url="@{/spaces/{id}/tree(id=${space.id})}"
+                            th:style="${currentSpace != null && currentSpace.id == space.id} ? 'display:block' : 'display:none'"
+                            aria-live="polite"></div>
                     </li>
                 </ul>
             </div>

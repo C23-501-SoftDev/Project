@@ -977,6 +977,19 @@ public class DocumentService {
         return result;
     }
 
+    /** Permission is checked once for the space, before filtering draft visibility in memory. */
+    public List<DocumentTreeNode> getVisibleHierarchyForSpace(Long spaceId, Long userId, boolean isAdmin) {
+        if (!permissionService.canRead(userId, isAdmin, spaceId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Нет доступа к пространству");
+        }
+        List<Document> visible = documentRepository.findBySpaceIdIn(List.of(spaceId), false).stream()
+                .filter(document -> document.getStatus() == DocumentStatus.PUBLISHED
+                        || (document.getStatus() == DocumentStatus.DRAFT
+                        && (isAdmin || java.util.Objects.equals(userId, document.getAuthorId()))))
+                .toList();
+        return buildTree(visible);
+    }
+
     private List<DocumentTreeNode> buildTree(List<Document> documents) {
         Map<Long, DocumentTreeNode> nodeMap = new java.util.LinkedHashMap<>();
         List<DocumentTreeNode> roots = new ArrayList<>();

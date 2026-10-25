@@ -1,0 +1,32 @@
+{
+  "addedSpaces": 50,
+  "addedDocuments": 5000,
+  "iterations": 5,
+  "measurements": [
+    {
+      "readyMs": 106,
+      "htmlBytes": 84428,
+      "sidebarDocumentNodes": 1
+    },
+    {
+      "readyMs": 66,
+      "htmlBytes": 84428,
+      "sidebarDocumentNodes": 1
+    },
+    {
+      "readyMs": 63,
+      "htmlBytes": 84428,
+      "sidebarDocumentNodes": 1
+    },
+    {
+      "readyMs": 64,
+      "htmlBytes": 84428,
+      "sidebarDocumentNodes": 1
+    },
+    {
+      "readyMs": 65,
+      "htmlBytes": 84428,
+      "sidebarDocumentNodes": 1
+    }
+  ]
+}

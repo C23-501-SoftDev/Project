@@ -60,7 +60,7 @@
 |-------|----------|----------|--------|
 | GET | `/api/admin/spaces/{id}` | Детали пространства (name, description, ownerId) | ✅ |
 | GET | `/api/spaces/{id}/documents?page=0&size=20` | Документы в пространстве с пагинацией | ❌ |
-| GET | `/api/spaces/{id}/tree` | Древовидная структура документов (для sidebar/TOC) | ❌ |
+| GET | `/spaces/{id}/tree?documentId={id}` | HTML-фрагмент дерева для sidebar; асинхронно при раскрытии, READ на пространство, чужие черновики скрыты, `Cache-Control: no-store`; `documentId` опционален для выделения текущего документа | ✅ |
 | GET | `/api/user/permissions?spaceId={id}` | Проверка прав текущего пользователя | ✅ |
 
 ---

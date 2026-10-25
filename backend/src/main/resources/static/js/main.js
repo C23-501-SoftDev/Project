@@ -1,3 +1,40 @@
+const spaceTreeLoads = new Map();
+
+async function loadSpaceTree(spaceId) {
+    const tree = document.getElementById('tree-' + spaceId);
+    if (!tree) return false;
+    if (tree.dataset.loaded === 'true') return true;
+    if (spaceTreeLoads.has(tree.id)) return spaceTreeLoads.get(tree.id);
+    const loading = Promise.resolve().then(async () => {
+        tree.setAttribute('aria-busy', 'true');
+        tree.textContent = 'Загрузка документов…';
+        try {
+            const url = new URL(tree.dataset.treeUrl, window.location.origin);
+            const documentId = document.getElementById('documentId')?.value;
+            if (documentId) url.searchParams.set('documentId', documentId);
+            const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'text/html' } });
+            if (!response.ok || response.redirected) throw new Error('Tree request failed');
+            tree.innerHTML = await response.text();
+            tree.dataset.loaded = 'true';
+            return true;
+        } catch (error) {
+            tree.textContent = 'Не удалось загрузить документы. ';
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'button-secondary tree-retry';
+            retry.textContent = 'Повторить';
+            retry.addEventListener('click', () => loadSpaceTree(spaceId));
+            tree.append(retry);
+            return false;
+        } finally {
+            tree.removeAttribute('aria-busy');
+            spaceTreeLoads.delete(tree.id);
+        }
+    });
+    spaceTreeLoads.set(tree.id, loading);
+    return loading;
+}
+
 function toggleSpaceTree(spaceId) {
     const btn = document.querySelector(`.space-button[onclick*="toggleSpaceTree(${spaceId})"]`);
     const spaceName = btn ? btn.textContent.trim() : '';
@@ -18,6 +55,7 @@ function toggleSpaceTree(spaceId) {
         const isVisible = treeElement.style.display !== 'none';
         treeElement.style.display = isVisible ? 'none' : 'block';
         localStorage.setItem('space-tree-' + spaceId, isVisible ? 'hidden' : 'visible');
+        if (!isVisible) loadSpaceTree(spaceId);
     }
 
     setActiveSpaceButton(spaceId);
@@ -35,12 +73,24 @@ function setActiveSpaceButton(spaceId) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const selectedSpaceId = new URLSearchParams(window.location.search).get('spaceId');
+    const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && entry.target.style.display !== 'none') {
+                loadSpaceTree(entry.target.id.replace('tree-', ''));
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { root: document.getElementById('spaceTreeContainer') });
     const allTrees = document.querySelectorAll('[id^="tree-"]');
     allTrees.forEach(tree => {
         const spaceId = tree.id.replace('tree-', '');
+        const current = tree.style.display !== 'none' || spaceId === selectedSpaceId;
         const state = localStorage.getItem('space-tree-' + spaceId);
-        if (state === 'visible') {
+        if (current || state === 'visible') {
             tree.style.display = 'block';
+            if (current || !observer) loadSpaceTree(spaceId);
+            else observer.observe(tree);
         } else if (state === 'hidden') {
             tree.style.display = 'none';
         }
@@ -220,6 +270,8 @@ function initDragAndDrop() {
         } else if (spaceButton) {
             targetSpaceId = spaceButton.dataset.spaceId;
             targetParentId = null;
+            e.preventDefault();
+            if (!(await loadSpaceTree(targetSpaceId))) return;
             targetPosition = rootDocumentItems(targetSpaceId)
                 .filter(item => item !== sourceItem).length;
         } else {

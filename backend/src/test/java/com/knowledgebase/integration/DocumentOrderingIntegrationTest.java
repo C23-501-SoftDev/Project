@@ -33,7 +33,7 @@ class DocumentOrderingIntegrationTest extends IntegrationTestBase {
         assertEquals(List.of(third.getId(), first.getId(), second.getId()), ids(roots));
         assertEquals(List.of(0, 1, 2), sortOrders(roots));
 
-        mockMvc.perform(get("/").cookie(jwtCookie(context.jwt())))
+        mockMvc.perform(get("/spaces/" + context.space().getId() + "/tree").cookie(jwtCookie(context.jwt())))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("class=\"document-row\"")))
                 .andExpect(content().string(containsString("data-sort-order=\"0\"")));
