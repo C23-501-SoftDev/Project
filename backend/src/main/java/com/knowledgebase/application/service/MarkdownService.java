@@ -19,6 +19,10 @@ import java.io.ByteArrayOutputStream;
 import java.util.Objects;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.io.ByteArrayInputStream;
+import com.knowledgebase.application.service.export.ExportImage;
 
 @Service
 public class MarkdownService {
@@ -49,6 +53,10 @@ public class MarkdownService {
     }
 
     public String toHtmlDocument(String title, String markdown) {
+        return htmlDocumentFromBody(title, toHtml(markdown));
+    }
+
+    String htmlDocumentFromBody(String title, String safeBody) {
         return "<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"UTF-8\"/>"
                 + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>"
                 + "<title>" + escapeHtml(title) + "</title><style>"
@@ -56,20 +64,30 @@ public class MarkdownService {
                 + "table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:8px;text-align:left}"
                 + "pre{white-space:pre-wrap;background:#f4f4f4;padding:16px}code{font-family:monospace}"
                 + "blockquote{border-left:4px solid #bbb;padding-left:16px;color:#555}img{max-width:100%}"
-                + "</style></head><body><h1>" + escapeHtml(title) + "</h1>" + toHtml(markdown) + "</body></html>";
+                + "</style></head><body><h1>" + escapeHtml(title) + "</h1>" + safeBody + "</body></html>";
     }
 
     public byte[] toPdf(String title, String markdown) throws IOException {
-        String bodyHtml = toHtml(markdown != null ? markdown : "");
+        return toPdfBody(title, toHtml(markdown != null ? markdown : ""), Map.of());
+    }
+
+    byte[] toPdfBody(String title, String bodyHtml, Map<String, ExportImage> images) throws IOException {
         String fullHtml = buildPdfHtml(title, bodyHtml);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PdfRendererBuilder builder = new PdfRendererBuilder();
         builder.useFastMode();
         // PDFBox image loading in 1.0.10 can bypass resource predicates; deny URI resolution too.
-        builder.useUriResolver((baseUri, uri) -> null);
-        builder.useExternalResourceAccessControl((uri, type) -> false,
+        builder.useUriResolver((baseUri, uri) -> images.containsKey(uri) ? uri : null);
+        builder.useProtocolsStreamImplementation(uri -> {
+            ExportImage image = images.get(uri);
+            return new com.openhtmltopdf.extend.FSStream() {
+                public java.io.InputStream getStream() { return image == null ? null : new ByteArrayInputStream(image.bytes()); }
+                public java.io.Reader getReader() { return null; }
+            };
+        }, "export-image");
+        builder.useExternalResourceAccessControl((uri, type) -> images.containsKey(uri),
                 ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
-        builder.useExternalResourceAccessControl((uri, type) -> false,
+        builder.useExternalResourceAccessControl((uri, type) -> images.containsKey(uri),
                 ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
         registerPdfFonts(builder);
         builder.withHtmlContent(fullHtml, null);
@@ -95,8 +113,12 @@ public class MarkdownService {
     }
 
     public byte[] toDocx(String title, String markdown) throws IOException {
+        return toDocx(title, markdown, url -> null, Function.identity());
+    }
+
+    byte[] toDocx(String title, String markdown, Function<String, ExportImage> images, Function<String, String> links) throws IOException {
         try (XWPFDocument doc = new XWPFDocument()) {
-            new DocxRenderer(doc).render(title, parser.parse(markdown != null ? markdown : ""));
+            new DocxRenderer(doc, images, links).render(title, parser.parse(markdown != null ? markdown : ""));
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             doc.write(out);
             return out.toByteArray();
@@ -120,6 +142,7 @@ public class MarkdownService {
                "h1 { font-size: 18pt; } h2 { font-size: 15pt; } h3 { font-size: 13pt; }" +
                "pre { background: #f4f4f4; border: 1px solid #ddd; padding: 12px; font-size: 9pt; word-wrap: break-word; }" +
                "code { font-family: 'Noto Sans Mono', monospace; background: #f4f4f4; padding: 1px 4px; font-size: 9pt; }" +
+               "img { max-width: 100%; max-height: 24cm; }" +
                "table { border-collapse: collapse; width: 100%; }" +
                "th, td { border: 1px solid #ccc; padding: 6px 10px; }" +
                "th { background: #f4f4f4; font-weight: bold; }" +

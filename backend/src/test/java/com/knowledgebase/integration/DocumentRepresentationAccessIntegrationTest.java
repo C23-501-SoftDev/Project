@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import com.knowledgebase.domain.model.Attachment;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class DocumentRepresentationAccessIntegrationTest extends IntegrationTestBase {
     @ParameterizedTest
-    @ValueSource(strings = {"html", "pdf", "docx"})
+    @ValueSource(strings = {"html", "pdf", "docx", "zip"})
     void exportsRespectDraftVisibilityAndSpaceAccess(String format) throws Exception {
         Fixture f = fixture();
         String endpoint = "/api/documents/" + f.document.getId() + "/export/" + format;
@@ -31,12 +32,32 @@ class DocumentRepresentationAccessIntegrationTest extends IntegrationTestBase {
         for (String allowed : new String[] {f.authorJwt, f.adminJwt}) {
             mockMvc.perform(get(endpoint).cookie(jwtCookie(allowed)))
                     .andExpect(status().isOk())
+                    .andExpect(header().string("Cache-Control", "no-store"))
                     .andExpect(header().string("Content-Disposition", containsString("attachment;")))
                     .andExpect(result -> assertTrue(result.getResponse().getContentAsByteArray().length > 0));
         }
         documentService.publishDocument(f.document.getId(), f.author.getId(), false);
         mockMvc.perform(get(endpoint).cookie(jwtCookie(f.readerJwt))).andExpect(status().isOk());
         mockMvc.perform(get(endpoint).cookie(jwtCookie(f.guestJwt))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void archiveFailureAndResourceLimitReturnControlledUncachedJson() throws Exception {
+        Fixture f = fixture();
+        long id = f.document.getId();
+        Attachment absent = attachmentRepository.save(Attachment.create(id, null, "lost.txt", "text/plain", 3,
+                "attachments/document-" + id + "/not-present", f.author.getId()));
+        String endpoint = "/api/documents/" + id + "/export/zip";
+        mockMvc.perform(get(endpoint).cookie(jwtCookie(f.authorJwt)))
+                .andExpect(status().isConflict())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("code").value("ATTACHMENT_UNAVAILABLE"))
+                .andExpect(jsonPath("message").isString());
+        jdbcTemplate.update("UPDATE attachments SET size_bytes = ? WHERE id = ?", 10 * 1024 * 1024 + 1, absent.getId());
+        mockMvc.perform(get(endpoint).cookie(jwtCookie(f.authorJwt)))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("code").value("LIMIT_EXCEEDED"));
     }
 
     @Test

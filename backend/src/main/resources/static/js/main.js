@@ -558,7 +558,7 @@ async function exportAndAttach(docId, format) {
 
 async function triggerExportDownload(docId, format) {
   try {
-    showToast(`Подготовка ${format.toUpperCase()}…`);
+    showToast(format === 'zip' ? 'Подготовка HTML с вложениями (ZIP)…' : `Подготовка ${format.toUpperCase()}…`);
     const response = await apiFetch(`/api/documents/${docId}/export/${format}`);
     const blob = await response.blob();
 
@@ -593,7 +593,7 @@ async function triggerExportDownload(docId, format) {
   } catch (err) {
     console.error('Export download failed:', err);
     if (typeof showToast === 'function') {
-      showToast('Ошибка при скачивании файла экспорта', 'error');
+      showToast(err.message || 'Ошибка при скачивании файла экспорта', 'error');
     }
   }
 }
@@ -610,9 +610,9 @@ function _getExportMenuEl() {
         'display:none; position:fixed; background:#fff; border:1px solid #E5E7EB;' +
         ' border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.12); z-index:9999;' +
         ' overflow:hidden; white-space:nowrap;';
-    ['html', 'pdf', 'docx'].forEach((fmt, i) => {
+    ['html', 'zip', 'pdf', 'docx'].forEach((fmt, i) => {
         const a = document.createElement('a');
-        a.textContent = fmt.toUpperCase();
+        a.textContent = fmt === 'zip' ? 'HTML с вложениями (ZIP)' : fmt.toUpperCase();
         a.href = '#';
         a.style.cssText = 'display:block; padding:8px 18px; font-size:13px; color:#111827; text-decoration:none;'
             + (i ? ' border-top:1px solid #F3F4F6;' : '');

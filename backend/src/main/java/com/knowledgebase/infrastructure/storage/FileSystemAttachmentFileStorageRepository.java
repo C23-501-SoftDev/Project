@@ -33,7 +33,11 @@ public class FileSystemAttachmentFileStorageRepository implements AttachmentFile
 
     @Override
     public InputStream open(String storagePath) throws IOException {
-        Path target = storageService.getBlobStoragePath().resolve(storagePath).normalize();
+        Path root = storageService.getBlobStoragePath().toRealPath();
+        Path target = root.resolve(storagePath).normalize();
+        if (!target.startsWith(root) || !target.toRealPath().startsWith(root)) {
+            throw new IOException("Attachment path is outside blob storage");
+        }
         return Files.newInputStream(target);
     }
 

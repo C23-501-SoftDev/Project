@@ -28,9 +28,11 @@
                     Экспорт ▾
                 </button>
                 <div id="exportMenu"
-                     style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:#fff; border:1px solid #E5E7EB; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:140px; z-index:100; overflow:hidden;">
+                     style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:#fff; border:1px solid #E5E7EB; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:260px; z-index:100; overflow:hidden;">
                     <a id="exportHtml" href="#"
                        style="display:block; padding:10px 16px; font-size:14px; color:#111827; text-decoration:none;">HTML</a>
+                    <a id="exportZip" href="#"
+                       style="display:block; padding:10px 16px; font-size:14px; color:#111827; text-decoration:none; border-top:1px solid #F3F4F6;">HTML с вложениями (ZIP)</a>
                     <a id="exportPdf" href="#"
                        style="display:block; padding:10px 16px; font-size:14px; color:#111827; text-decoration:none; border-top:1px solid #F3F4F6;">PDF</a>
                     <a id="exportDocx" href="#"
@@ -61,8 +63,8 @@
         const attachmentList = document.getElementById('attachmentList');
         let canManageAttachments = false;
 
-        // Export → вложение
-        ['exportHtml', 'exportPdf', 'exportDocx'].forEach(id => {
+        // Export → локальная загрузка выбранного формата.
+        ['exportHtml', 'exportZip', 'exportPdf', 'exportDocx'].forEach(id => {
             const fmt = id.replace('export', '').toLowerCase();
             document.getElementById(id).addEventListener('click', (e) => {
                 e.preventDefault();
