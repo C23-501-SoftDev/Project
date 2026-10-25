@@ -15,8 +15,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * MVC контроллер для SSR страниц (Thymeleaf).
@@ -29,10 +27,6 @@ import java.util.stream.Collectors;
 @Controller
 @RequestMapping
 public class PageController {
-    // Пока что нет загрузки реальных данных, но вообще она должна быть
-    // PageController написан для проверки работоспособности MVC и требует доработок
-    // После переработки эти комментарии удалить
-
     private final SpaceRepository spaceRepository;
     private final SpaceService spaceService;
     private final DocumentService documentService;
@@ -45,15 +39,13 @@ public class PageController {
         this.permissionService = permissionService;
     }
 
-    private void addAllSpacesTrees(Model model, User user) {
+    private void addAccessibleSpaces(Model model, User user) {
         var spaces = spaceService.getSpacesForUser(user.getId(), user.isAdmin());
         model.addAttribute("spaces", spaces);
-        List<Long> spaceIds = spaces.stream().map(Space::getId).collect(Collectors.toList());
-        model.addAttribute("spaceTrees", documentService.getHierarchiesForSpaces(spaceIds));
     }
 
     private void addSidebarData(Long spaceId, Model model, User user) {
-        addAllSpacesTrees(model, user);
+        addAccessibleSpaces(model, user);
         if (spaceId != null) {
             model.addAttribute("currentSpace", spaceRepository.findById(spaceId).orElse(null));
         }
@@ -67,9 +59,26 @@ public class PageController {
     public String index(@AuthenticationPrincipal User user, Model model) {
         model.addAttribute("pageTitle", "Последние документы");
         model.addAttribute("currentUser", user);
-        addAllSpacesTrees(model, user);
+        addAccessibleSpaces(model, user);
         model.addAttribute("content", "pages/document-list");
         return "layout";
+    }
+
+    @GetMapping("/spaces/{id}/tree")
+    public String spaceDocumentTree(@PathVariable Long id,
+                                    @RequestParam(required = false) Long documentId,
+                                    @AuthenticationPrincipal User user, Model model,
+                                    jakarta.servlet.http.HttpServletResponse response) {
+        var nodes = documentService.getVisibleHierarchyForSpace(id, user.getId(), user.isAdmin());
+        var space = spaceRepository.findById(id)
+                .filter(value -> !value.isDeleted())
+                .orElseThrow(() -> new com.knowledgebase.domain.exception.SpaceNotFoundException(id));
+        model.addAttribute("space", space);
+        model.addAttribute("nodes", nodes);
+        model.addAttribute("nested", false);
+        model.addAttribute("documentId", documentId);
+        response.setHeader("Cache-Control", "no-store");
+        return "fragments/document-tree :: documentTree";
     }
 
     @GetMapping("/documents/{id}")
@@ -108,7 +117,7 @@ public class PageController {
 
         model.addAttribute("pageTitle", "Создание документа");
         model.addAttribute("currentUser", user);
-        addAllSpacesTrees(model, user);
+        addAccessibleSpaces(model, user);
         model.addAttribute("content", "pages/document-new");
         return "layout";
     }
