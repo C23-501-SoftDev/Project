@@ -6,16 +6,20 @@ context: |
   Стек технологий:
   - Бэкенд: Java 17 или 21, Spring Boot 3.4, Spring MVC, Spring Security, Spring Data JPA, Maven
   - Аутентификация: JWT в HttpOnly Cookie, CSRF-защита через X-XSRF-TOKEN
-  - Фронтенд: Thymeleaf (SSR), JavaScript, Tiptap Editor (WYSIWYG Markdown)
+  - Фронтенд: Thymeleaf (SSR), JavaScript/CSS, textarea с Markdown-панелью, локальные Marked + DOMPurify
   - БД: PostgreSQL 18 (основная), H2 (тесты)
   - Миграции БД: Liquibase
   - Контроль версий документов: JGit
   - API документация: SpringDoc OpenAPI (Swagger UI)
+  - HTML: Flexmark + jsoup; preview: Marked + DOMPurify (локальные pinned bundles)
+  - Экспорт: OpenHTMLtoPDF/PDFBox с Noto fonts; DOCX через Apache POI
+  - Дерево документов: GET /spaces/{id}/tree, загрузка по запросу и фильтр Draft
+  - AI: преобразование текста через внешний провайдер; RAG пока planned
   - Утилиты: Lombok (boilerplate reduction)
 
   Архитектура:
-  - Чистая архитектура (Clean Architecture) с разделением на 4 слоя:
-    - domain — сущности, интерфейсы репозиториев, use-cases (не зависит от Spring)
+  - Слоистая архитектура, ориентированная на Clean Architecture, с разделением на 4 слоя:
+    - domain — сущности и порты репозиториев; DocumentRepository пока зависит от Spring Data Page/Pageable
     - application — бизнес-логика, сервисы, DTO маппинг
     - interfaces — REST контроллеры, MVC контроллеры, DTO
     - infrastructure — реализации репозиториев (Spring Data JPA, JGit), email, конфигурации
@@ -28,11 +32,11 @@ context: |
   │   │   ├── application/    # Бизнес-логика и сервисы
   │   │   ├── interfaces/     # REST/MVC контроллеры, DTO
   │   │   └── infrastructure/ # JPA репозитории, JGit, email
-  │   ├── src/main/resources/ # application.yml, Liquibase changelog, шаблоны Thymeleaf
+  │   ├── src/main/resources/ # application.yml, Liquibase, templates/, static/css/, static/js/
   │   └── src/test/           # Юнит и интеграционные тесты
-  ├── frontend/             # Фронтенд (статические ресурсы, CSS/JS)
+  ├── frontend/             # Папка-заготовка; рабочий UI находится в backend/src/main/resources
   ├── openspec/             # OpenSpec: спецификации, feature registry, quality gates
-  └── README.md             # Инструкция по настройке OpenSpec
+  └── README.md             # Запуск и ссылки на актуальный обзор docs/PROJECT_REVIEW_RU.md
 
   Бэктрекер:
   - В Project/BACKTRACKER.md описано какие страницы есть/должны быть в приложении и какие запросы они используют

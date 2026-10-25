@@ -6,7 +6,7 @@
         {
             "featureId": "git-commit-on-document-save",
             "title": "Git commit and version metadata on published document save",
-            "status": "planned",
+            "status": "done",
             "area": "backend",
             "repo": "Project",
             "docs": [
@@ -18,7 +18,9 @@
             ],
             "dependsOn": [
                 "spaces-and-permissions"
-            ]
+            ],
+            "verifiedAt": "2026-10-25",
+            "evidence": "Java integration tests and full PostgreSQL/Playwright suite; see docs/PROJECT_REVIEW_RU.md and tests/E2E/E2E_RESULTS.md"
         },
         {
             "featureId": "auth-jwt-cookie",
@@ -78,7 +80,7 @@
         {
             "featureId": "space-search-sidebar",
             "title": "Spaces: search by name in sidebar",
-            "status": "pending",
+            "status": "done",
             "area": "backend+frontend",
             "repo": "Project",
             "docs": [
@@ -89,7 +91,9 @@
             ],
             "dependsOn": [
                 "spaces-and-permissions"
-            ]
+            ],
+            "verifiedAt": "2026-10-25",
+            "evidence": "Java integration tests and full PostgreSQL/Playwright suite; see docs/PROJECT_REVIEW_RU.md and tests/E2E/E2E_RESULTS.md"
         },
         {
             "featureId": "admin-panel-ui",
@@ -189,7 +193,7 @@
         {
             "featureId": "document-templates",
             "title": "Documents: Template support",
-            "status": "pending",
+            "status": "done",
             "area": "backend+frontend",
             "repo": "Project",
             "docs": [
@@ -200,12 +204,14 @@
             ],
             "dependsOn": [
                 "documents-crud"
-            ]
+            ],
+            "verifiedAt": "2026-10-25",
+            "evidence": "Java integration tests and full PostgreSQL/Playwright suite; see docs/PROJECT_REVIEW_RU.md and tests/E2E/E2E_RESULTS.md"
         },
         {
             "featureId": "document-attachments",
             "title": "Documents: attachment upload, list and delete",
-            "status": "pending",
+            "status": "done",
             "area": "backend+frontend",
             "repo": "Project",
             "docs": [],
@@ -216,12 +222,14 @@
             ],
             "dependsOn": [
                 "documents-crud"
-            ]
+            ],
+            "verifiedAt": "2026-10-25",
+            "evidence": "Java integration tests and full PostgreSQL/Playwright suite; see docs/PROJECT_REVIEW_RU.md and tests/E2E/E2E_RESULTS.md"
         },
         {
             "featureId": "sidebar-hierarchy",
             "title": "UI: Hierarchical document sidebar",
-            "status": "pending",
+            "status": "done",
             "area": "frontend+backend",
             "repo": "Project",
             "docs": [
@@ -229,7 +237,9 @@
             ],
             "dependsOn": [
                 "documents-crud"
-            ]
+            ],
+            "verifiedAt": "2026-10-25",
+            "evidence": "Java integration tests and full PostgreSQL/Playwright suite; see docs/PROJECT_REVIEW_RU.md and tests/E2E/E2E_RESULTS.md"
         },
         {
             "featureId": "add-email-notifications",
@@ -399,24 +409,6 @@
             ]
         },
         {
-            "featureId": "document-version-diff-mode",
-            "title": "Document version comparison mode",
-            "status": "done",
-            "area": "backend+frontend",
-            "repo": "Project",
-            "docs": [
-                "../../Docs/documents/backlog-descriptions/E2 Жизненный цикл и Версионность (Lifecycle & Versioning)/F2.2 Контроль версий (Git Integration)/US2.2.3 Режим сравнения версий (Diff)/description.md"
-            ],
-            "endpoints": [
-                "GET /api/documents/{id}/versions",
-                "GET /api/documents/{id}/diff?from={hash1}&to={hash2}",
-                "GET /documents/{id}/history"
-            ],
-            "dependsOn": [
-                "git-commit-on-document-save"
-            ]
-        },
-        {
             "featureId": "repair-test-suite",
             "title": "Restore repeatable publication and UI regression tests",
             "status": "done",
@@ -506,6 +498,27 @@
         {
             "featureId": "cookie-api-csrf-protection",
             "title": "Enforced CSRF for stateless cookie authentication and frontend mutations",
+            "status": "done",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json"
+            ]
+        },
+        {
+            "featureId": "rag-question-answering",
+            "title": "Planned RAG question answering over authorized published articles",
+            "status": "planned",
+            "area": "backend+frontend",
+            "repo": "Project",
+            "docs": [
+                "openspec/changes/add-rag-question-answering/proposal.md"
+            ],
+            "note": "Requirements/design prepared; no RAG implementation or vector schema exists yet."
+        },
+        {
+            "featureId": "project-documentation-reconciliation",
+            "title": "Verified architecture, specifications and remaining roadmap",
             "status": "done",
             "area": "backend+frontend",
             "repo": "Project",

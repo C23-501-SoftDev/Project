@@ -22,3 +22,6 @@
 - `backend/src/main/java/com/knowledgebase/interfaces/rest/controller/PageController.java`: обновление данных для модели.
 - `backend/src/main/resources/templates/layout.html`: изменение структуры вывода в UI.
 - `backend/src/main/java/com/knowledgebase/application/service/DocumentService.java`: добавление метода для построения дерева.
+
+
+Reconciled 2026-10-25: featureId `sidebar-hierarchy`. Implementation verified against the current code and full test suite; see [project review](https://github.com/C23-501-SoftDev/Project/blob/main/docs/PROJECT_REVIEW_RU.md). Input backlog: https://github.com/C23-501-SoftDev/Docs/blob/main/documents/backlog.json.
