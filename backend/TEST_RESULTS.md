@@ -1,5 +1,7 @@
 # Integration tests report (backend)
 
+> Исторический результат прогона; численные данные ниже сохранены. Актуальные команды проверки приведены в [quality-gates](../openspec/quality-gates.md), запуск контейнеров — в [Docker-инструкции](../docs/DOCKER_LOCAL_RU.md). Старый запуск Maven внутри `kb_app` не применяется к текущему JRE runtime-образу.
+
 Источник: `Project/backend/target/surefire-reports/TEST-*.xml`
 Дата прогона: 2026-07-20 (ветка `feature/email-notifications`)
 

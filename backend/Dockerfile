@@ -1,35 +1,22 @@
-FROM maven:3.9.9-eclipse-temurin-17
+FROM maven:3.9.9-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml ./
+RUN mvn -B -ntp dependency:go-offline
+COPY src ./src
+# The complete regression suite is a separate quality gate; image builds package the same sources.
+RUN mvn -B -ntp -DskipTests package
 
-ARG APP_USER=app
-ARG APP_UID=1000
-ARG APP_GID=1000
-
+FROM eclipse-temurin:21-jre-jammy
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git curl gnupg fonts-dejavu-core \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Устанавливаем openspec глобально (до переключения на пользователя app)
-RUN npm install -g @fission-ai/openspec
-
-ENV MAVEN_CONFIG=/home/${APP_USER}/.m2
+    && apt-get install -y --no-install-recommends curl fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /app /data/git /data/blobs \
+    && chown -R 1000:1000 /app /data
+WORKDIR /app
+COPY --from=build --chown=1000:1000 /build/target/knowledge-base-backend-1.0.0-SNAPSHOT.jar /app/application.jar
+COPY --chmod=755 docker-entrypoint.sh /app/entrypoint.sh
+USER 1000:1000
 EXPOSE 8080
-
-RUN if ! getent group "${APP_GID}" >/dev/null 2>&1; then groupadd -o -g "${APP_GID}" "${APP_USER}"; fi \
-    && if ! id -u "${APP_USER}" >/dev/null 2>&1; then useradd -o -m -u "${APP_UID}" -g "${APP_GID}" -s /bin/sh "${APP_USER}"; fi
-
-RUN mkdir -p /home/${APP_USER}/.m2 /workspace \
-    && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER} /workspace
-
-RUN mkdir -p /home/${APP_USER}/.m2 /workspace \
-    && chown -R "${APP_UID}:${APP_GID}" /home/${APP_USER} /workspace
-
-# Создаём startup скрипт динамически через printf
-RUN printf '#!/bin/sh\n\nif [ -n "$GIT_REPO_SSH_URL" ]; then\n    echo "[startup.sh] Переключаем git remote на SSH: $GIT_REPO_SSH_URL"\n    cd /workspace\n    git remote set-url origin "$GIT_REPO_SSH_URL"\n    echo "[startup.sh] Git remote успешно обновлен"\nelse\n    echo "[startup.sh] GIT_REPO_SSH_URL не задана, пропускаем переключение remote"\nfi\n\ncd /workspace/backend\necho "[startup.sh] Компилируем приложение..."\nmvn clean install -DskipTests\necho "[startup.sh] Запускаем Spring Boot приложение"\nmvn spring-boot:run\n' > /startup.sh && chmod +x /startup.sh
-
-WORKDIR /workspace
-
-USER ${APP_UID}:${APP_GID}
-
-CMD ["/startup.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]

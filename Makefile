@@ -1,28 +1,27 @@
-# Compose and scripts
-COMPOSE := docker compose --env-file .env
+# Docker Compose owns the runtime; no host .env or fixed container names are needed.
+COMPOSE ?= docker compose
 
-.PHONY: dev-up dev-down dev-logs docker-shell build run
+.PHONY: dev-up dev-down dev-logs docker-shell build run status e2e
 
-# One-click development environment setup
-dev-up:
-	$(COMPOSE) up -d --build
+dev-up run:
+	$(COMPOSE) up -d --build --wait --wait-timeout 1800
 
-# Stop development containers
+# Persistent database, content, models and secrets remain in their named volumes.
 dev-down:
 	$(COMPOSE) down
 
-# View live logs from application and database
 dev-logs:
-	$(COMPOSE) logs -f
+	$(COMPOSE) logs -f --tail=100
 
-# Вход в контейнер приложения
+# Diagnostic runtime shell. Sources and Maven are not installed in the app image.
 docker-shell:
-	docker exec -it kb_app /bin/bash
+	$(COMPOSE) exec app sh
 
-# Компиляция приложения в контейнере
 build:
-	docker exec kb_app mvn clean install -DskipTests
+	$(COMPOSE) build app
 
-# Запуск приложения в контейнере
-run:
-	docker exec kb_app mvn spring-boot:run
+status:
+	$(COMPOSE) ps -a
+
+e2e:
+	./run-e2e.sh

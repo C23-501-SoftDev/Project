@@ -9,18 +9,17 @@
 
 ## Окружение
 
-- Backend: `mvn spring-boot:run` из `Project/backend`
-- DB: локальный PostgreSQL (рабочий `kb_user` / `knowledge_base`)
+- Backend и PostgreSQL: отдельный тестовый Compose-проект через `./run-e2e.sh` либо специально подготовленное native-тестовое окружение.
+- Пользовательская БД, Git и вложения не используются: сценарии создают, изменяют и удаляют данные.
 - E2E workspace: `Project/tests/E2E`
-- Base URL: `http://localhost:8080` (переопределение: `E2E_BASE_URL=http://localhost:8080 npm test`)
+- Base URL внутри Docker: `http://app:8080`; для native-тестов задайте `E2E_BASE_URL` явно, например `http://127.0.0.1:18080`.
 - Браузер: только **Chromium** (`npx playwright install chromium` локально; в Docker — предустановлен в образе `tests/E2E/Dockerfile`)
 
 ### Docker (profile `e2e`)
 
-Рекомендуемый запуск — скрипт рядом с `docker-compose.yml` (каждый раз с чистой БД):
+Рекомендуемый запуск из корня checkout при работающем Docker Engine и Compose 2.24.4+: скрипт создаёт новый изолированный проект со своей чистой БД и томами. Нужен Python 3; `.env` не требуется.
 
 ```bash
-cd Project
 ./run-e2e.sh
 ```
 
@@ -31,14 +30,21 @@ cd Project
 ./run-e2e.sh npx playwright test --grep @documents
 ```
 
-Скрипт: останавливает `app`/`postgres`, удаляет volume `postgres_data`, поднимает сервисы заново и запускает тесты.
+Скрипт выбирает уникальное имя `kb-e2e-*`, проверяет принадлежность томов и сетей, не публикует порты и использует тестовый override: `RAG_ENABLED=false`, `SKIP_MODEL_INIT=true`. Override также исключает Ollama из зависимостей запуска приложения: образ Ollama не скачивается, сервер и модели не запускаются. Браузер и тесты находятся в образе `e2e`; исходники и host `node_modules` не монтируются. Это относится только к тестовому проекту: браузерные RAG mock-сценарии не подтверждают качество реальной модели, а обычный запуск приложения по-прежнему требует готовую Ollama с моделями.
 
-Вручную (без сброса БД):
+При завершении, включая ошибку тестов, скрипт копирует доступные отчёты в `.local/e2e-results/<имя-проекта>/` и удаляет контейнеры/тома только созданного тестового проекта. Рабочий Compose-проект не останавливается и не очищается. Возвращается код завершения тестовой команды; ошибка очистки также не выдаётся за успех.
+
+### Native-тестовое окружение
+
+Для ручного запуска подготовьте отдельные PostgreSQL, Git/blob-каталоги и приложение с тестовым администратором `admin/admin123` по [критериям качества](../../openspec/quality-gates.md). Затем из `tests/E2E`:
 
 ```bash
-docker compose --env-file .env up -d app postgres
-docker compose --env-file .env --profile e2e run --rm --build e2e
+npm ci
+npx playwright install chromium
+E2E_BASE_URL=http://127.0.0.1:18080 npm test
 ```
+
+Не направляйте этот прогон на пользовательский адрес приложения. Рабочий Docker-стек, настоящая инициализация моделей и проверка сохранности данных описаны в [Docker-инструкции](../../docs/DOCKER_LOCAL_RU.md).
 
 ## Наборы тестов
 

@@ -1,87 +1,148 @@
 #!/bin/bash
+# Run browser tests against a disposable Compose project, never the user's stack.
+# Optional arguments replace the browser command, e.g.:
+# ./run-e2e.sh npx playwright test --grep @strict
 set -euo pipefail
+umask 077
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/.env"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+if ! command -v python3 >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+    printf '%s\n' 'Python 3 and Docker Compose 2.24.4+ are required for the isolated E2E runner.' >&2
+    exit 1
+fi
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kb-e2e.XXXXXXXX")"
+PROJECT_NAME="$(basename "$TEMP_DIR" | tr '[:upper:].' '[:lower:]-')"
+BROWSER_CONTAINER="${PROJECT_NAME}-browser"
+REPORT_DIR="$PROJECT_ROOT/.local/e2e-results/$PROJECT_NAME"
+STACK_ATTEMPTED=0
+BROWSER_ATTEMPTED=0
+# Ignore ambient project/profile selection and .env, including a user's APP_PORT.
+unset COMPOSE_PROJECT_NAME COMPOSE_PROFILES COMPOSE_FILE
+COMPOSE=(docker compose --project-name "$PROJECT_NAME" --project-directory "$PROJECT_ROOT"
+    --env-file /dev/null -f "$PROJECT_ROOT/docker-compose.yml" -f "$TEMP_DIR/override.yml")
 
-wait_for_healthy() {
-    local container="$1"
-    local timeout="${2:-120}"
-    local elapsed=0
-    local interval=5
-
-    while [ "$elapsed" -lt "$timeout" ]; do
-        local status
-        status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container" 2>/dev/null || echo "missing")
-
-        if [ "$status" = "healthy" ]; then
-            echo -e "${GREEN}✓ ${container} is healthy${NC}"
-            return 0
+cleanup() {
+    local status=$?
+    trap - EXIT HUP INT TERM
+    # An artifact-copy failure must not skip cleanup or hide Playwright's exit code.
+    set +e
+    if [ "$BROWSER_ATTEMPTED" -eq 1 ]; then
+        local owner
+        owner="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' \
+            "$BROWSER_CONTAINER" 2>/dev/null || true)"
+        if [ "$owner" = "$PROJECT_NAME" ]; then
+            if mkdir -p "$REPORT_DIR"; then
+                docker cp "$BROWSER_CONTAINER:/e2e/playwright-report" "$REPORT_DIR/" 2>/dev/null || true
+                docker cp "$BROWSER_CONTAINER:/e2e/test-results" "$REPORT_DIR/" 2>/dev/null || true
+                printf 'Browser artifact directory: %s\n' "$REPORT_DIR"
+            else
+                printf 'Cannot save browser artifacts to %s; continuing test-project cleanup.\n' "$REPORT_DIR" >&2
+            fi
         fi
-
-        sleep "$interval"
-        elapsed=$((elapsed + interval))
-        echo -e "${YELLOW}  waiting for ${container} (${status})...${NC}"
-    done
-
-    echo -e "${RED}✗ timeout waiting for ${container}${NC}"
-    docker compose --env-file "$ENV_FILE" logs --tail=40 app postgres 2>/dev/null || true
-    return 1
+    fi
+    if [ "$STACK_ATTEMPTED" -eq 1 ]; then
+        # All volume names were checked before startup; only this generated project is removed.
+        if ! "${COMPOSE[@]}" --profile e2e down --volumes --remove-orphans; then
+            printf 'Cleanup failed for test project %s; inspect that project only.\n' "$PROJECT_NAME" >&2
+            if [ "$status" -eq 0 ]; then status=1; fi
+        fi
+    fi
+    rm -rf "$TEMP_DIR"
+    exit "$status"
 }
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-if [ ! -f "$ENV_FILE" ]; then
-    echo -e "${RED}✗ ${ENV_FILE} not found. Copy .env.example to .env first.${NC}"
-    exit 1
-fi
+cat > "$TEMP_DIR/override.yml" <<'YAML'
+services:
+  app:
+    ports: !override []
+    depends_on: !override
+      runtime-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      models-init:
+        condition: service_completed_successfully
+    environment:
+      RAG_ENABLED: "false"
+  models-init:
+    depends_on: !override {}
+    environment:
+      SKIP_MODEL_INIT: "true"
+YAML
 
-if ! docker compose version &>/dev/null; then
-    echo -e "${RED}✗ Docker Compose v2 is required${NC}"
-    exit 1
-fi
+"${COMPOSE[@]}" --profile e2e config --format json > "$TEMP_DIR/config.json"
+python3 - "$PROJECT_NAME" "$TEMP_DIR/config.json" <<'PYTHON_GUARD'
+import json
+from pathlib import Path
+import sys
 
-cd "$SCRIPT_DIR"
+project, config_file = sys.argv[1:]
+config = json.loads(Path(config_file).read_text())
 
-echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
-echo -e "${BLUE}  E2E run (fresh database)${NC}"
-echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
+def reject(message):
+    raise SystemExit("Unsafe E2E configuration: " + message + "; no containers were started.")
 
-echo -e "\n${YELLOW}[1/4]${NC} Stopping app and postgres..."
-docker compose --env-file "$ENV_FILE" stop app postgres 2>/dev/null || true
-docker compose --env-file "$ENV_FILE" rm -f app postgres 2>/dev/null || true
+if config.get("name") != project:
+    reject("the generated project name was not retained")
+for kind in ("volumes", "networks"):
+    for key, resource in config.get(kind, {}).items():
+        if resource.get("external") or not resource.get("name", "").startswith(project + "_"):
+            reject(kind + "/" + key + " is not owned by the test project")
+for name, service in config.get("services", {}).items():
+    if service.get("container_name") or service.get("ports"):
+        reject(name + " has a fixed container name or published port")
+    for mount in service.get("volumes", []):
+        if mount.get("type") != "volume" or mount.get("source") not in config.get("volumes", {}):
+            reject(name + " has a host/shared/anonymous data mount")
+services = config.get("services", {})
+if services.get("app", {}).get("environment", {}).get("RAG_ENABLED") != "false":
+    reject("application RAG must be explicitly disabled for mocked browser scenarios")
+if services.get("models-init", {}).get("environment", {}).get("SKIP_MODEL_INIT") != "true":
+    reject("the isolated browser project must skip model downloads/inference")
+if "e2e" not in services:
+    reject("browser service is missing")
+expected_dependencies = {
+    "runtime-init": "service_completed_successfully",
+    "postgres": "service_healthy",
+    "models-init": "service_completed_successfully",
+}
+app_dependencies = services.get("app", {}).get("depends_on", {})
+if not isinstance(app_dependencies, dict) or set(app_dependencies) != set(expected_dependencies):
+    reject("application startup must depend only on the isolated database and initialization jobs")
+for name, condition in expected_dependencies.items():
+    dependency = app_dependencies[name]
+    if not isinstance(dependency, dict) or dependency.get("condition") != condition or dependency.get("required") is False:
+        reject("application readiness dependency is missing for " + name)
+if services["models-init"].get("depends_on"):
+    reject("the skipped model initializer must not start another service")
+pending, visited = ["app"], set()
+while pending:
+    name = pending.pop()
+    if name in visited:
+        continue
+    if name == "ollama":
+        reject("mocked browser scenarios must not pull or start Ollama, even transitively")
+    if name not in services:
+        reject("startup dependency is missing: " + name)
+    visited.add(name)
+    dependencies = services[name].get("depends_on", {})
+    if not isinstance(dependencies, dict):
+        reject("startup dependencies must be resolved mappings")
+    pending.extend(dependencies)
+PYTHON_GUARD
 
-echo -e "\n${YELLOW}[2/4]${NC} Removing PostgreSQL volume..."
-while IFS= read -r vol; do
-    [ -n "$vol" ] || continue
-    echo "  removing volume: ${vol}"
-    docker volume rm -f "$vol" 2>/dev/null || true
-done < <(docker volume ls -q -f name=postgres_data)
-
-echo -e "\n${YELLOW}[3/4]${NC} Starting app and postgres..."
-docker compose --env-file "$ENV_FILE" up -d --build app postgres
-
-wait_for_healthy kb_postgres 60
-wait_for_healthy kb_app 180
-
-echo -e "\n${YELLOW}[4/4]${NC} Running E2E tests..."
+printf 'E2E project: %s (separate database/content/secrets; Ollama and real model inference disabled)\n' "$PROJECT_NAME"
+STACK_ATTEMPTED=1
+"${COMPOSE[@]}" up -d --build --wait --wait-timeout 600 app
+BROWSER_ATTEMPTED=1
 set +e
-if [ "$#" -gt 0 ]; then
-    docker compose --env-file "$ENV_FILE" --profile e2e run --rm --build e2e "$@"
-else
-    docker compose --env-file "$ENV_FILE" --profile e2e run --rm --build e2e
-fi
-exit_code=$?
+"${COMPOSE[@]}" --profile e2e run --name "$BROWSER_CONTAINER" --no-deps --build e2e "$@"
+RESULT=$?
 set -e
-
-if [ "$exit_code" -eq 0 ]; then
-    echo -e "\n${GREEN}✓ E2E tests passed${NC}"
-else
-    echo -e "\n${RED}✗ E2E tests failed (exit code ${exit_code})${NC}"
-fi
-
-exit "$exit_code"
+printf 'Browser test command exit code: %s\n' "$RESULT"
+exit "$RESULT"

@@ -15,6 +15,7 @@ context: |
   - Экспорт: DocumentExportService с локальными вложениями; автономные HTML/ZIP, PNG/JPEG в PDF (OpenHTMLtoPDF/PDFBox + Noto) и DOCX (Apache POI)
   - Дерево документов: GET /spaces/{id}/tree, загрузка по запросу, фильтр Draft и итеративный экранирующий HTML-рендерер
   - AI: внешний провайдер только для переписывания; RAG — локальный Ollama + pgvector, opt-in RAG_ENABLED и Liquibase context rag
+  - Default Docker Compose: Java 21 runtime + PostgreSQL 18/pgvector + Ollama; локальный RAG включён явно, секреты генерируются один раз, данные/контент/модели/секреты сохраняются в 4 named volumes
   - Утилиты: Lombok (boilerplate reduction)
 
   Архитектура:
