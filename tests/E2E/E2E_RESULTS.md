@@ -1,3 +1,13 @@
+# Verification: Persistent native macOS runtime (2026-10-26)
+
+Maven clean verify: 281 tests, 0 failures/errors/skips, including 17 real PostgreSQL/pgvector tests; the public `scripts/local/stack.sh build` command also passed all 281 with 17 PostgreSQL checks and atomically installed the JAR. Node: 12 passed. Python RAG runner: 7 passed; native runtime checks: 12 passed; both confirmed on installed Python 3.15.1. Playwright: 158 passed, 0 failed/flaky/skipped, workers=1, retries=0, 1.1 minutes, fresh isolated database `knowledge_base_local_setup_test` on the test PostgreSQL port 55433 and app port 18080. Persistent user data on port 55434 was not the test target. Strict OpenSpec via the persistent wrapper: 37/37.
+
+Installed tools: Oracle JDK 21.0.7, Maven 3.10.0, Node 24.22.1, PostgreSQL 18.6 / pgvector 0.8.7, Ollama 0.40.11, OpenSpec 1.2.0 and Playwright 1.59.1 with persistent Chromium files. No Java/API/model prompt or retrieval changes.
+
+Migration fingerprints matched all 15 document rows, 15 versions, 2 spaces, 1 user and 0 attachments; all 15 Git SHA:path references and `git fsck` verified. Index: 15 DONE. Repeated setup preserved config SHA; a foreign Ollama listener was rejected without termination, then explicitly stopped before the managed stack started. Repeated start retained existing PIDs. Managed stop terminated only the app/Ollama/PostgreSQL belonging to this stack; the unrelated source PostgreSQL and E2E application remained alive. Restart created new managed PIDs and restored healthy loopback listeners for all three services, unchanged config SHA and exact corpus fingerprints. Source/destination model digests matched.
+
+Real admin login, article/history reads and local RAG passed before and after restart: backup/log retention 14/7 days with citations to documents 9/14 and checked version SHAs. The user stack is left running. There were no attachment bytes in this demo corpus, and this smoke is not a new model-quality evaluation. [Paths, migration evidence and workflow](../../docs/LOCAL_SETUP_RU.md).
+
 # Verification: Cross-article RAG synthesis (2026-10-26)
 
 Maven clean verify: 281 tests, 0 failures/errors/skips, including 17 real PostgreSQL/pgvector tests. Node: 12 passed. Python evaluation-runner checks: 7 passed. Playwright: 158 passed, 0 failed/flaky/skipped, workers=1, retries=0, fresh isolated PostgreSQL schema, 1.1 minutes. Tested application source: `b9d97fad352fe069bf2b4d377771c23d94fc50d0`. Strict OpenSpec after archive: 36/36.
