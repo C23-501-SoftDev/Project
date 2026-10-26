@@ -1,4 +1,6 @@
 backend/target/
+.local/
+__pycache__/
 -p
 backend/data
 **/.env
