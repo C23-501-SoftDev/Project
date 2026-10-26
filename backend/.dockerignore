@@ -1,0 +1,7 @@
+# Allowlist: never send host credentials, previous model/data copies or caches to the builder.
+**
+!pom.xml
+!Dockerfile
+!docker-entrypoint.sh
+!src/
+!src/**

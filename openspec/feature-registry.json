@@ -579,6 +579,21 @@
             ],
             "verifiedAt": "2026-10-26",
             "evidence": "281 Java including 17 PostgreSQL/pgvector, 12 Node, 7 RAG Python, 12 runtime Python and 158 Playwright checks pass. Consistent migration of 15 articles and versions; all version SHA:path references and model digests verified. Repeated setup/start and full managed stop/start preserve config and exact corpus fingerprints, leave unrelated processes alive, and restore local RAG answers with valid citations. Loopback-only persistent runtime; no production or new model-quality claim."
+        },
+        {
+            "featureId": "one-command-docker-stack",
+            "title": "One-command persistent Docker stack with local Ollama and isolated regression tests",
+            "status": "done",
+            "area": "tooling+docs",
+            "repo": "Project",
+            "docs": [
+                "docs/DOCKER_LOCAL_RU.md",
+                "openspec/specs/docker-runtime/spec.md",
+                "docker-compose.yml",
+                "tests/E2E/E2E_RESULTS.md"
+            ],
+            "verifiedAt": "2026-10-26",
+            "evidence": "281 Java including 17 PostgreSQL/pgvector, 12 Node, 7 RAG Python, 12 native-runtime Python, 17 Docker-init and 15 helper checks pass. Both host-browser and Linux-container Playwright runs pass 158/158 on isolated Compose projects. ARM64 cold model preparation completed with one network retry; default startup, UID/ports, current native-data migration, repeated startup and ordinary down/up preservation verified. Real CPU RAG returned two version-checked sources before and after restart; no new quality or latency SLA claim."
         }
     ]
 }

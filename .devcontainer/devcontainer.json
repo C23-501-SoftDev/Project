@@ -1,35 +1,19 @@
 {
-  "name": "knowledge-base-dev",
-  "dockerComposeFile": "../docker-compose.yml",
-  "service": "app",
-  "workspaceFolder": "/workspace",
-  "runServices": [
-    "postgres",
-    "app"
-  ],
-  "shutdownAction": "stopCompose",
-  "remoteUser": "app",
-  "postCreateCommand": "git config --global --add safe.directory /workspace || true && git config --global --add safe.directory /workspace/backend || true",
+  "name": "Knowledge Base Java development",
+  "image": "maven:3.9.9-eclipse-temurin-21",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "root",
+  "overrideCommand": true,
+  "shutdownAction": "stopContainer",
+  "postCreateCommand": "git config --global --add safe.directory \"${containerWorkspaceFolder}\"",
   "customizations": {
     "vscode": {
       "extensions": [
-        "eamodio.gitlens",
-        "GitHub.vscode-pull-request-github",
         "vscjava.vscode-java-pack",
         "vmware.vscode-spring-boot",
-        "ms-azuretools.vscode-docker",
         "redhat.vscode-yaml"
-      ],
-      "settings": {
-        "git.autofetch": true,
-        "git.confirmSync": false,
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "terminal.integrated.profiles.linux": {
-          "bash": {
-            "path": "/bin/bash"
-          }
-        }
-      }
+      ]
     }
   }
 }
